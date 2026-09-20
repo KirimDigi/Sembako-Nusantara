@@ -51,9 +51,9 @@ export const SplashScreen: React.FC = () => {
         >
           <div className="p-4 bg-white rounded-3xl shadow-2xl border border-[#EBE5DF]/80 mb-6 group">
             <img
-              src="/LOGO PUTIH SN.jpeg"
+              src="/logo-transparent.png"
               alt="Logo Sembako Nusantara Jepang"
-              className="w-32 h-32 sm:w-40 sm:h-40 object-contain rounded-2xl drop-shadow-md"
+              className="w-32 h-32 sm:w-40 sm:h-40 object-contain drop-shadow-md"
             />
           </div>
         </div>
