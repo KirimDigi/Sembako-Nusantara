@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../context/LanguageContext';
 import { Section3D, Card3D, StaggerContainer3D, StaggerItem3D } from '../components/common/Motion3D';
+import { assetUrl } from '../utils/assets';
 
 export const HomePage: React.FC = () => {
   const { t, language } = useLanguage();
@@ -102,7 +103,7 @@ export const HomePage: React.FC = () => {
               {/* Mascot Image with Slow Smooth Ball Bounce */}
               <div className="w-48 h-48 sm:w-56 sm:h-56 lg:w-64 lg:h-64 relative flex items-center justify-center animate-bounce-ball-slow z-10 cursor-pointer hover:scale-105 transition-transform">
                 <img
-                  src="/mascot.png"
+                  src={assetUrl('mascot.png')}
                   alt="Mascot Sembako Nusantara"
                   className="w-full h-full object-contain drop-shadow-2xl"
                 />
@@ -304,7 +305,7 @@ export const HomePage: React.FC = () => {
                 className="mt-6 p-5 bg-white/95 backdrop-blur-sm rounded-2xl border border-amber-200/80 shadow-md flex items-center gap-4"
               >
                 <img
-                  src="/avatar-jangsan.png"
+                  src={assetUrl('avatar-jangsan.png')}
                   alt="Jangsan - Founder & CEO Sembako Nusantara"
                   className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#c41230] shadow-md shrink-0 transition-transform hover:scale-105"
                 />
@@ -328,7 +329,7 @@ export const HomePage: React.FC = () => {
               >
                 <div className="p-4 bg-[#FDF8F0] rounded-2xl border border-[#EBE5DF]">
                   <img
-                    src="/logo-transparent.png"
+                    src={assetUrl('logo-transparent.png')}
                     alt="Sembako Nusantara"
                     className="w-48 h-auto object-contain mx-auto drop-shadow-sm"
                   />
@@ -452,7 +453,7 @@ export const HomePage: React.FC = () => {
               className="w-32 h-32 sm:w-40 sm:h-40 relative flex items-center justify-center cursor-pointer"
             >
               <img
-                src="/mascot-promo.png"
+                src={assetUrl('mascot-promo.png')}
                 alt="Promo Mascot Sembako Nusantara"
                 className="w-full h-full object-contain drop-shadow-lg"
               />
@@ -497,7 +498,7 @@ export const HomePage: React.FC = () => {
                 rel="noopener noreferrer"
                 className="w-full inline-flex items-center justify-center gap-2 bg-white hover:bg-stone-50 text-stone-800 border border-stone-300 px-4 sm:px-7 py-3 sm:py-3.5 rounded-full font-bold text-xs sm:text-base shadow-sm hover:shadow transition-all text-center whitespace-nowrap"
               >
-                <img src="/whatsapp-icon.png" alt="WhatsApp" className="w-5 h-5 object-contain" />
+                <img src={assetUrl('whatsapp-icon.png')} alt="WhatsApp" className="w-5 h-5 object-contain" />
                 <span>Chat WhatsApp</span>
               </a>
             </motion.div>

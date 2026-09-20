@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { assetUrl } from '../utils/assets';
 
 export const AccountOrdersPage: React.FC = () => {
   const { isAuthenticated, currentUser, login, loginWithGoogle, logout, isAdmin } = useAuth();
@@ -73,7 +74,7 @@ export const AccountOrdersPage: React.FC = () => {
           {/* Brand Logo Header (Replacing Lock Icon) */}
           <div className="flex items-center justify-center mx-auto">
             <img
-              src="/logo-transparent.png"
+              src={assetUrl('logo-transparent.png')}
               alt="Sembako Nusantara"
               className="h-16 sm:h-20 w-auto object-contain drop-shadow-sm hover:scale-105 transition-transform"
             />
@@ -418,7 +419,7 @@ export const AccountOrdersPage: React.FC = () => {
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl relative animate-fade-in">
             <div className="flex items-center justify-between border-b border-stone-200 pb-4">
               <div className="flex items-center gap-2">
-                <img src="/logo-transparent.png" alt="Logo" className="h-8 w-auto object-contain" />
+                <img src={assetUrl('logo-transparent.png')} alt="Logo" className="h-8 w-auto object-contain" />
                 <div>
                   <h3 className="font-bold text-stone-900 text-sm">SEMBAKO NUSANTARA JEPANG</h3>
                   <p className="text-[10px] text-stone-500">

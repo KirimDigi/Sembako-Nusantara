@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
+import { assetUrl } from '../../utils/assets';
 
 interface NavigationDrawerProps {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#EBE5DF] bg-[#FCF9F8]">
           <div className="flex items-center gap-2.5">
             <img
-              src="/logo-transparent.png"
+              src={assetUrl('logo-transparent.png')}
               alt="Sembako Nusantara"
               className="h-8 w-auto object-contain"
             />

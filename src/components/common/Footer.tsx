@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
+import { assetUrl } from '../../utils/assets';
 
 export const Footer: React.FC = () => {
   const { t } = useLanguage();
@@ -8,50 +9,49 @@ export const Footer: React.FC = () => {
   return (
     <footer className="w-full bg-white border-t border-[#EBE5DF] mt-16">
       {/* 4 Pillars of Trust */}
-      <div className="bg-[#F6F3F2] border-b border-[#EBE5DF] py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#DCFCE7] text-[#15803D] flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-2xl">verified_user</span>
-            </div>
-            <div>
-              <h4 className="font-bold text-sm text-stone-900">{t('pillar_halal_title')}</h4>
+      <div className="border-b border-[#EBE5DF] bg-[#FDF8F0]/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="flex flex-col items-center text-center p-3 rounded-2xl bg-white border border-[#EBE5DF]/80 shadow-xs">
+              <span className="material-symbols-outlined text-[#c41230] text-3xl mb-1">
+                verified
+              </span>
+              <h4 className="font-bold text-sm text-stone-900">
+                {t('pillar_halal_title')}
+              </h4>
               <p className="text-xs text-stone-600 mt-1">
                 {t('pillar_halal_desc')}
               </p>
             </div>
-          </div>
-
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#FFDAD9] text-[#9a0021] flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-2xl">local_shipping</span>
-            </div>
-            <div>
-              <h4 className="font-bold text-sm text-stone-900">{t('pillar_delivery_title')}</h4>
+            <div className="flex flex-col items-center text-center p-3 rounded-2xl bg-white border border-[#EBE5DF]/80 shadow-xs">
+              <span className="material-symbols-outlined text-[#c41230] text-3xl mb-1">
+                local_shipping
+              </span>
+              <h4 className="font-bold text-sm text-stone-900">
+                {t('pillar_ship_title')}
+              </h4>
               <p className="text-xs text-stone-600 mt-1">
-                {t('pillar_delivery_desc')}
+                {t('pillar_ship_desc')}
               </p>
             </div>
-          </div>
-
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#FFDEA4] text-[#5f4716] flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-2xl">support_agent</span>
-            </div>
-            <div>
-              <h4 className="font-bold text-sm text-stone-900">{t('pillar_cs_title')}</h4>
+            <div className="flex flex-col items-center text-center p-3 rounded-2xl bg-white border border-[#EBE5DF]/80 shadow-xs">
+              <span className="material-symbols-outlined text-[#c41230] text-3xl mb-1">
+                ac_unit
+              </span>
+              <h4 className="font-bold text-sm text-stone-900">
+                {t('pillar_cool_title')}
+              </h4>
               <p className="text-xs text-stone-600 mt-1">
-                {t('pillar_cs_desc')}
+                {t('pillar_cool_desc')}
               </p>
             </div>
-          </div>
-
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#E5E2E1] text-stone-800 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-2xl">payments</span>
-            </div>
-            <div>
-              <h4 className="font-bold text-sm text-stone-900">{t('pillar_pay_title')}</h4>
+            <div className="flex flex-col items-center text-center p-3 rounded-2xl bg-white border border-[#EBE5DF]/80 shadow-xs">
+              <span className="material-symbols-outlined text-[#c41230] text-3xl mb-1">
+                payments
+              </span>
+              <h4 className="font-bold text-sm text-stone-900">
+                {t('pillar_pay_title')}
+              </h4>
               <p className="text-xs text-stone-600 mt-1">
                 {t('pillar_pay_desc')}
               </p>
@@ -65,7 +65,7 @@ export const Footer: React.FC = () => {
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center gap-2.5">
             <img
-              src="/logo-transparent.png"
+              src={assetUrl('logo-transparent.png')}
               alt="Sembako Nusantara"
               className="h-10 w-auto object-contain"
             />

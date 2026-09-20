@@ -5,6 +5,7 @@ import { NavigationDrawer } from './NavigationDrawer';
 import { useCart } from '../../context/CartContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { assetUrl } from '../../utils/assets';
 
 export const Header: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -44,7 +45,7 @@ export const Header: React.FC = () => {
               aria-label="Sembako Nusantara Home"
             >
               <img
-                src="/logo-transparent.png"
+                src={assetUrl('logo-transparent.png')}
                 alt="Sembako Nusantara"
                 className="h-10 sm:h-12 w-auto object-contain transition-transform group-hover:scale-105"
               />

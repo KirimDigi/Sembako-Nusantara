@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AuthUser, UserRole } from '../types';
 import { supabase } from '../lib/supabase';
+import { assetUrl } from '../utils/assets';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -21,7 +22,7 @@ const ADMIN_CREDENTIALS = {
   pass: 'admin123',
   name: 'Jangsan (Super Admin)',
   role: 'Super Admin (Owner)' as UserRole,
-  avatar: '/avatar-jangsan.png'
+  avatar: assetUrl('avatar-jangsan.png')
 };
 
 // Default Dummy Customer Credentials
@@ -30,7 +31,7 @@ const DUMMY_CUSTOMER_CREDENTIALS = {
   pass: 'customer123',
   name: 'Budi Santoso (Customer Diaspora)',
   role: 'Customer' as UserRole,
-  avatar: '/avatar-jangsan.png',
+  avatar: assetUrl('avatar-jangsan.png'),
   tier: 'Anggota Diaspora Reguler',
   loyaltyPoints: 500,
   phone: '+81 80-9876-5432',
@@ -44,7 +45,7 @@ const CUSTOMER_CREDENTIALS = {
   pass: '123456',
   name: 'Willy Pratama',
   role: 'Customer' as UserRole,
-  avatar: '/avatar-jangsan.png',
+  avatar: assetUrl('avatar-jangsan.png'),
   tier: 'Anggota Diaspora VIP (Gold Member)',
   loyaltyPoints: 1245,
   phone: '+81 80-1122-3344',
@@ -165,7 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: cleanId.toLowerCase(),
         name: cleanId.includes('@') ? cleanId.split('@')[0] : `Pelanggan ${cleanId}`,
         role: 'Customer',
-        avatar: '/avatar-jangsan.png',
+        avatar: assetUrl('avatar-jangsan.png'),
         tier: 'Anggota Baru Nusantara',
         loyaltyPoints: 100,
         phone: cleanId.startsWith('080') || cleanId.startsWith('+81') || cleanId.startsWith('08') ? cleanId : '+81 80-1122-3344',
@@ -193,7 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: userMetadata.full_name || userMetadata.name || session.user.email?.split('@')[0] || 'Pelanggan Nusantara',
           email: session.user.email,
           role: 'Customer',
-          avatar: userMetadata.avatar_url || userMetadata.picture || '/avatar-jangsan.png',
+          avatar: userMetadata.avatar_url || userMetadata.picture || assetUrl('avatar-jangsan.png'),
           tier: 'Anggota Terverifikasi Google',
           loyaltyPoints: 150,
           phone: userMetadata.phone || '+81 80-1122-3344',

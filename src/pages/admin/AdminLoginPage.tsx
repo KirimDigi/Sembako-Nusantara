@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { assetUrl } from '../../utils/assets';
 
 export const AdminLoginPage: React.FC = () => {
   const { login, isAuthenticated, isAdmin } = useAuth();
@@ -68,7 +69,7 @@ export const AdminLoginPage: React.FC = () => {
         <div className="text-center space-y-3 mb-8">
           <Link to="/" className="inline-block hover:scale-105 transition-transform">
             <img
-              src="/logo-transparent.png"
+              src={assetUrl('logo-transparent.png')}
               alt="Sembako Nusantara"
               className="h-16 w-auto mx-auto object-contain drop-shadow-sm"
             />

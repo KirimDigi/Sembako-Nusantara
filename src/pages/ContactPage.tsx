@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { assetUrl } from '../utils/assets';
 
 export const ContactPage: React.FC = () => {
   const { language } = useLanguage();
@@ -125,7 +126,7 @@ export const ContactPage: React.FC = () => {
       case 'whatsapp':
         return (
           <img
-            src="/whatsapp-icon.png"
+            src={assetUrl('whatsapp-icon.png')}
             alt="WhatsApp"
             className="w-7 h-7 object-contain drop-shadow-xs"
           />
@@ -190,7 +191,7 @@ export const ContactPage: React.FC = () => {
         <div className="shrink-0 flex items-center justify-center relative">
           <div className="w-28 sm:w-36 md:w-40 h-auto relative flex items-center justify-center hover:scale-105 transition-transform">
             <img
-              src="/mascot-love.png"
+              src={assetUrl('mascot-love.png')}
               alt="Mascot Sembako Nusantara Love"
               className="w-full h-auto object-contain drop-shadow-md"
             />

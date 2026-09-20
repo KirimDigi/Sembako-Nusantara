@@ -9,6 +9,7 @@ import { Footer } from './components/common/Footer';
 import { SplashScreen } from './components/common/SplashScreen';
 import { FloatingCartToast } from './components/common/FloatingCartToast';
 import { ProtectedRoute } from './components/admin/ProtectedRoute';
+import { assetUrl } from './utils/assets';
 
 // Public Storefront Pages
 import { HomePage } from './pages/HomePage';
@@ -196,7 +197,7 @@ const AppContent: React.FC = () => {
 
           {/* Official Icons8 WhatsApp Icon Image */}
           <img
-            src="/whatsapp-icon.png"
+            src={assetUrl('whatsapp-icon.png')}
             alt="WhatsApp CS"
             className="w-10 h-10 object-contain relative z-10 drop-shadow-sm"
           />
