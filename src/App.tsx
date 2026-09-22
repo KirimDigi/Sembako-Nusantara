@@ -9,6 +9,7 @@ import { Header } from './components/common/Header';
 import { Footer } from './components/common/Footer';
 import { SplashScreen } from './components/common/SplashScreen';
 import { FloatingCartToast } from './components/common/FloatingCartToast';
+import { CustomerLiveOrderStatusBanner } from './components/common/CustomerLiveOrderStatusBanner';
 import { ProtectedRoute } from './components/admin/ProtectedRoute';
 import { assetUrl } from './utils/assets';
 
@@ -153,6 +154,9 @@ const AppContent: React.FC = () => {
 
       {/* Floating Cart Notification with Red Checkmark */}
       <FloatingCartToast />
+
+      {/* Live Customer Order Status Banner (Bottom) */}
+      <CustomerLiveOrderStatusBanner />
 
       {/* Main Storefront Application Routes */}
       <main className="flex-1 pt-[120px]">
