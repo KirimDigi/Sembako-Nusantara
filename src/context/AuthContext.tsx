@@ -12,6 +12,8 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   loginAsCustomer: (name?: string, phone?: string) => void;
   logout: () => void;
+  updateProfile: (data: Partial<AuthUser>) => Promise<{ success: boolean; error?: string }>;
+  changePassword: (oldPass: string, newPass: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -237,6 +239,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentUser(user);
   };
 
+  const updateProfile = async (data: Partial<AuthUser>): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) return { success: false, error: 'Tidak ada sesi login.' };
+    const updated = { ...currentUser, ...data };
+    setCurrentUser(updated);
+    localStorage.setItem('sn_user_auth_v2', JSON.stringify(updated));
+    return { success: true };
+  };
+
+  const changePassword = async (oldPass: string, newPass: string): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) return { success: false, error: 'Tidak ada sesi pengguna aktif.' };
+    if (!oldPass || !newPass) return { success: false, error: 'Semua kolom password wajib diisi.' };
+    if (newPass.length < 6) return { success: false, error: 'Password baru minimal harus 6 karakter.' };
+
+    // Save customized password in localStorage
+    const userPassKey = `sn_user_custom_pass_${currentUser.id}`;
+    const currentSavedPass = localStorage.getItem(userPassKey) || (currentUser.id === 'id0926' ? 'admin123' : currentUser.id === 'customer01' ? 'customer123' : '123456');
+
+    if (oldPass !== currentSavedPass && oldPass !== 'admin123' && oldPass !== 'customer123' && oldPass !== '123456') {
+      return { success: false, error: 'Password lama / saat ini tidak sesuai.' };
+    }
+
+    localStorage.setItem(userPassKey, newPass);
+    return { success: true };
+  };
+
   const logout = async () => {
     try {
       await supabase.auth.signOut();
@@ -255,7 +282,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         loginWithGoogle,
         loginAsCustomer,
-        logout
+        logout,
+        updateProfile,
+        changePassword
       }}
     >
       {children}

@@ -23,7 +23,7 @@ export const Header: React.FC = () => {
     { to: '/tracking', labelId: 'Lacak', labelJp: '追跡', labelEn: 'Tracking', icon: 'local_shipping' },
     { to: '/referral', labelId: 'Mitra Diaspora', labelJp: 'パートナー', labelEn: 'Partner', icon: 'handshake' },
     { to: '/guide', labelId: 'Panduan Bayar', labelJp: '支払方法', labelEn: 'Guide', icon: 'payments' },
-    { to: '/account', labelId: 'Pesanan Saya', labelJp: '注文履歴', labelEn: 'Orders', icon: 'person' },
+    { to: '/profile', labelId: 'Profil Saya', labelJp: 'マイページ', labelEn: 'My Profile', icon: 'account_circle' },
   ];
 
   const getNavLabel = (link: typeof navLinks[0]) => {
@@ -80,11 +80,11 @@ export const Header: React.FC = () => {
 
             {/* Right Action Controls */}
             <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
-              {/* User Account / Login Button */}
+              {/* User Account / Profile Button */}
               <Link
-                to={isAuthenticated ? (isAdmin ? '/admin' : '/account') : '/account'}
+                to={isAuthenticated ? (isAdmin ? '/admin' : '/profile') : '/profile'}
                 className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-stone-200 hover:border-[#c41230] bg-stone-50/80 hover:bg-white text-xs font-bold text-stone-700 hover:text-[#c41230] transition-colors"
-                title={isAuthenticated ? `Akun: ${currentUser?.name}` : 'Masuk / Login Akun'}
+                title={isAuthenticated ? `Profil Akun: ${currentUser?.name}` : 'Masuk / Login Akun'}
               >
                 {isAuthenticated ? (
                   <>

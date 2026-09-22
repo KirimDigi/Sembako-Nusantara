@@ -19,6 +19,7 @@ import { ProductDetailPage } from './pages/ProductDetailPage';
 import { CartPage } from './pages/CartPage';
 import { WishlistPage } from './pages/WishlistPage';
 import { CheckoutPage } from './pages/CheckoutPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { AccountOrdersPage } from './pages/AccountOrdersPage';
 import { TrackingPage } from './pages/TrackingPage';
 import { RecipesBlogPage } from './pages/RecipesBlogPage';
@@ -165,7 +166,9 @@ const AppContent: React.FC = () => {
           <Route path="/wishlist" element={<WishlistPage />} />
           <Route path="/favorit" element={<WishlistPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/account" element={<AccountOrdersPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/account" element={<ProfilePage />} />
+          <Route path="/orders" element={<AccountOrdersPage />} />
           <Route path="/tracking" element={<TrackingPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/kontak" element={<ContactPage />} />

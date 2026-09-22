@@ -24,7 +24,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     { to: '/tracking', label: language === 'JP' ? '配送追跡' : 'Lacak Pengiriman', icon: 'local_shipping' },
     { to: '/referral', label: language === 'JP' ? 'パートナー' : 'Mitra Diaspora', icon: 'handshake' },
     { to: '/guide', label: language === 'JP' ? '支払方法' : 'Panduan Bayar', icon: 'payments' },
-    { to: '/account', label: language === 'JP' ? '注文履歴' : 'Pesanan Saya', icon: 'person' }
+    { to: '/profile', label: language === 'JP' ? 'マイページ' : 'Profil & Member', icon: 'account_circle' }
   ];
 
   return (
