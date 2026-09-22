@@ -3,6 +3,7 @@ import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-d
 import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { WishlistProvider } from './context/WishlistContext';
 import { AdminProvider } from './context/AdminContext';
 import { Header } from './components/common/Header';
 import { Footer } from './components/common/Footer';
@@ -16,6 +17,7 @@ import { HomePage } from './pages/HomePage';
 import { CatalogPage } from './pages/CatalogPage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
 import { CartPage } from './pages/CartPage';
+import { WishlistPage } from './pages/WishlistPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { AccountOrdersPage } from './pages/AccountOrdersPage';
 import { TrackingPage } from './pages/TrackingPage';
@@ -160,6 +162,8 @@ const AppContent: React.FC = () => {
           <Route path="/products" element={<CatalogPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/cart" element={<CartPage />} />
+          <Route path="/wishlist" element={<WishlistPage />} />
+          <Route path="/favorit" element={<WishlistPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/account" element={<AccountOrdersPage />} />
           <Route path="/tracking" element={<TrackingPage />} />
@@ -217,10 +221,12 @@ export const App: React.FC = () => {
         <SplashScreen />
         <AdminProvider>
           <CartProvider>
-            <Router>
-              <ScrollToTop />
-              <AppContent />
-            </Router>
+            <WishlistProvider>
+              <Router>
+                <ScrollToTop />
+                <AppContent />
+              </Router>
+            </WishlistProvider>
           </CartProvider>
         </AdminProvider>
       </AuthProvider>

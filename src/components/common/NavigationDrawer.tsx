@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
+import { useWishlist } from '../../context/WishlistContext';
 import { assetUrl } from '../../utils/assets';
 
 interface NavigationDrawerProps {
@@ -12,16 +13,18 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   isOpen,
   onClose
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const { totalWishlistItems } = useWishlist();
 
   const navItems = [
-    { to: '/', labelKey: 'home', icon: 'home' },
-    { to: '/catalog', labelKey: 'catalog', icon: 'storefront' },
-    { to: '/contact', labelKey: 'contact', icon: 'support_agent' },
-    { to: '/tracking', labelKey: 'tracking', icon: 'local_shipping' },
-    { to: '/referral', labelKey: 'referral', icon: 'handshake' },
-    { to: '/guide', labelKey: 'payment_guide', icon: 'payments' },
-    { to: '/account', labelKey: 'my_account', icon: 'person' }
+    { to: '/', label: language === 'JP' ? 'ホーム' : 'Beranda', icon: 'home' },
+    { to: '/catalog', label: language === 'JP' ? 'カタログ' : 'Katalog Produk', icon: 'storefront' },
+    { to: '/wishlist', label: language === 'JP' ? 'お気に入り' : 'Wishlist Favorit', icon: 'favorite', badge: totalWishlistItems > 0 ? totalWishlistItems : null },
+    { to: '/contact', label: language === 'JP' ? 'お問い合わせ' : 'Kontak CS', icon: 'support_agent' },
+    { to: '/tracking', label: language === 'JP' ? '配送追跡' : 'Lacak Pengiriman', icon: 'local_shipping' },
+    { to: '/referral', label: language === 'JP' ? 'パートナー' : 'Mitra Diaspora', icon: 'handshake' },
+    { to: '/guide', label: language === 'JP' ? '支払方法' : 'Panduan Bayar', icon: 'payments' },
+    { to: '/account', label: language === 'JP' ? '注文履歴' : 'Pesanan Saya', icon: 'person' }
   ];
 
   return (
@@ -71,7 +74,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
               to={item.to}
               onClick={onClose}
               className={({ isActive }) =>
-                `flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all font-medium text-sm ${
+                `flex items-center justify-between px-4 py-3 rounded-xl transition-all font-medium text-sm ${
                   isActive
                     ? 'bg-[#c41230] text-white shadow-sm font-semibold'
                     : 'text-stone-700 hover:bg-[#FDF8F0] hover:text-[#c41230]'
@@ -80,14 +83,25 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
             >
               {({ isActive }) => (
                 <>
-                  <span
-                    className={`material-symbols-outlined text-xl ${
-                      isActive ? 'text-white' : 'text-[#c41230]'
-                    }`}
-                  >
-                    {item.icon}
-                  </span>
-                  <span>{t(item.labelKey)}</span>
+                  <div className="flex items-center gap-3.5">
+                    <span
+                      className={`material-symbols-outlined text-xl ${
+                        isActive ? 'text-white' : 'text-[#c41230]'
+                      }`}
+                    >
+                      {item.icon}
+                    </span>
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span
+                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        isActive ? 'bg-white text-[#c41230]' : 'bg-[#c41230] text-white'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>
@@ -102,27 +116,14 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
               href="https://wa.me/6285773875762"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#15803D] font-bold hover:underline"
+              className="text-[#c41230] font-bold hover:underline flex items-center gap-1"
             >
-              +62 857-7387-5762
+              <img src={assetUrl('whatsapp-icon.png')} alt="WhatsApp" className="w-3.5 h-3.5 object-contain" />
+              <span>+62 857-7387-5762</span>
             </a>
           </div>
-          <div className="flex items-center justify-between text-xs text-stone-600">
-            <span>{t('official_delivery')}:</span>
-            <span className="font-medium text-stone-900">
-              Yamato & Sagawa Express
-            </span>
-          </div>
-
-          <div className="pt-2">
-            <Link
-              to="/admin"
-              onClick={onClose}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-stone-900 text-white text-xs font-bold hover:bg-black transition-colors"
-            >
-              <span className="material-symbols-outlined text-sm text-[#c41230]">shield_person</span>
-              <span>Portal Admin & POS Kasir</span>
-            </Link>
+          <div className="text-[11px] text-stone-400 text-center pt-2">
+            © 2026 Sembako Nusantara Jepang.
           </div>
         </div>
       </div>

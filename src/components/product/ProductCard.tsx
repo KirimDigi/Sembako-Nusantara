@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Product } from '../../types';
 import { HalalBadge } from './HalalBadge';
 import { useCart } from '../../context/CartContext';
+import { useWishlist } from '../../context/WishlistContext';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface ProductCardProps {
@@ -11,8 +12,10 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const { language, t } = useLanguage();
   const [justAdded, setJustAdded] = useState(false);
+  const isWishlisted = isInWishlist(product.id);
 
   const getProductName = () => {
     if (language === 'JP') return product.nameJp;
@@ -40,8 +43,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     }, 1200);
   };
 
+  const handleWishlistClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleWishlist(product);
+  };
+
   return (
-    <div className="bg-white rounded-xl border border-[#EBE5DF] overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col group hover:-translate-y-1">
+    <div className="bg-white rounded-xl border border-[#EBE5DF] overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col group hover:-translate-y-1 relative">
       {/* Image & Badges */}
       <div className="relative aspect-square overflow-hidden bg-stone-100">
         <Link to={`/product/${product.id}`}>
@@ -51,14 +60,34 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </Link>
-        <div className="absolute top-2.5 left-2.5">
+        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10">
           <HalalBadge isFrozen={product.isFrozen} />
+          {product.discountPercentage && (
+            <span className="bg-[#E11D48] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs self-start">
+              -{product.discountPercentage}%
+            </span>
+          )}
         </div>
-        {product.discountPercentage && (
-          <span className="absolute top-2.5 right-2.5 bg-[#E11D48] text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-            -{product.discountPercentage}%
+
+        {/* Wishlist Floating Heart Button */}
+        <button
+          type="button"
+          onClick={handleWishlistClick}
+          aria-label={isWishlisted ? 'Hapus dari Wishlist' : 'Tambah ke Wishlist'}
+          className={`absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-md z-10 cursor-pointer ${
+            isWishlisted
+              ? 'bg-red-50 text-[#c41230] scale-105 border border-red-200'
+              : 'bg-white/90 hover:bg-white text-stone-400 hover:text-[#c41230] hover:scale-110'
+          }`}
+        >
+          <span
+            className={`material-symbols-outlined text-lg transition-transform ${
+              isWishlisted ? 'fill-current scale-110 text-[#c41230]' : ''
+            }`}
+          >
+            favorite
           </span>
-        )}
+        </button>
       </div>
 
       {/* Info Block */}

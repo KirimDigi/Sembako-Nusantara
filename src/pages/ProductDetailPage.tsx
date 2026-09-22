@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { PRODUCTS_DATA } from '../data/products';
 import { HalalBadge } from '../components/product/HalalBadge';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { useLanguage } from '../context/LanguageContext';
 
 export const ProductDetailPage: React.FC = () => {
@@ -10,9 +11,11 @@ export const ProductDetailPage: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'deskripsi' | 'komposisi' | 'pengiriman'>('deskripsi');
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const { language, t } = useLanguage();
 
   const product = PRODUCTS_DATA.find((p) => p.id === id) || PRODUCTS_DATA[0];
+  const isWishlisted = isInWishlist(product.id);
 
   const getProductName = () => {
     if (language === 'JP') return product.nameJp;
@@ -45,18 +48,24 @@ export const ProductDetailPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-xs text-stone-500 mb-6">
-        <Link to="/" className="hover:text-[#c41230] transition-colors">{t('home')}</Link>
+      <nav className="flex items-center gap-2 text-xs text-stone-500 font-medium mb-6">
+        <Link to="/" className="hover:text-[#c41230] transition-colors">
+          {language === 'JP' ? 'ホーム' : 'Beranda'}
+        </Link>
         <span>/</span>
-        <span className="text-stone-700">{getProductCategory()}</span>
+        <Link to="/catalog" className="hover:text-[#c41230] transition-colors">
+          {getProductCategory()}
+        </Link>
         <span>/</span>
-        <span className="text-[#c41230] font-bold truncate max-w-xs">{getProductName()}</span>
+        <span className="text-stone-900 font-bold truncate max-w-[200px] sm:max-w-none">
+          {getProductName()}
+        </span>
       </nav>
 
-      {/* Main Detail Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 bg-white rounded-2xl border border-[#EBE5DF] p-6 sm:p-8 shadow-sm">
+      {/* Main Grid: Gallery & Details */}
+      <div className="bg-white rounded-3xl border border-[#EBE5DF] p-6 sm:p-10 shadow-sm grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
         {/* Left: Product Image */}
         <div className="lg:col-span-5 space-y-4">
           <div className="relative aspect-square rounded-2xl overflow-hidden bg-stone-100 border border-stone-200">
@@ -69,10 +78,30 @@ export const ProductDetailPage: React.FC = () => {
               <HalalBadge isFrozen={product.isFrozen} />
             </div>
             {product.discountPercentage && (
-              <span className="absolute top-4 right-4 bg-[#E11D48] text-white font-bold text-xs px-3 py-1 rounded-full shadow-sm">
+              <span className="absolute top-4 right-14 bg-[#E11D48] text-white font-bold text-xs px-3 py-1 rounded-full shadow-sm">
                 -{product.discountPercentage}%
               </span>
             )}
+
+            {/* Wishlist Button on Image */}
+            <button
+              type="button"
+              onClick={() => toggleWishlist(product)}
+              aria-label={isWishlisted ? 'Hapus dari Wishlist' : 'Tambah ke Wishlist'}
+              className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 shadow-md z-10 cursor-pointer ${
+                isWishlisted
+                  ? 'bg-red-50 text-[#c41230] scale-105 border border-red-200'
+                  : 'bg-white/90 hover:bg-white text-stone-400 hover:text-[#c41230] hover:scale-110'
+              }`}
+            >
+              <span
+                className={`material-symbols-outlined text-xl transition-transform ${
+                  isWishlisted ? 'fill-current scale-110 text-[#c41230]' : ''
+                }`}
+              >
+                favorite
+              </span>
+            </button>
           </div>
         </div>
 
@@ -122,8 +151,8 @@ export const ProductDetailPage: React.FC = () => {
               )}
             </div>
 
-            {/* Quantity Stepper & Add to Cart */}
-            <div className="pt-2 flex flex-wrap items-center gap-4">
+            {/* Quantity Stepper, Add to Cart & Wishlist Button */}
+            <div className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4">
               <div className="flex items-center border-2 border-stone-200 rounded-xl overflow-hidden bg-white">
                 <button
                   type="button"
@@ -147,10 +176,29 @@ export const ProductDetailPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => addToCart(product, quantity)}
-                className="flex-1 inline-flex items-center justify-center gap-2 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold py-3.5 px-8 rounded-xl shadow-md active:scale-95 transition-all text-sm sm:text-base cursor-pointer"
+                className="flex-1 inline-flex items-center justify-center gap-2 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold py-3.5 px-6 sm:px-8 rounded-xl shadow-md active:scale-95 transition-all text-sm sm:text-base cursor-pointer"
               >
                 <span className="material-symbols-outlined text-xl">shopping_cart</span>
                 <span>{t('add_to_cart_full')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => toggleWishlist(product)}
+                className={`py-3.5 px-4 rounded-xl border-2 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+                  isWishlisted
+                    ? 'border-[#c41230] bg-red-50 text-[#c41230]'
+                    : 'border-stone-200 hover:border-red-300 text-stone-700 bg-white hover:bg-red-50/50'
+                }`}
+              >
+                <span className={`material-symbols-outlined text-xl ${isWishlisted ? 'fill-current text-[#c41230]' : ''}`}>
+                  favorite
+                </span>
+                <span className="hidden sm:inline">
+                  {isWishlisted
+                    ? (language === 'JP' ? 'お気に入り済み' : 'Tersimpan')
+                    : (language === 'JP' ? 'お気に入り' : 'Wishlist')}
+                </span>
               </button>
             </div>
           </div>

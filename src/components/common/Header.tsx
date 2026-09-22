@@ -3,6 +3,7 @@ import { Link, NavLink } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { NavigationDrawer } from './NavigationDrawer';
 import { useCart } from '../../context/CartContext';
+import { useWishlist } from '../../context/WishlistContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { assetUrl } from '../../utils/assets';
@@ -10,12 +11,14 @@ import { assetUrl } from '../../utils/assets';
 export const Header: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { totalItems } = useCart();
+  const { totalWishlistItems } = useWishlist();
   const { t, language } = useLanguage();
   const { isAuthenticated, currentUser, isAdmin } = useAuth();
 
   const navLinks = [
     { to: '/', labelId: 'Beranda', labelJp: 'ホーム', labelEn: 'Home', icon: 'home' },
     { to: '/catalog', labelId: 'Katalog', labelJp: 'カタログ', labelEn: 'Catalog', icon: 'storefront' },
+    { to: '/wishlist', labelId: 'Wishlist', labelJp: 'お気に入り', labelEn: 'Wishlist', icon: 'favorite' },
     { to: '/contact', labelId: 'Kontak', labelJp: 'お問い合わせ', labelEn: 'Contact', icon: 'support_agent' },
     { to: '/tracking', labelId: 'Lacak', labelJp: '追跡', labelEn: 'Tracking', icon: 'local_shipping' },
     { to: '/referral', labelId: 'Mitra Diaspora', labelJp: 'パートナー', labelEn: 'Partner', icon: 'handshake' },
@@ -66,6 +69,11 @@ export const Header: React.FC = () => {
                   }
                 >
                   <span>{getNavLabel(link)}</span>
+                  {link.to === '/wishlist' && totalWishlistItems > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-[#c41230] text-white text-[9px] font-bold flex items-center justify-center">
+                      {totalWishlistItems}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </nav>
@@ -90,6 +98,22 @@ export const Header: React.FC = () => {
                     <span className="material-symbols-outlined text-base text-[#c41230]">account_circle</span>
                     <span>Masuk</span>
                   </>
+                )}
+              </Link>
+
+              {/* Wishlist Heart Icon Link */}
+              <Link
+                to="/wishlist"
+                className="relative p-1.5 text-stone-700 hover:text-[#c41230] transition-colors"
+                title="Wishlist / Favorit Saya"
+              >
+                <span className="material-symbols-outlined text-2xl sm:text-3xl block">
+                  favorite
+                </span>
+                {totalWishlistItems > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#c41230] text-white text-[11px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
+                    {totalWishlistItems}
+                  </span>
                 )}
               </Link>
 
