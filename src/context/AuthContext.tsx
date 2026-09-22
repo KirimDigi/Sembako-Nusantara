@@ -8,7 +8,7 @@ interface AuthContextType {
   currentUser: AuthUser | null;
   isAdmin: boolean;
   isCustomer: boolean;
-  login: (id: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  login: (id: string, pass: string) => Promise<{ success: boolean; isAdmin?: boolean; error?: string; user?: AuthUser }>;
   loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   loginAsCustomer: (name?: string, phone?: string) => void;
   logout: () => void;
