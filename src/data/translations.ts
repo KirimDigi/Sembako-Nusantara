@@ -44,7 +44,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     // Catalog Section
     catalog_title: 'Katalog Sembako & Makanan Halal',
     catalog_badge_stock: 'Stok Tersedia di Jepang',
-    catalog_tax_note: 'Semua harga tercantum dalam Yen (JPY) sudah termasuk Pajak Konsumsi Jepang (消費税 8% 軽減税率 / 10%)',
+    catalog_tax_note: 'Semua harga tercantum dalam Yen (JPY) sudah termasuk Pajak Konsumsi Jepang (8% & 10%)',
     cat_all: 'Semua',
     cat_mie: 'Makanan Instan & Mie',
     cat_bumbu: 'Bumbu & Rempah',
@@ -54,7 +54,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     cat_beverage: 'Minuman & Kopi',
 
     // Product Card & Detail
-    tax_included: 'Termasuk Pajak (税込)',
+    tax_included: 'Termasuk Pajak',
     add_to_cart: 'Tambah',
     add_to_cart_full: 'Tambah ke Keranjang',
     stock_available: 'Stok Tersedia',
@@ -82,7 +82,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     free_shipping_achieved: '🎉 Selamat! Anda Mendapatkan Bebas Biaya Kirim',
     free_shipping_remaining: 'Tambah belanja untuk gratis ongkir',
     subtotal_label: 'Subtotal Produk (Sebelum Pajak)',
-    tax_label: 'Pajak Konsumsi Jepang (消費税 8% / 10%)',
+    tax_label: 'Pajak Konsumsi Jepang (8% / 10%)',
     shipping_fee_label: 'Biaya Pengiriman (Yamato/Sagawa)',
     grand_total_label: 'Total Pembayaran',
     proceed_checkout: 'Lanjut ke Pembayaran',

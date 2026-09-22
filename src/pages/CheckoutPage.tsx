@@ -156,7 +156,7 @@ export const CheckoutPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-stone-100 pb-3">
               <h2 className="font-bold text-base text-stone-900 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#c41230]">local_shipping</span>
-                <span>1. Alamat Pengiriman di Jepang (お届け先)</span>
+                <span>1. Alamat Pengiriman di Jepang</span>
               </h2>
               <span className="text-xs text-[#15803D] font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full">
                 ✓ 47 Prefektur Terlayani

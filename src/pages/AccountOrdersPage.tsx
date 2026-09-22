@@ -296,7 +296,7 @@ export const AccountOrdersPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-stone-100 pb-4 mb-6">
               <h1 className="font-heading font-black text-xl text-stone-900 flex items-center gap-2.5">
                 <span className="material-symbols-outlined text-[#c41230] text-2xl">receipt_long</span>
-                <span>Riwayat Pesanan Saya (ご注文履歴)</span>
+                <span>Riwayat Pesanan Saya</span>
               </h1>
               <span className="text-xs font-bold px-3 py-1 bg-stone-100 text-stone-600 rounded-full">
                 {orders.length} Transaksi

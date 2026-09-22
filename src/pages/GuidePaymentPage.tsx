@@ -10,7 +10,7 @@ export const GuidePaymentPage: React.FC = () => {
           Bantuan & Tutorial Transaksi
         </span>
         <h1 className="text-2xl sm:text-4xl font-serif font-bold text-stone-900">
-          Panduan Belanja & Pembayaran di Jepang (お支払いガイド) 📖
+          Panduan Belanja & Pembayaran di Jepang 📖
         </h1>
         <p className="text-xs sm:text-sm text-stone-500 max-w-xl mx-auto">
           Tutorial langkah demi langkah membayar pesanan belanja Anda dengan mudah via JPQR / JAPAN QRIS, PayPay, dan kasir minimarket Konbini (Lawson, 7-Eleven, FamilyMart).

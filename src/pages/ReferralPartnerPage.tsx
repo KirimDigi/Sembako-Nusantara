@@ -24,7 +24,7 @@ export const ReferralPartnerPage: React.FC = () => {
           Program Afiliasi & Kemitraan Toko
         </span>
         <h1 className="text-2xl sm:text-4xl font-serif font-bold text-stone-900">
-          Program Kemitraan & Referral Diaspora (アフィリエイト) 🤝
+          Program Kemitraan & Referral Diaspora 🤝
         </h1>
         <p className="text-xs sm:text-sm text-stone-500 max-w-xl mx-auto">
           Bagikan kelezatan produk Nusantara kepada sesama teman diaspora atau komunitas di Jepang dan dapatkan komisi poin belanja!

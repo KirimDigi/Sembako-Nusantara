@@ -107,7 +107,7 @@ export const TrackingPage: React.FC = () => {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
       <div className="text-center space-y-2 mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-stone-900">
-          Lacak Pengiriman Pesanan (配送追跡)
+          Lacak Pengiriman Pesanan
         </h1>
         <p className="text-xs text-stone-500">
           Pantau status paket sembako Anda secara real-time via Yamato Takkyubin & Sagawa Express.
@@ -218,7 +218,7 @@ export const TrackingPage: React.FC = () => {
                   className="px-3 py-1.5 bg-white hover:bg-stone-50 text-stone-800 border border-stone-300 hover:border-stone-400 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-amber-600 text-sm">open_in_new</span>
-                  <span>Cek di Web Yamato (クロネコヤマト)</span>
+                  <span>Cek di Web Yamato Transport</span>
                 </a>
                 <a
                   href="https://k2k.sagawa-exp.co.jp/p/sagawa/web/okurijoinput.do"
@@ -227,7 +227,7 @@ export const TrackingPage: React.FC = () => {
                   className="px-3 py-1.5 bg-white hover:bg-stone-50 text-stone-800 border border-stone-300 hover:border-stone-400 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-blue-600 text-sm">open_in_new</span>
-                  <span>Cek di Web Sagawa (佐川急便)</span>
+                  <span>Cek di Web Sagawa Express</span>
                 </a>
                 <a
                   href={`https://wa.me/6285773875762?text=${encodeURIComponent(

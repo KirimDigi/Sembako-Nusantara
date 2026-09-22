@@ -69,6 +69,7 @@ interface AdminContextType {
   addNewProduct: (product: Product) => void;
   updateProduct: (id: string, updatedData: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
+  clearAllTransactions: () => void;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -386,6 +387,14 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setProducts((prev) => prev.filter((p) => p.id !== id));
   };
 
+  const clearAllTransactions = () => {
+    setPosTransactions([]);
+    setOrders([]);
+    localStorage.removeItem('sn_pos_tx_v2');
+    localStorage.removeItem('sn_admin_orders_v2');
+    localStorage.removeItem('sn_user_orders');
+  };
+
   return (
     <AdminContext.Provider
       value={{
@@ -413,7 +422,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         applyVoucher,
         addNewProduct,
         updateProduct,
-        deleteProduct
+        deleteProduct,
+        clearAllTransactions
       }}
     >
       {children}

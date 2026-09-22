@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
+import { useAdmin } from '../context/AdminContext';
 import { assetUrl } from '../utils/assets';
 
 type ActiveTab = 'overview' | 'barcode' | 'orders' | 'wishlist' | 'cart' | 'security' | 'edit_profile';
@@ -11,6 +12,7 @@ export const ProfilePage: React.FC = () => {
   const { isAuthenticated, currentUser, login, loginWithGoogle, logout, updateProfile, changePassword, isAdmin } = useAuth();
   const { wishlist, removeFromWishlist, clearWishlist, totalWishlistItems } = useWishlist();
   const { cart, totalItems, totalPrice, removeFromCart, updateQuantity } = useCart();
+  const { orders } = useAdmin();
   const navigate = useNavigate();
 
   // Active Profile Tab State (Defaults to 'overview')
@@ -38,18 +40,6 @@ export const ProfilePage: React.FC = () => {
   const [passSuccessMsg, setPassSuccessMsg] = useState('');
   const [passErrorMsg, setPassErrorMsg] = useState('');
   const [isPassLoading, setIsPassLoading] = useState(false);
-
-  // Orders State from LocalStorage
-  const [orders] = useState<any[]>(() => {
-    const saved = localStorage.getItem('sn_user_orders');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {}
-    }
-    return [];
-  });
 
   const [orderFilter, setOrderFilter] = useState<'ALL' | 'DIPROSES' | 'DIKIRIM' | 'SELESAI'>('ALL');
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);

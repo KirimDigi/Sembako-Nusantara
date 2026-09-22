@@ -224,8 +224,8 @@ export const OrdersAdminPage: React.FC = () => {
                   onChange={(e) => setCourierInput(e.target.value as Order['courier'])}
                   className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-[#c41230]"
                 >
-                  <option value="Yamato Transport">Kuroneko Yamato Transport (ヤマト運輸)</option>
-                  <option value="Sagawa Express">Sagawa Express (佐川急便)</option>
+                  <option value="Yamato Transport">Kuroneko Yamato Transport</option>
+                  <option value="Sagawa Express">Sagawa Express</option>
                 </select>
               </div>
 

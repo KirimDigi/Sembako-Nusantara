@@ -89,7 +89,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
       label: t('admin_nav_accounting'),
       path: '/admin/accounting',
       icon: 'account_balance',
-      badge: '消費税 8%/10%',
+      badge: language === 'JP' ? '消費税 8%/10%' : 'Pajak JCT 8%/10%',
       badgeColor: 'bg-emerald-600 text-white',
       allowedRoles: ['Super Admin (Owner)', 'Finance / Akuntan']
     },
