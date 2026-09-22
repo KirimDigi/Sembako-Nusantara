@@ -144,11 +144,9 @@ export const AccountingPage: React.FC = () => {
     // 1. Aggregation from POS Transactions
     posTransactions.forEach((tx) => {
       tx.items?.forEach((item) => {
-        const prodId = item.product?.id || 'unknown';
+        const prodId = item.productId || 'unknown';
         const existing = map.get(prodId) || { qty: 0, revenue: 0 };
-        const price = item.product?.price || 0;
-        const discountFactor = (100 - (item.customDiscountPercent || 0)) / 100;
-        const lineTotal = Math.round(price * item.quantity * discountFactor);
+        const lineTotal = item.subtotal || item.price * item.quantity;
 
         map.set(prodId, {
           qty: existing.qty + item.quantity,
