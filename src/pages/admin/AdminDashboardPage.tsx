@@ -126,7 +126,7 @@ export const AdminDashboardPage: React.FC = () => {
                 <h3 className="font-bold text-base text-white flex items-center gap-2">
                   <span>Pusat Pembukuan & Laporan Keuangan Toko</span>
                   <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-[10px] font-bold">
-                    J-GAAP & 消費税
+                    Standar Pajak J-GAAP
                   </span>
                 </h3>
                 <p className="text-xs text-stone-400">

@@ -381,7 +381,7 @@ export const POSKasirPage: React.FC = () => {
             )}
 
             <div className="flex justify-between text-xs text-stone-500">
-              <span>Pajak Konsumsi (8% 軽減税率 消費税):</span>
+              <span>Pajak Konsumsi (8% Makanan / Sembako):</span>
               <span className="font-semibold text-stone-900">¥{taxAmount.toLocaleString()}</span>
             </div>
 
@@ -606,11 +606,11 @@ export const POSKasirPage: React.FC = () => {
                   </div>
                 )}
                 <div className="flex justify-between text-stone-600">
-                  <span>Pajak Konsumsi (8% 軽減税率)</span>
+                  <span>Pajak Konsumsi (8%)</span>
                   <span>¥{completedTx.taxAmount.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between font-bold text-sm text-stone-900 pt-1 border-t border-stone-200">
-                  <span>TOTAL (税込)</span>
+                  <span>TOTAL (Termasuk Pajak)</span>
                   <span>¥{completedTx.totalAmount.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-stone-600 pt-1">
@@ -624,8 +624,7 @@ export const POSKasirPage: React.FC = () => {
               </div>
 
               <div className="text-center text-[10px] text-stone-400 pt-2 border-t border-dashed border-stone-300">
-                Terima kasih atas kunjungan Anda! 🙏<br />
-                ご来店ありがとうございました。
+                Terima kasih atas kunjungan Anda! 🙏
               </div>
             </div>
 

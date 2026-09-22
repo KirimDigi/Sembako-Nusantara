@@ -87,7 +87,7 @@ export const CompetitorPricingPage: React.FC = () => {
                   <div className="text-2xl font-black text-[#c41230] mt-1">
                     ¥{cp.ourPrice.toLocaleString()}
                   </div>
-                  <div className="text-[10px] text-stone-500 mt-0.5">Sudah Termasuk Pajak (8% 税込)</div>
+                  <div className="text-[10px] text-stone-500 mt-0.5">Sudah Termasuk Pajak (8%)</div>
                 </div>
 
                 {/* Competitors List */}

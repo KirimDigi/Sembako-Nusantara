@@ -788,7 +788,7 @@ export const ProductManagementPage: React.FC = () => {
                     type="text"
                     value={formData.nameJp}
                     onChange={(e) => setFormData({ ...formData, nameJp: e.target.value })}
-                    placeholder="商品名 (日本語)"
+                    placeholder="Nama Produk (Bahasa Jepang)"
                     className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none"
                   />
                 </div>
@@ -851,7 +851,7 @@ export const ProductManagementPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-stone-700">Harga Jual + Pajak (税込)</label>
+                  <label className="font-bold text-stone-700">Harga Jual + Pajak</label>
                   <input
                     type="number"
                     value={formData.priceTax}
@@ -1031,7 +1031,7 @@ export const ProductManagementPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-stone-700">Harga Jual + Pajak (税込)</label>
+                  <label className="font-bold text-stone-700">Harga Jual + Pajak</label>
                   <input
                     type="number"
                     value={formData.priceTax}
