@@ -27,7 +27,21 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Total Inventory Valuation (Aset Lancar Sembako di Gudang)
   const totalInventoryValuation = isZeroState ? 0 : products.reduce((acc, p) => acc + p.stock * Math.round(p.price * 0.65), 0);
-  const totalEstimatedAssets = isZeroState ? 0 : totalGrossRevenue; // Total aset dinamis dari orderan masuk
+
+  // Modal Awal Disetor (Initial Capital Synchronized)
+  const totalInitialCapital = useMemo(() => {
+    try {
+      const saved = localStorage.getItem('sn_initial_capital_v3');
+      if (!saved) return 0;
+      const list = JSON.parse(saved);
+      return list.reduce((acc: number, curr: any) => acc + Number(curr.amount || 0), 0);
+    } catch {
+      return 0;
+    }
+  }, []);
+
+  // Total Aset Terpadu (Neraca Keuangan = Revenue + Modal Awal)
+  const totalEstimatedAssets = totalGrossRevenue + totalInitialCapital;
 
   const txt = useMemo(() => {
     if (language === 'JP') {

@@ -14,7 +14,8 @@ export type TabType =
   | 'cash_in'
   | 'cash_transfer'
   | 'assets_journal'
-  | 'bank_accounts';
+  | 'bank_accounts'
+  | 'initial_capital';
 
 export const AccountingPage: React.FC = () => {
   const { products, posTransactions, orders, clearAllTransactions, addOrder } = useAdmin();
@@ -35,7 +36,8 @@ export const AccountingPage: React.FC = () => {
       tab === 'cash_in' ||
       tab === 'cash_transfer' ||
       tab === 'assets_journal' ||
-      tab === 'bank_accounts'
+      tab === 'bank_accounts' ||
+      tab === 'initial_capital'
     ) {
       setActiveTab(tab as TabType);
     }
@@ -283,30 +285,111 @@ export const AccountingPage: React.FC = () => {
   };
 
   // =========================================================================
-  // 1. FINANCIAL CORE DATA COMPUTATION (DYNAMIC FROM REAL TRANSACTIONS)
+  // SUB-MODULE 6: MODAL AWAL (INITIAL CAPITAL) STATE & HANDLERS
+  // =========================================================================
+  const [isCapitalModalOpen, setIsCapitalModalOpen] = useState(false);
+  const [initialCapitalList, setInitialCapitalList] = useState<any[]>(() => {
+    const saved = localStorage.getItem('sn_initial_capital_v3');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [newCapital, setNewCapital] = useState({
+    sourceType: 'OWNER_EQUITY',
+    sourceName: 'Willy Pratama (Owner)',
+    destinationType: 'BANK',
+    destinationAccount: 'Bank Japan Post (ゆうちょ銀行)',
+    amount: 500000,
+    notes: 'Setoran modal awal usaha Sembako Nusantara Jepang'
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sn_initial_capital_v3', JSON.stringify(initialCapitalList));
+  }, [initialCapitalList]);
+
+  const handleAddCapital = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCapital.amount || newCapital.amount <= 0) return;
+    const item = {
+      id: `CAP-2026-${String(initialCapitalList.length + 1).padStart(3, '0')}`,
+      date: new Date().toISOString().substring(0, 10),
+      refNumber: `VCH-CAP-${Math.floor(1000 + Math.random() * 9000)}`,
+      sourceType: newCapital.sourceType,
+      sourceTypeName:
+        newCapital.sourceType === 'OWNER_EQUITY'
+          ? (language === 'JP' ? 'オーナー自己資本金' : language === 'EN' ? 'Owner Paid-in Equity' : 'Modal Disetor Pemilik')
+          : newCapital.sourceType === 'INVESTOR'
+          ? (language === 'JP' ? '外部投資家出資' : language === 'EN' ? 'Investor Equity' : 'Penyertaan Modal Investor')
+          : newCapital.sourceType === 'BANK_LOAN_CAPITAL'
+          ? (language === 'JP' ? '創業融資・借入金' : language === 'EN' ? 'Startup Loan Capital' : 'Pinjaman Modal Kerja')
+          : (language === 'JP' ? '現物出資・資産贈与' : language === 'EN' ? 'Asset/Equipment Grant' : 'Hibah / Modal Aset'),
+      sourceName: newCapital.sourceName || 'Willy Pratama (Owner)',
+      destinationType: newCapital.destinationType,
+      destinationAccount: newCapital.destinationAccount,
+      amount: Number(newCapital.amount),
+      notes: newCapital.notes || '-',
+      status: 'Aktif & Tersinkron'
+    };
+    setInitialCapitalList([item, ...initialCapitalList]);
+    setIsCapitalModalOpen(false);
+    setNewCapital({
+      sourceType: 'OWNER_EQUITY',
+      sourceName: 'Willy Pratama (Owner)',
+      destinationType: 'BANK',
+      destinationAccount: 'Bank Japan Post (ゆうちょ銀行)',
+      amount: 500000,
+      notes: 'Setoran modal awal usaha Sembako Nusantara Jepang'
+    });
+  };
+
+  const handleDeleteCapital = (id: string) => {
+    if (confirm(language === 'JP' ? 'この資本金記録を削除しますか？' : language === 'EN' ? 'Delete this capital entry?' : 'Hapus catatan setoran modal awal ini?')) {
+      setInitialCapitalList(initialCapitalList.filter((c) => c.id !== id));
+    }
+  };
+
+  // =========================================================================
+  // 1. FINANCIAL CORE DATA COMPUTATION (DYNAMIC FROM REAL TRANSACTIONS & MODAL AWAL)
   // =========================================================================
   const totalPosRevenue = posTransactions.reduce((acc, curr) => acc + curr.totalAmount, 0);
   const totalOnlineRevenue = orders.reduce((acc, curr) => acc + curr.totalAmount, 0);
   const totalRevenue = totalPosRevenue + totalOnlineRevenue;
   const totalTransactionCount = posTransactions.length + orders.length;
-  const isZeroState = totalTransactionCount === 0;
+
+  // Modal Awal Aggregations
+  const totalInitialCapital = initialCapitalList.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+  const capitalInBank = initialCapitalList
+    .filter((c) => c.destinationType === 'BANK')
+    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+  const capitalInCash = initialCapitalList
+    .filter((c) => c.destinationType === 'CASH')
+    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+  const capitalInAsset = initialCapitalList
+    .filter((c) => c.destinationType === 'ASSET')
+    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+  const capitalFromLoan = initialCapitalList
+    .filter((c) => c.sourceType === 'BANK_LOAN_CAPITAL')
+    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+  const capitalPaidInEquity = initialCapitalList
+    .filter((c) => c.sourceType !== 'BANK_LOAN_CAPITAL')
+    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+
+  const isZeroState = totalTransactionCount === 0 && totalInitialCapital === 0;
 
   // Estimated HPP & Gross Profit (0 when no transactions)
-  const estimatedHPP = isZeroState ? 0 : Math.round(totalRevenue * 0.62);
-  const grossProfit = isZeroState ? 0 : totalRevenue - estimatedHPP;
+  const estimatedHPP = totalRevenue === 0 ? 0 : Math.round(totalRevenue * 0.62);
+  const grossProfit = totalRevenue === 0 ? 0 : totalRevenue - estimatedHPP;
   const grossMarginPercent = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 100) : 0;
 
   // Operating Expenses (0 when in clean zero state, dynamic when active)
   const operatingExpenses = {
-    rentWarehouse: isZeroState ? 0 : 180000,
-    electricityColdStorage: isZeroState ? 0 : 65000,
-    shippingSubsidyPackaging: isZeroState ? 0 : 48000,
-    paymentGatewayFees: isZeroState ? 0 : Math.round(totalRevenue * 0.0324),
-    staffPayroll: isZeroState ? 0 : 220000,
-    marketingPromo: isZeroState ? 0 : 35000
+    rentWarehouse: totalTransactionCount === 0 ? 0 : 180000,
+    electricityColdStorage: totalTransactionCount === 0 ? 0 : 65000,
+    shippingSubsidyPackaging: totalTransactionCount === 0 ? 0 : 48000,
+    paymentGatewayFees: totalTransactionCount === 0 ? 0 : Math.round(totalRevenue * 0.0324),
+    staffPayroll: totalTransactionCount === 0 ? 0 : 220000,
+    marketingPromo: totalTransactionCount === 0 ? 0 : 35000
   };
 
-  const totalOperatingExpenses = isZeroState
+  const totalOperatingExpenses = totalTransactionCount === 0
     ? 0
     : operatingExpenses.rentWarehouse +
       operatingExpenses.electricityColdStorage +
@@ -316,31 +399,31 @@ export const AccountingPage: React.FC = () => {
       operatingExpenses.marketingPromo;
 
   // Operating Profit
-  const operatingProfit = isZeroState ? 0 : grossProfit - totalOperatingExpenses;
+  const operatingProfit = totalTransactionCount === 0 ? 0 : grossProfit - totalOperatingExpenses;
   const operatingMarginPercent = totalRevenue > 0 ? Math.round((operatingProfit / totalRevenue) * 100) : 0;
 
   // Japanese Consumption Tax (JCT 8% food, 10% shipping/services)
-  const taxFood8 = isZeroState ? 0 : Math.round((totalRevenue / 1.08) * 0.08);
-  const taxShipping10 = isZeroState ? 0 : Math.round(((totalOnlineRevenue * 0.15) / 1.1) * 0.1);
+  const taxFood8 = totalRevenue === 0 ? 0 : Math.round((totalRevenue / 1.08) * 0.08);
+  const taxShipping10 = totalOnlineRevenue === 0 ? 0 : Math.round(((totalOnlineRevenue * 0.15) / 1.1) * 0.1);
   const totalTaxJCT = taxFood8 + taxShipping10;
 
   // Net Profit
-  const netProfit = isZeroState ? 0 : operatingProfit - Math.round(totalTaxJCT * 0.2);
+  const netProfit = totalTransactionCount === 0 ? 0 : operatingProfit - Math.round(totalTaxJCT * 0.2);
   const netProfitMarginPercent = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
 
   // =========================================================================
-  // 2. NERACA KEUANGAN (BALANCE SHEET) DATA
+  // 2. NERACA KEUANGAN (BALANCE SHEET) DATA (SINKRON DENGAN MODAL AWAL & ORDERAN)
   // =========================================================================
   const inventoryValuation = useMemo(() => {
-    if (isZeroState) return 0;
+    if (totalTransactionCount === 0) return 0;
     return products.reduce((acc, p) => acc + p.stock * Math.round(p.price * 0.65), 0);
-  }, [products, isZeroState]);
+  }, [products, totalTransactionCount]);
 
   const balanceSheet = {
     assets: {
       currentAssets: {
-        cashStorePOS: isZeroState ? 0 : totalPosRevenue,
-        bankJapanPost: isZeroState ? 0 : totalOnlineRevenue,
+        cashStorePOS: totalPosRevenue + capitalInCash,
+        bankJapanPost: totalOnlineRevenue + capitalInBank,
         bankMUFG: 0,
         payPaySettlement: 0,
         accountsReceivable: 0,
@@ -348,7 +431,7 @@ export const AccountingPage: React.FC = () => {
       },
       fixedAssets: {
         coldStorageFreezers: 0,
-        posHardwareEquipment: 0,
+        posHardwareEquipment: capitalInAsset,
         warehouseShelving: 0,
         accumulatedDepreciation: 0
       }
@@ -361,11 +444,11 @@ export const AccountingPage: React.FC = () => {
         customerDeposits: 0
       },
       longTermLiabilities: {
-        businessLoan: 0
+        businessLoan: capitalFromLoan
       }
     },
     equity: {
-      capitalPaidIn: 0,
+      capitalPaidIn: capitalPaidInEquity,
       retainedEarnings: 0
     }
   };
@@ -395,10 +478,9 @@ export const AccountingPage: React.FC = () => {
   const totalLongTermLiabilities = balanceSheet.liabilities.longTermLiabilities.businessLoan;
   const totalLiabilities = totalCurrentLiabilities + totalLongTermLiabilities;
 
-  const calculatedRetainedEarnings = isZeroState
-    ? 0
-    : totalAssets - totalLiabilities - balanceSheet.equity.capitalPaidIn;
-  const totalEquity = isZeroState ? 0 : balanceSheet.equity.capitalPaidIn + calculatedRetainedEarnings;
+  const calculatedRetainedEarnings =
+    totalAssets - totalLiabilities - balanceSheet.equity.capitalPaidIn;
+  const totalEquity = balanceSheet.equity.capitalPaidIn + calculatedRetainedEarnings;
   const totalLiabilitiesAndEquity = totalLiabilities + totalEquity;
 
   // =========================================================================
@@ -579,6 +661,24 @@ export const AccountingPage: React.FC = () => {
         tabCashTransfer: '口座間振替',
         tabAssetsJournal: '固定資産仕訳',
         tabBankAccounts: '銀行口座・決済アカウント',
+        tabInitialCapital: '初期資本金・元入金',
+        // Initial Capital
+        capitalTitle: '初期資本金・元入金管理台帳 (Initial Capital Hub)',
+        capitalSub: 'オーナー自己資本、外部投資家出資、創業融資、および現物出資の登録・管理と貸借対照表への自動反映',
+        btnAddCapital: '+ 初期資本金を登録',
+        kpiTotalCapital: '出資・資本金総額',
+        kpiBankCapital: '銀行口座へ入金',
+        kpiCashCapital: '店舗レジ現金へ配分',
+        kpiAssetCapital: '現物・設備資産出資',
+        thCapitalDate: '出資・入金日',
+        thCapitalRef: '証憑番号',
+        thCapitalType: '資本種別',
+        thCapitalSource: '出資者・名義人',
+        thCapitalTarget: '受入先 (口座・金庫)',
+        thCapitalAmount: '出資金額 (¥ JPY)',
+        thCapitalNotes: '出資目的・メモ',
+        thCapitalStatus: '貸借対照表連携状態',
+        thCapitalAction: '操作',
         // Bank Accounts
         bankAccTitle: '銀行口座・決済アカウント台帳 (Cash & Bank Accounts)',
         bankAccSub: 'ゆうちょ銀行、三菱UFJ、三井住友、みずほ、および店舗レジ金庫口座の残高とステータス管理',
@@ -797,6 +897,24 @@ export const AccountingPage: React.FC = () => {
         tabCashTransfer: 'Cash Transfer',
         tabAssetsJournal: 'Asset Journal',
         tabBankAccounts: 'Cash & Bank Accounts',
+        tabInitialCapital: 'Initial Capital',
+        // Initial Capital
+        capitalTitle: 'Initial Capital & Paid-in Equity Ledger',
+        capitalSub: 'Register and manage founder paid-in equity, partner investment, startup loans, and equipment grants with instant balance sheet sync',
+        btnAddCapital: '+ Add Initial Capital',
+        kpiTotalCapital: 'Total Initial Capital',
+        kpiBankCapital: 'Deposited to Bank',
+        kpiCashCapital: 'Allocated to POS Cash',
+        kpiAssetCapital: 'Asset / Equipment Grants',
+        thCapitalDate: 'Date',
+        thCapitalRef: 'Voucher Ref',
+        thCapitalType: 'Capital Type',
+        thCapitalSource: 'Founder / Investor',
+        thCapitalTarget: 'Destination Account',
+        thCapitalAmount: 'Capital Amount (¥)',
+        thCapitalNotes: 'Notes / Purpose',
+        thCapitalStatus: 'Balance Sheet Status',
+        thCapitalAction: 'Action',
         // Bank Accounts
         bankAccTitle: 'Cash & Bank Accounts Register',
         bankAccSub: 'Management of Japan Post Bank, MUFG, SMBC, Mizuho, and POS cash drawers',
@@ -1016,6 +1134,24 @@ export const AccountingPage: React.FC = () => {
         tabCashTransfer: 'Kas Transfer',
         tabAssetsJournal: 'Jurnal Aset',
         tabBankAccounts: 'Akun Kas & Bank',
+        tabInitialCapital: 'Modal Awal',
+        // Initial Capital
+        capitalTitle: 'Buku Modal Awal & Setoran Ekuitas Usaha',
+        capitalSub: 'Pencatatan setoran modal awal pemilik, investasi partner, pinjaman modal kerja, dan hibah aset yang langsung tersinkron ke Neraca Keuangan',
+        btnAddCapital: '+ Setor / Tambah Modal Awal',
+        kpiTotalCapital: 'Total Modal Awal Disetor',
+        kpiBankCapital: 'Modal Masuk ke Bank',
+        kpiCashCapital: 'Modal Kas Tunai POS',
+        kpiAssetCapital: 'Modal Berupa Aset Tetap',
+        thCapitalDate: 'Tanggal',
+        thCapitalRef: 'No. Voucher',
+        thCapitalType: 'Jenis Modal',
+        thCapitalSource: 'Penyetor / Investor',
+        thCapitalTarget: 'Akun / Tempat Penyetoran',
+        thCapitalAmount: 'Nominal Modal (¥)',
+        thCapitalNotes: 'Keterangan Setoran',
+        thCapitalStatus: 'Sinkron Neraca',
+        thCapitalAction: 'Aksi',
         // Bank Accounts
         bankAccTitle: 'Buku Rekening Bank & Kas Operasional',
         bankAccSub: 'Pengelolaan rekening Bank Pos Jepang (Yucho), MUFG, SMBC, Mizuho, serta brankas kasir POS',
@@ -1261,11 +1397,13 @@ export const AccountingPage: React.FC = () => {
       setCashTransferList([]);
       setAssetList([]);
       setBankAccountsList([]);
+      setInitialCapitalList([]);
       localStorage.removeItem('sn_cash_out_v3');
       localStorage.removeItem('sn_cash_in_v3');
       localStorage.removeItem('sn_cash_transfer_v3');
       localStorage.removeItem('sn_assets_journal_v3');
       localStorage.removeItem('sn_bank_accounts_v3');
+      localStorage.removeItem('sn_initial_capital_v3');
       alert(language === 'JP' ? 'すべての財務データが0（初期状態）にリセットされました。' : language === 'EN' ? 'All financial report data successfully reset to 0 CLEAR state!' : 'Semua data laporan keuangan berhasil direset ke KONDISI 0 BERSIH (CLEAR)!');
     }
   };
@@ -1362,7 +1500,7 @@ export const AccountingPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Group 2: 4 Sub-Menu Buku Kas & Jurnal */}
+          {/* Group 2: 6 Sub-Menu Buku Kas, Jurnal, & Modal Awal */}
           <div className="flex flex-wrap gap-1 pt-1 border-t border-stone-100">
             <button
               onClick={() => {
@@ -1442,6 +1580,22 @@ export const AccountingPage: React.FC = () => {
               <span className="material-symbols-outlined text-base">account_balance_wallet</span>
               <span>{txt.tabBankAccounts}</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-teal-200/60 text-teal-900 ml-0.5">{bankAccountsList.length}</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab('initial_capital');
+                setCurrentPage(1);
+              }}
+              className={`flex-1 min-w-[130px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                activeTab === 'initial_capital'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-amber-800 bg-amber-50/70 hover:bg-amber-100'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">savings</span>
+              <span>{txt.tabInitialCapital}</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-amber-200/60 text-amber-900 ml-0.5">{initialCapitalList.length}</span>
             </button>
           </div>
         </div>
@@ -2551,6 +2705,190 @@ export const AccountingPage: React.FC = () => {
         )}
 
         {/* ================================================================= */}
+        {/* SUB-MODULE 6: MODAL AWAL & SETORAN EKUITAS (INITIAL CAPITAL HUB) */}
+        {/* ================================================================= */}
+        {activeTab === 'initial_capital' && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-xs space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-100 pb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0 border border-amber-500/20">
+                    <span className="material-symbols-outlined text-2xl">savings</span>
+                  </div>
+                  <div>
+                    <h3 className="font-black text-lg text-stone-900 flex items-center gap-2">
+                      <span>{txt.capitalTitle}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                        {language === 'JP' ? '貸借対照表 (BS) リアルタイム連動' : language === 'EN' ? 'Live Balance Sheet Sync' : 'Sinkron Neraca Live'}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      {txt.capitalSub}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCapitalModalOpen(true)}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+                >
+                  <span className="material-symbols-outlined text-base">add_circle</span>
+                  <span>{txt.btnAddCapital}</span>
+                </button>
+              </div>
+
+              {/* Informational Sync Banner */}
+              <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 text-xs text-amber-900">
+                <span className="material-symbols-outlined text-amber-600 text-xl shrink-0 mt-0.5">info</span>
+                <div>
+                  <span className="font-bold block mb-0.5">
+                    {language === 'JP'
+                      ? '💡 資本金・元入金の貸借対照表（バランスシート）自動連動について'
+                      : language === 'EN'
+                      ? '💡 Automatic Balance Sheet Integration for Initial Capital'
+                      : '💡 Integrasi Otomatis Modal Awal ke Neraca Keuangan (Balance Sheet)'}
+                  </span>
+                  <p className="text-amber-800 leading-relaxed">
+                    {language === 'JP'
+                      ? '登録された初期資本金は、貸借対照表（Balance Sheet）の「純資産の部（資本金 / Capital Paid-in）」および「流動資産（銀行口座残高・POSレジ現金）」へ即座に反映され、貸借一致（Balanced ¥）します。'
+                      : language === 'EN'
+                      ? 'Every initial capital entry automatically flows into the Balance Sheet under "Equity (Capital Paid-in)" and "Current Assets (Bank/Cash)", ensuring double-entry balance at all times.'
+                      : 'Setiap nominal modal awal yang Anda masukkan di sini otomatis tercatat ke dalam Neraca Keuangan (Balance Sheet) pada pos "Ekuitas (Modal Disetor)" dan "Aset Lancar (Kas/Bank)", sehingga posisi keuangan selalu 100% seimbang (Balanced).'}
+                  </p>
+                </div>
+              </div>
+
+              {/* KPI Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4.5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-1">
+                  <span className="text-[11px] font-bold text-amber-800 uppercase block">{txt.kpiTotalCapital}</span>
+                  <div className="text-2xl font-black text-amber-700 font-mono">
+                    ¥{totalInitialCapital.toLocaleString()}
+                  </div>
+                  <span className="text-[11px] text-amber-600">{initialCapitalList.length} Catatan Setoran Modal</span>
+                </div>
+
+                <div className="p-4.5 rounded-2xl bg-blue-50 border border-blue-200 space-y-1">
+                  <span className="text-[11px] font-bold text-blue-800 uppercase block">{txt.kpiBankCapital}</span>
+                  <div className="text-2xl font-black text-blue-700 font-mono">
+                    ¥{capitalInBank.toLocaleString()}
+                  </div>
+                  <span className="text-[11px] text-blue-600">Masuk ke Rekening Bank</span>
+                </div>
+
+                <div className="p-4.5 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-1">
+                  <span className="text-[11px] font-bold text-emerald-800 uppercase block">{txt.kpiCashCapital}</span>
+                  <div className="text-2xl font-black text-emerald-700 font-mono">
+                    ¥{capitalInCash.toLocaleString()}
+                  </div>
+                  <span className="text-[11px] text-emerald-600">Masuk ke Kas Kasir POS</span>
+                </div>
+
+                <div className="p-4.5 rounded-2xl bg-purple-50 border border-purple-200 space-y-1">
+                  <span className="text-[11px] font-bold text-purple-800 uppercase block">{txt.kpiAssetCapital}</span>
+                  <div className="text-2xl font-black text-purple-700 font-mono">
+                    ¥{capitalInAsset.toLocaleString()}
+                  </div>
+                  <span className="text-[11px] text-purple-600">Modal Berupa Peralatan/Aset</span>
+                </div>
+              </div>
+
+              {/* Zero State or Capital Table */}
+              {initialCapitalList.length === 0 ? (
+                <div className="p-12 text-center rounded-2xl border border-dashed border-stone-200 bg-stone-50/50 space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+                    <span className="material-symbols-outlined text-2xl">savings</span>
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-black text-stone-800">
+                      {language === 'JP' ? '登録された初期資本金データがありません' : language === 'EN' ? 'No Initial Capital Entries Recorded' : 'Belum Ada Data Modal Awal yang Diinput'}
+                    </h4>
+                    <p className="text-xs text-stone-500 max-w-md mx-auto">
+                      {language === 'JP'
+                        ? '「+ 初期資本金を登録」ボタンをクリックして、開業資金や出資金を登録すると、貸借対照表に即時反映されます。'
+                        : language === 'EN'
+                        ? 'Click "+ Add Initial Capital" to register startup capital or founder investment, syncing immediately to the balance sheet.'
+                        : 'Klik tombol "+ Setor / Tambah Modal Awal" untuk mencatat modal disetor awal Anda, yang akan langsung otomatis terhubung ke Neraca Keuangan.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCapitalModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-base">add</span>
+                    <span>{txt.btnAddCapital}</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-stone-200 bg-stone-50 text-stone-700 font-bold uppercase text-[11px]">
+                        <th className="py-3 px-3">{txt.thCapitalDate}</th>
+                        <th className="py-3 px-3">{txt.thCapitalRef}</th>
+                        <th className="py-3 px-3">{txt.thCapitalType}</th>
+                        <th className="py-3 px-3">{txt.thCapitalSource}</th>
+                        <th className="py-3 px-3">{txt.thCapitalTarget}</th>
+                        <th className="py-3 px-3 text-right">{txt.thCapitalAmount}</th>
+                        <th className="py-3 px-3">{txt.thCapitalNotes}</th>
+                        <th className="py-3 px-3 text-center">{txt.thCapitalStatus}</th>
+                        <th className="py-3 px-3 text-center">{txt.thCapitalAction}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {initialCapitalList.map((cap) => (
+                        <tr key={cap.id} className="hover:bg-amber-50/30 transition-colors">
+                          <td className="py-3 px-3 font-mono text-stone-600">{cap.date}</td>
+                          <td className="py-3 px-3 font-mono font-bold text-amber-800">{cap.refNumber}</td>
+                          <td className="py-3 px-3">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                cap.sourceType === 'OWNER_EQUITY'
+                                  ? 'bg-amber-100 text-amber-900'
+                                  : cap.sourceType === 'INVESTOR'
+                                  ? 'bg-blue-100 text-blue-900'
+                                  : cap.sourceType === 'BANK_LOAN_CAPITAL'
+                                  ? 'bg-rose-100 text-rose-900'
+                                  : 'bg-purple-100 text-purple-900'
+                              }`}
+                            >
+                              {cap.sourceTypeName || cap.sourceType}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 font-bold text-stone-800">{cap.sourceName}</td>
+                          <td className="py-3 px-3 text-stone-700 font-medium">{cap.destinationAccount}</td>
+                          <td className="py-3 px-3 text-right font-mono font-black text-amber-700 text-sm">
+                            ¥{Number(cap.amount || 0).toLocaleString()}
+                          </td>
+                          <td className="py-3 px-3 text-stone-600 max-w-xs truncate">{cap.notes}</td>
+                          <td className="py-3 px-3 text-center">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1 w-fit mx-auto">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              <span>{cap.status}</span>
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCapital(cap.id)}
+                              className="p-1 text-stone-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                              title="Hapus Modal"
+                            >
+                              <span className="material-symbols-outlined text-base">delete</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================= */}
         {/* MODAL 1: CATAT KAS KELUAR (CASH OUTFLOW) */}
         {/* ================================================================= */}
         {isCashOutModalOpen && (
@@ -3217,6 +3555,145 @@ export const AccountingPage: React.FC = () => {
                     className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-xs cursor-pointer"
                   >
                     Simpan Akun Bank
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================= */}
+        {/* MODAL 6: SETOR / TAMBAH MODAL AWAL (INITIAL CAPITAL) */}
+        {/* ================================================================= */}
+        {isCapitalModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 border border-stone-200">
+              <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+                <div className="flex items-center gap-2 font-black text-base text-amber-800">
+                  <span className="material-symbols-outlined text-xl">savings</span>
+                  <span>{language === 'JP' ? '初期資本金・元入金の登録' : language === 'EN' ? 'Deposit Initial Capital' : 'Setor / Tambah Modal Awal'}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCapitalModalOpen(false)}
+                  className="text-stone-400 hover:text-stone-700 cursor-pointer p-1"
+                >
+                  <span className="material-symbols-outlined text-lg">close</span>
+                </button>
+              </div>
+
+              <form onSubmit={handleAddCapital} className="space-y-4 text-xs font-medium">
+                <div>
+                  <label className="block text-stone-600 font-bold mb-1">
+                    {language === 'JP' ? '出資・資本金種別:' : language === 'EN' ? 'Capital Source Type:' : 'Jenis Sumber Modal:'}
+                  </label>
+                  <select
+                    value={newCapital.sourceType}
+                    onChange={(e) => setNewCapital({ ...newCapital, sourceType: e.target.value as any })}
+                    className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-800 font-bold outline-none focus:border-amber-600"
+                  >
+                    <option value="OWNER_EQUITY">Modal Disetor Pemilik (Owner Equity)</option>
+                    <option value="INVESTOR">Penyertaan Modal Investor (Partner Equity)</option>
+                    <option value="BANK_LOAN_CAPITAL">Pinjaman Modal Kerja (Startup Working Capital Loan)</option>
+                    <option value="ASSET_GRANT">Hibah / Setoran Modal Berupa Aset (Equipment Grant)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-stone-600 font-bold mb-1">
+                    {language === 'JP' ? '出資者名 / 名義人:' : language === 'EN' ? 'Founder / Investor Name:' : 'Nama Pemilik / Penyetor Modal:'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Willy Pratama (Owner)"
+                    value={newCapital.sourceName}
+                    onChange={(e) => setNewCapital({ ...newCapital, sourceName: e.target.value })}
+                    className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-800 outline-none focus:border-amber-600 font-bold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-stone-600 font-bold mb-1">
+                      {language === 'JP' ? '受入先タイプ:' : language === 'EN' ? 'Destination Type:' : 'Tujuan Setoran:'}
+                    </label>
+                    <select
+                      value={newCapital.destinationType}
+                      onChange={(e) => {
+                        const dt = e.target.value as any;
+                        setNewCapital({
+                          ...newCapital,
+                          destinationType: dt,
+                          destinationAccount:
+                            dt === 'BANK'
+                              ? 'Bank Japan Post (ゆうちょ銀行)'
+                              : dt === 'CASH'
+                              ? 'Kas POS Kasir Tokyo (Laci Tunai)'
+                              : 'Aset Peralatan Toko & Gudang'
+                        });
+                      }}
+                      className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-800 font-bold outline-none focus:border-amber-600"
+                    >
+                      <option value="BANK">Rekening Bank</option>
+                      <option value="CASH">Kas Tunai POS</option>
+                      <option value="ASSET">Aset / Peralatan</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-stone-600 font-bold mb-1">
+                      {language === 'JP' ? '受入口座 / 金庫:' : language === 'EN' ? 'Target Account:' : 'Akun Tujuan:'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newCapital.destinationAccount}
+                      onChange={(e) => setNewCapital({ ...newCapital, destinationAccount: e.target.value })}
+                      className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-800 outline-none focus:border-amber-600 font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-stone-600 font-bold mb-1">
+                    {language === 'JP' ? '出資金額 (¥ JPY):' : language === 'EN' ? 'Capital Amount (¥ JPY):' : 'Nominal Modal Awal (¥ JPY):'}
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={newCapital.amount}
+                    onChange={(e) => setNewCapital({ ...newCapital, amount: Number(e.target.value) })}
+                    className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-amber-700 font-mono font-black text-base outline-none focus:border-amber-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-stone-600 font-bold mb-1">
+                    {language === 'JP' ? '備考 / 目的:' : language === 'EN' ? 'Notes / Purpose:' : 'Keterangan Setoran Modal:'}
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. Modal awal pendirian usaha dan kasir Sembako Nusantara Jepang"
+                    value={newCapital.notes}
+                    onChange={(e) => setNewCapital({ ...newCapital, notes: e.target.value })}
+                    className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-800 outline-none focus:border-amber-600"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCapitalModalOpen(false)}
+                    className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-xl cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-xs cursor-pointer"
+                  >
+                    Simpan & Sinkronkan
                   </button>
                 </div>
               </form>

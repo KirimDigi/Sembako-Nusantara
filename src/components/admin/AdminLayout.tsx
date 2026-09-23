@@ -179,6 +179,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
       badgeColor: 'bg-teal-600 text-white',
       isActive: location.pathname === '/admin/accounting' && location.search.includes('tab=bank_accounts'),
       allowedRoles: ['Super Admin (Owner)', 'Finance / Akuntan']
+    },
+    {
+      id: 'initial_capital',
+      label: language === 'JP' ? '初期資本金・元入金' : language === 'EN' ? 'Initial Capital' : 'Modal Awal',
+      path: '/admin/accounting?tab=initial_capital',
+      icon: 'savings',
+      badge: 'Modal',
+      badgeColor: 'bg-amber-600 text-white',
+      isActive: location.pathname === '/admin/accounting' && location.search.includes('tab=initial_capital'),
+      allowedRoles: ['Super Admin (Owner)', 'Finance / Akuntan']
     }
   ];
 
@@ -475,7 +485,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                          5
+                          {accountingSubItems.length}
                         </span>
                         <span
                           className={`material-symbols-outlined text-base text-stone-400 transition-transform duration-200 ${
