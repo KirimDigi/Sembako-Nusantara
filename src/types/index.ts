@@ -108,6 +108,7 @@ export interface POSTransaction {
   amountPaid: number;
   changeAmount: number;
   customerName?: string;
+  notes?: string;
 }
 
 // === PHASE 1 & 3: Multi-Warehouse & Inventory Types ===

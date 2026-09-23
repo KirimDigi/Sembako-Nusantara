@@ -169,3 +169,94 @@ VALUES
     ('SN-JP-849201', '1', 'Indomie Mi Goreng Spesial (Dus / 40 Pcs)', 'https://bfvdvwkyivrikjbefwnm.supabase.co/storage/v1/object/public/product-images/product-1789735975845-nuwx4c.jpg', 4800, 1, 4800),
     ('SN-JP-849201', '2', 'Kecap Manis Bango 550ml', 'https://bfvdvwkyivrikjbefwnm.supabase.co/storage/v1/object/public/product-images/product-1789453624834-rbs12l.jpeg', 600, 1, 600)
 ON CONFLICT DO NOTHING;
+
+-- --------------------------------------------------------------------
+-- 5. TABLE: pos_transactions (Daftar Penjualan Kasir Toko Fisik)
+-- --------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.pos_transactions (
+    id VARCHAR(100) PRIMARY KEY,
+    receipt_number VARCHAR(100) UNIQUE NOT NULL,
+    transaction_date TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    cashier_name VARCHAR(150) NOT NULL,
+    customer_name VARCHAR(200) DEFAULT 'Walk-in Customer',
+    payment_method VARCHAR(50) NOT NULL, -- 'Cash', 'JPQR / QRIS', 'PayPay', 'Credit Card', 'IC Card'
+    subtotal NUMERIC(12,2) NOT NULL DEFAULT 0,
+    discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+    tax_amount NUMERIC(12,2) NOT NULL DEFAULT 0, -- 8% JCT Reduced Tax Rate
+    total_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+    amount_paid NUMERIC(12,2) NOT NULL DEFAULT 0,
+    change_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+    status VARCHAR(50) DEFAULT 'Lunas',
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- --------------------------------------------------------------------
+-- 6. TABLE: pos_transaction_items (Rincian Item Penjualan Kasir)
+-- --------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.pos_transaction_items (
+    id BIGSERIAL PRIMARY KEY,
+    transaction_id VARCHAR(100) NOT NULL REFERENCES public.pos_transactions(id) ON DELETE CASCADE,
+    product_id VARCHAR(100),
+    product_name VARCHAR(255) NOT NULL,
+    unit_price NUMERIC(12,2) NOT NULL DEFAULT 0,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    subtotal NUMERIC(12,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Indexes for POS Performance
+CREATE INDEX IF NOT EXISTS idx_pos_transactions_date ON public.pos_transactions(transaction_date DESC);
+CREATE INDEX IF NOT EXISTS idx_pos_transactions_receipt ON public.pos_transactions(receipt_number);
+CREATE INDEX IF NOT EXISTS idx_pos_transactions_payment ON public.pos_transactions(payment_method);
+CREATE INDEX IF NOT EXISTS idx_pos_transaction_items_tx_id ON public.pos_transaction_items(transaction_id);
+
+-- Enable RLS for POS Tables
+ALTER TABLE public.pos_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pos_transaction_items ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for pos_transactions
+DROP POLICY IF EXISTS "Allow public read pos_transactions" ON public.pos_transactions;
+CREATE POLICY "Allow public read pos_transactions"
+    ON public.pos_transactions FOR SELECT
+    TO anon, authenticated
+    USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert pos_transactions" ON public.pos_transactions;
+CREATE POLICY "Allow public insert pos_transactions"
+    ON public.pos_transactions FOR INSERT
+    TO anon, authenticated
+    WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public update pos_transactions" ON public.pos_transactions;
+CREATE POLICY "Allow public update pos_transactions"
+    ON public.pos_transactions FOR UPDATE
+    TO anon, authenticated
+    USING (true);
+
+DROP POLICY IF EXISTS "Allow public delete pos_transactions" ON public.pos_transactions;
+CREATE POLICY "Allow public delete pos_transactions"
+    ON public.pos_transactions FOR DELETE
+    TO anon, authenticated
+    USING (true);
+
+-- RLS Policies for pos_transaction_items
+DROP POLICY IF EXISTS "Allow public read pos_transaction_items" ON public.pos_transaction_items;
+CREATE POLICY "Allow public read pos_transaction_items"
+    ON public.pos_transaction_items FOR SELECT
+    TO anon, authenticated
+    USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert pos_transaction_items" ON public.pos_transaction_items;
+CREATE POLICY "Allow public insert pos_transaction_items"
+    ON public.pos_transaction_items FOR INSERT
+    TO anon, authenticated
+    WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public delete pos_transaction_items" ON public.pos_transaction_items;
+CREATE POLICY "Allow public delete pos_transaction_items"
+    ON public.pos_transaction_items FOR DELETE
+    TO anon, authenticated
+    USING (true);
+

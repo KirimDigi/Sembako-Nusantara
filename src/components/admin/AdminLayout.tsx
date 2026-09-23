@@ -16,11 +16,12 @@ interface AdminLayoutProps {
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subtitle }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { products, orders, suppliers, customers, vouchers, activeRole, setActiveRole } = useAdmin();
+  const { products, orders, posTransactions, suppliers, customers, vouchers, activeRole, setActiveRole } = useAdmin();
   const { currentUser, logout } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMasterDataOpen, setIsMasterDataOpen] = useState(true);
+  const [isPosOpen, setIsPosOpen] = useState(true);
   const [isAccountingOpen, setIsAccountingOpen] = useState(true);
   const [supabaseStatus, setSupabaseStatus] = useState<{ connected: boolean; latencyMs?: number }>({
     connected: true,
@@ -128,6 +129,32 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
     (location.pathname === '/admin/purchasing' && location.search.includes('tab=suppliers')) ||
     (location.pathname === '/admin/crm' && (location.search.includes('tab=members') || location.search.includes('tab=vouchers')));
 
+  // Sub-menu for POS Kasir Toko
+  const posSubItems = [
+    {
+      id: 'terminal',
+      label: language === 'JP' ? 'POSレジ端末 (Live)' : language === 'EN' ? 'POS Live Terminal' : 'Mesin Kasir (POS Live)',
+      path: '/admin/pos',
+      icon: 'point_of_sale',
+      badge: 'Live',
+      badgeColor: 'bg-emerald-600 text-white',
+      isActive: location.pathname === '/admin/pos' && !location.search.includes('tab=history') && !location.search.includes('tab=sales'),
+      allowedRoles: ['Super Admin (Owner)', 'Kasir (POS)']
+    },
+    {
+      id: 'history',
+      label: language === 'JP' ? 'レジ売上履歴・一覧' : language === 'EN' ? 'Cashier Sales Records' : 'Daftar Penjualan Kasir',
+      path: '/admin/pos?tab=history',
+      icon: 'receipt_long',
+      badge: `${posTransactions.length}`,
+      badgeColor: 'bg-blue-600 text-white',
+      isActive: location.pathname === '/admin/pos' && (location.search.includes('tab=history') || location.search.includes('tab=sales')),
+      allowedRoles: ['Super Admin (Owner)', 'Kasir (POS)', 'Finance / Akuntan']
+    }
+  ];
+
+  const isPosActive = location.pathname === '/admin/pos';
+
   // Sub-menu for Accounting & Pajak (Kas Keluar, Kas Masuk, Kas Transfer, Jurnal Aset)
   const accountingSubItems = [
     {
@@ -206,8 +233,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
       label: t('admin_nav_pos'),
       path: '/admin/pos',
       icon: 'point_of_sale',
-      badge: 'Live',
-      allowedRoles: ['Super Admin (Owner)', 'Kasir (POS)']
+      badge: posTransactions.length > 0 ? `${posTransactions.length}` : 'Live',
+      badgeColor: 'bg-emerald-600 text-white',
+      allowedRoles: ['Super Admin (Owner)', 'Kasir (POS)', 'Finance / Akuntan'],
+      isPosGroup: true
     },
     {
       label: t('admin_nav_inventory'),
@@ -465,6 +494,77 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
             {/* 3. Remaining Main Navigation Links */}
             {navItems.slice(1).map((item) => {
               const isAllowed = item.allowedRoles.includes(activeRole);
+
+              // Special treatment for POS Kasir Toko with Sub-menus (Mesin Kasir & Daftar Penjualan Kasir)
+              if (item.isPosGroup) {
+                return (
+                  <div key={item.path} className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsPosOpen(!isPosOpen)}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                        isPosActive && !isPosOpen
+                          ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/40'
+                          : 'text-stone-200 hover:bg-stone-800/80'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-lg text-emerald-400">{item.icon}</span>
+                        <span>{item.label}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          {posSubItems.length}
+                        </span>
+                        <span
+                          className={`material-symbols-outlined text-base text-stone-400 transition-transform duration-200 ${
+                            isPosOpen ? 'rotate-180 text-emerald-400' : ''
+                          }`}
+                        >
+                          expand_more
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* POS Sub-menu List */}
+                    {isPosOpen && (
+                      <div className="mt-1 ml-3 pl-3 border-l-2 border-emerald-500/30 space-y-1 animate-fadeIn">
+                        {posSubItems.map((sub) => {
+                          const subAllowed = sub.allowedRoles.includes(activeRole);
+                          return (
+                            <Link
+                              key={sub.id}
+                              to={sub.path}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className={`flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-medium transition-all ${
+                                sub.isActive
+                                  ? 'bg-[#c41230] text-white font-bold shadow-xs'
+                                  : subAllowed
+                                  ? 'text-stone-300 hover:bg-stone-800 hover:text-white'
+                                  : 'text-stone-600 hover:bg-stone-900 cursor-not-allowed opacity-50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="material-symbols-outlined text-base shrink-0 opacity-80">{sub.icon}</span>
+                                <span className="truncate">{sub.label}</span>
+                              </div>
+                              {sub.badge && (
+                                <span
+                                  className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ml-1.5 ${
+                                    sub.badgeColor || 'bg-stone-700 text-stone-200'
+                                  }`}
+                                >
+                                  {sub.badge}
+                                </span>
+                              )}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
 
               // Special treatment for Accounting & Pajak with 4 Sub-menus
               if (item.isAccountingGroup) {

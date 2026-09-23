@@ -61,6 +61,7 @@ interface AdminContextType {
     courier?: Order['courier']
   ) => void;
   addSupplier: (supplierData: Omit<Supplier, 'id'>) => Supplier;
+  addCustomer: (customerData: Omit<CustomerCRM, 'id' | 'registeredDate'>) => CustomerCRM;
   addVoucher: (voucher: Voucher) => void;
   toggleVoucher: (code: string) => void;
   applyVoucher: (
@@ -110,7 +111,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const saved = localStorage.getItem('sn_admin_orders_v2');
     return saved ? JSON.parse(saved) : INITIAL_ORDERS;
   });
-  const [customers, setCustomers] = useState<CustomerCRM[]>(INITIAL_CUSTOMERS);
+  const [customers, setCustomers] = useState<CustomerCRM[]>(() => {
+    const saved = localStorage.getItem('sn_customers_v1');
+    return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
+  });
   const [vouchers, setVouchers] = useState<Voucher[]>(() => {
     const saved = localStorage.getItem('sn_vouchers_v3');
     return saved ? JSON.parse(saved) : INITIAL_VOUCHERS;
@@ -121,6 +125,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     localStorage.setItem('sn_products_v3', JSON.stringify(products));
   }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('sn_customers_v1', JSON.stringify(customers));
+  }, [customers]);
 
   useEffect(() => {
     localStorage.setItem('sn_suppliers_v3', JSON.stringify(suppliers));
@@ -192,6 +200,55 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     fetchCloudOrders();
   }, []);
 
+  // Fetch live POS transactions from Supabase if connected
+  useEffect(() => {
+    const fetchCloudPOSTransactions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('pos_transactions')
+          .select('*, pos_transaction_items(*)')
+          .order('transaction_date', { ascending: false });
+
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          const cloudTx: POSTransaction[] = data.map((d: any) => ({
+            id: d.id,
+            receiptNumber: d.receipt_number,
+            date: d.transaction_date || d.created_at,
+            cashierName: d.cashier_name || 'Kasir',
+            customerName: d.customer_name || 'Walk-in Customer',
+            paymentMethod: d.payment_method || 'Cash',
+            subtotal: Number(d.subtotal) || 0,
+            discountAmount: Number(d.discount_amount) || 0,
+            taxAmount: Number(d.tax_amount) || 0,
+            totalAmount: Number(d.total_amount) || 0,
+            amountPaid: Number(d.amount_paid) || 0,
+            changeAmount: Number(d.change_amount) || 0,
+            notes: d.notes || '',
+            items: (d.pos_transaction_items || []).map((it: any) => ({
+              productId: it.product_id,
+              productName: it.product_name,
+              price: Number(it.unit_price) || 0,
+              quantity: Number(it.quantity) || 1,
+              subtotal: Number(it.subtotal) || 0
+            }))
+          }));
+
+          setPosTransactions((prev) => {
+            const merged = [...cloudTx];
+            prev.forEach((localTx) => {
+              if (!merged.some((m) => m.id === localTx.id || m.receiptNumber === localTx.receiptNumber)) {
+                merged.push(localTx);
+              }
+            });
+            return merged;
+          });
+        }
+      } catch (e) {}
+    };
+
+    fetchCloudPOSTransactions();
+  }, []);
+
   const updateProductStock = (
     productId: string,
     deltaQuantity: number,
@@ -253,6 +310,39 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     setPosTransactions((prev) => [newTx, ...prev]);
+
+    // Cloud Database Synchronization (Supabase pos_transactions & pos_transaction_items)
+    try {
+      supabase.from('pos_transactions').upsert({
+        id: newTx.id,
+        receipt_number: newTx.receiptNumber,
+        transaction_date: new Date().toISOString(),
+        cashier_name: newTx.cashierName,
+        customer_name: newTx.customerName || 'Walk-in Customer',
+        payment_method: newTx.paymentMethod,
+        subtotal: newTx.subtotal,
+        discount_amount: newTx.discountAmount,
+        tax_amount: newTx.taxAmount,
+        total_amount: newTx.totalAmount,
+        amount_paid: newTx.amountPaid,
+        change_amount: newTx.changeAmount,
+        status: 'Lunas',
+        notes: newTx.notes || null
+      }).then(() => {
+        if (newTx.items && Array.isArray(newTx.items) && newTx.items.length > 0) {
+          const itemsPayload = newTx.items.map((it) => ({
+            transaction_id: newTx.id,
+            product_id: it.productId,
+            product_name: it.productName,
+            unit_price: it.price,
+            quantity: it.quantity,
+            subtotal: it.subtotal
+          }));
+          supabase.from('pos_transaction_items').insert(itemsPayload).then(() => {}).catch(() => {});
+        }
+      }).catch(() => {});
+    } catch (e) {}
+
     return newTx;
   };
 
@@ -444,6 +534,21 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return newSup;
   };
 
+  const addCustomer = (customerData: Omit<CustomerCRM, 'id' | 'registeredDate'>): CustomerCRM => {
+    const newCust: CustomerCRM = {
+      ...customerData,
+      id: 'cust-' + (customers.length + 1),
+      registeredDate: new Date().toISOString().substring(0, 10),
+      totalOrders: customerData.totalOrders ?? 0,
+      totalSpent: customerData.totalSpent ?? 0,
+      loyaltyPoints: customerData.loyaltyPoints ?? 0,
+      tier: customerData.tier ?? 'Bronze',
+      preferredLanguage: customerData.preferredLanguage ?? 'ID'
+    };
+    setCustomers((prev) => [newCust, ...prev]);
+    return newCust;
+  };
+
   const addVoucher = (voucher: Voucher) => {
     setVouchers((prev) => [...prev, voucher]);
   };
@@ -536,6 +641,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addOrder,
         updateOrderStatus,
         addSupplier,
+        addCustomer,
         addVoucher,
         toggleVoucher,
         applyVoucher,
