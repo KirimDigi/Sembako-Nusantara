@@ -274,7 +274,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
             <span className="material-symbols-outlined text-2xl">menu</span>
           </button>
           <div className="flex items-center gap-2 font-bold text-sm">
-            <img src={assetUrl('LOGO PUTIH SN.png')} alt="Logo" className="h-6 w-auto object-contain rounded" />
+            <img
+              src={assetUrl('logo-transparent.png')}
+              alt="Logo"
+              className="h-6 w-auto object-contain"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = assetUrl('logo-sn-white.png');
+              }}
+            />
             <span className="tracking-tight">Sembako Admin</span>
           </div>
         </div>
@@ -307,9 +314,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
           <div className="flex items-center justify-between pb-5 border-b border-stone-800">
             <div className="flex items-center gap-2.5">
               <img
-                src={assetUrl('LOGO MERAH SN.jpeg')}
+                src={assetUrl('logo-transparent.png')}
                 alt="Logo Sembako Nusantara"
-                className="w-9 h-9 rounded-xl object-contain shadow-md shrink-0"
+                className="w-9 h-9 rounded-xl object-contain shadow-md shrink-0 bg-white/10 p-1"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = assetUrl('logo-sn-red.jpeg');
+                }}
               />
               <div>
                 <h1 className="font-bold text-white text-sm tracking-wide">SEMBAKO NUSANTARA</h1>

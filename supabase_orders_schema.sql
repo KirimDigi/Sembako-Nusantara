@@ -1,62 +1,10 @@
 -- ====================================================================
--- SEMBAKO NUSANTARA JEPANG - SUPABASE SCHEMA: COMPLETE DATABASE
--- (ADMIN ACCOUNTS, ORDERS, ORDER ITEMS & REALTIME POLICIES)
+-- SEMBAKO NUSANTARA JEPANG - SUPABASE SCHEMA: ORDERS & ORDER ITEMS
+-- Jalankan script SQL ini di Supabase SQL Editor untuk mengaktifkan
+-- sinkronisasi pesanan pelanggan (Willy Pratama) dengan Admin & Kurir.
 -- ====================================================================
 
--- --------------------------------------------------------------------
--- 1. TABLE: admin_accounts
--- --------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.admin_accounts (
-    id VARCHAR(50) PRIMARY KEY,              -- 'id0926'
-    password VARCHAR(255) NOT NULL,          -- 'admin123'
-    name VARCHAR(100) NOT NULL,              -- 'Jangsan'
-    role VARCHAR(50) NOT NULL DEFAULT 'Super Admin (Owner)',
-    email VARCHAR(100) DEFAULT 'admin@sembako-nusantara.jp',
-    phone VARCHAR(50) DEFAULT '+81 80-1234-5678',
-    avatar_url VARCHAR(255) DEFAULT '/avatar-jangsan.png',
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    last_login TIMESTAMP WITH TIME ZONE
-);
-
-ALTER TABLE public.admin_accounts ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Allow anon read for admin authentication" ON public.admin_accounts;
-CREATE POLICY "Allow anon read for admin authentication"
-    ON public.admin_accounts
-    FOR SELECT
-    TO anon, authenticated
-    USING (is_active = true);
-
-DROP POLICY IF EXISTS "Allow anon update last_login" ON public.admin_accounts;
-CREATE POLICY "Allow anon update last_login"
-    ON public.admin_accounts
-    FOR UPDATE
-    TO anon, authenticated
-    USING (true);
-
--- Seed Default Admin
-INSERT INTO public.admin_accounts (id, password, name, role, email, phone, avatar_url, is_active)
-VALUES (
-    'id0926',
-    'admin123',
-    'Jangsan (Super Admin)',
-    'Super Admin (Owner)',
-    'admin@sembako-nusantara.jp',
-    '+81 80-1234-5678',
-    '/avatar-jangsan.png',
-    true
-)
-ON CONFLICT (id) DO UPDATE SET
-    password = EXCLUDED.password,
-    name = EXCLUDED.name,
-    role = EXCLUDED.role,
-    avatar_url = EXCLUDED.avatar_url,
-    is_active = true;
-
--- --------------------------------------------------------------------
--- 2. TABLE: orders (Integrated Customer Orders & Admin Courier Dispatch)
--- --------------------------------------------------------------------
+-- 1. Table: orders
 CREATE TABLE IF NOT EXISTS public.orders (
     id VARCHAR(50) PRIMARY KEY,                         -- 'SN-JP-849201'
     tracking_number VARCHAR(100) DEFAULT '',            -- '4829-3849-2938'
@@ -78,9 +26,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- --------------------------------------------------------------------
--- 3. TABLE: order_items (Item Line Details)
--- --------------------------------------------------------------------
+-- 2. Table: order_items
 CREATE TABLE IF NOT EXISTS public.order_items (
     id BIGSERIAL PRIMARY KEY,
     order_id VARCHAR(50) NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
@@ -93,51 +39,33 @@ CREATE TABLE IF NOT EXISTS public.order_items (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Indexes for Speed
+-- 3. Indexes
 CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_customer_name ON public.orders(customer_name);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON public.order_items(order_id);
 
--- Enable RLS
+-- 4. Enable RLS
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for orders
+-- 5. RLS Policies
 DROP POLICY IF EXISTS "Allow public read orders" ON public.orders;
-CREATE POLICY "Allow public read orders"
-    ON public.orders FOR SELECT
-    TO anon, authenticated
-    USING (true);
+CREATE POLICY "Allow public read orders" ON public.orders FOR SELECT TO anon, authenticated USING (true);
 
 DROP POLICY IF EXISTS "Allow public insert orders" ON public.orders;
-CREATE POLICY "Allow public insert orders"
-    ON public.orders FOR INSERT
-    TO anon, authenticated
-    WITH CHECK (true);
+CREATE POLICY "Allow public insert orders" ON public.orders FOR INSERT TO anon, authenticated WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow public update orders" ON public.orders;
-CREATE POLICY "Allow public update orders"
-    ON public.orders FOR UPDATE
-    TO anon, authenticated
-    USING (true);
+CREATE POLICY "Allow public update orders" ON public.orders FOR UPDATE TO anon, authenticated USING (true);
 
--- RLS Policies for order_items
 DROP POLICY IF EXISTS "Allow public read order_items" ON public.order_items;
-CREATE POLICY "Allow public read order_items"
-    ON public.order_items FOR SELECT
-    TO anon, authenticated
-    USING (true);
+CREATE POLICY "Allow public read order_items" ON public.order_items FOR SELECT TO anon, authenticated USING (true);
 
 DROP POLICY IF EXISTS "Allow public insert order_items" ON public.order_items;
-CREATE POLICY "Allow public insert order_items"
-    ON public.order_items FOR INSERT
-    TO anon, authenticated
-    WITH CHECK (true);
+CREATE POLICY "Allow public insert order_items" ON public.order_items FOR INSERT TO anon, authenticated WITH CHECK (true);
 
--- --------------------------------------------------------------------
--- 4. SEED SAMPLE ORDER (Customer: Willy Pratama)
--- --------------------------------------------------------------------
+-- 6. Sample Data (Customer: Willy Pratama)
 INSERT INTO public.orders (
     id, tracking_number, courier, status, total_amount, tax_amount, payment_method,
     customer_name, customer_email, customer_phone, shipping_address, postal_code,

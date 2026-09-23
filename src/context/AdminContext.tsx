@@ -23,6 +23,7 @@ import {
   INITIAL_VOUCHERS,
   INITIAL_COMPETITOR_PRICES
 } from '../data/adminMockData';
+import { supabase } from '../lib/supabase';
 
 interface AdminContextType {
   products: Product[];
@@ -144,6 +145,52 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     localStorage.setItem('sn_admin_orders_v2', JSON.stringify(orders));
   }, [orders]);
+
+  // Fetch live orders from Supabase if connected
+  useEffect(() => {
+    const fetchCloudOrders = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*, order_items(*)')
+          .order('created_at', { ascending: false });
+
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          const cloudOrders: Order[] = data.map((d: any) => ({
+            id: d.id,
+            trackingNumber: d.tracking_number || '',
+            courier: d.courier || 'Yamato Transport',
+            status: d.status || 'Dikemas',
+            totalAmount: Number(d.total_amount) || 0,
+            taxAmount: Number(d.tax_amount) || 0,
+            paymentMethod: d.payment_method || 'jpqr',
+            customerName: d.customer_name || 'Willy Pratama',
+            shippingAddress: d.shipping_address || '',
+            date: d.order_date || new Date(d.created_at).toLocaleDateString('id-ID'),
+            items: (d.order_items || []).map((it: any) => ({
+              id: it.product_id,
+              productName: it.product_name,
+              productImage: it.product_image,
+              price: Number(it.price),
+              quantity: it.quantity
+            }))
+          }));
+
+          setOrders((prev) => {
+            const merged = [...cloudOrders];
+            prev.forEach((localOrd) => {
+              if (!merged.some((m) => m.id === localOrd.id)) {
+                merged.push(localOrd);
+              }
+            });
+            return merged;
+          });
+        }
+      } catch (e) {}
+    };
+
+    fetchCloudOrders();
+  }, []);
 
   const updateProductStock = (
     productId: string,
@@ -305,6 +352,35 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       filteredUserOrders.unshift(userOrderSummary);
       localStorage.setItem('sn_user_orders', JSON.stringify(filteredUserOrders));
     } catch (e) {}
+
+    // Cloud Database Synchronization (Supabase)
+    try {
+      supabase.from('orders').upsert({
+        id: newOrder.id,
+        tracking_number: newOrder.trackingNumber || '',
+        courier: newOrder.courier || 'Yamato Transport',
+        status: newOrder.status || 'Dikemas',
+        total_amount: newOrder.totalAmount || 0,
+        tax_amount: newOrder.taxAmount || 0,
+        payment_method: newOrder.paymentMethod || 'jpqr',
+        customer_name: newOrder.customerName || 'Willy Pratama',
+        shipping_address: newOrder.shippingAddress || '',
+        order_date: newOrder.date
+      }).then(() => {
+        if (newOrder.items && Array.isArray(newOrder.items) && newOrder.items.length > 0) {
+          const itemsPayload = newOrder.items.map((it: any) => ({
+            order_id: newOrder.id,
+            product_id: it.id || it.productId || '1',
+            product_name: it.productName || it.name || 'Produk Sembako',
+            product_image: it.productImage || it.image || '',
+            price: Number(it.price) || 0,
+            quantity: Number(it.quantity || it.qty) || 1,
+            subtotal: (Number(it.price) || 0) * (Number(it.quantity || it.qty) || 1)
+          }));
+          supabase.from('order_items').insert(itemsPayload).then(() => {}).catch(() => {});
+        }
+      }).catch(() => {});
+    } catch (e) {}
   };
 
   const updateOrderStatus = (
@@ -346,6 +422,16 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return ord;
       });
       localStorage.setItem('sn_user_orders', JSON.stringify(updatedUserOrders));
+    } catch (e) {}
+
+    // Cloud Database Status Update (Supabase)
+    try {
+      supabase.from('orders').update({
+        status,
+        tracking_number: trackingNumber || undefined,
+        courier: courier || undefined,
+        updated_at: new Date().toISOString()
+      }).eq('id', orderId).then(() => {}).catch(() => {});
     } catch (e) {}
   };
 

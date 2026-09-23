@@ -13,7 +13,7 @@ export const AdminDashboardPage: React.FC = () => {
   const totalOnlineRevenue = orders.reduce((acc, curr) => acc + curr.totalAmount, 0);
   const totalGrossRevenue = totalPosRevenue + totalOnlineRevenue;
   const totalTransactionsCount = posTransactions.length + orders.length;
-  const isZeroState = totalTransactionsCount === 0;
+  const isZeroState = totalTransactionsCount === 0 || totalGrossRevenue === 0;
 
   // Laba Rugi Estimate
   const estimatedHPP = isZeroState ? 0 : Math.round(totalGrossRevenue * 0.62);
