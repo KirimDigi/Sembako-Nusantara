@@ -17,6 +17,7 @@ interface CartContextType {
   totalItems: number;
   subtotal: number;
   subtotalTax: number;
+  totalPrice: number;
   freeShippingThreshold: number;
   isFreeShipping: boolean;
   remainingForFreeShipping: number;
@@ -106,6 +107,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         totalItems,
         subtotal,
         subtotalTax,
+        totalPrice: subtotalTax,
         freeShippingThreshold,
         isFreeShipping,
         remainingForFreeShipping,

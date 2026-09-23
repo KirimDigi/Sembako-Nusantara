@@ -84,12 +84,14 @@ export const CheckoutPage: React.FC = () => {
       address: `${formData.postalCode} ${formData.prefecture} ${formData.city} ${formData.address}`,
       items: cart.map(item => ({
         id: item.product.id,
+        productId: item.product.id,
         productName: item.product.name,
         name: item.product.name,
         productImage: item.product.image,
         quantity: item.quantity,
         qty: item.quantity,
-        price: item.product.priceTax * item.quantity
+        price: item.product.priceTax,
+        subtotal: item.product.priceTax * item.quantity
       }))
     };
 

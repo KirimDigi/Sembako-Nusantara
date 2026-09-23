@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useAdmin } from '../../context/AdminContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -7,6 +8,7 @@ import { Product } from '../../types';
 export const ProductManagementPage: React.FC = () => {
   const { products, addNewProduct, updateProduct, deleteProduct, updateProductStock } = useAdmin();
   const { t, language } = useLanguage();
+  const [searchParams] = useSearchParams();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
@@ -17,6 +19,12 @@ export const ProductManagementPage: React.FC = () => {
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'new') {
+      setIsAddModalOpen(true);
+    }
+  }, [searchParams]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [quickStockTarget, setQuickStockTarget] = useState<{ id: string; name: string; current: number } | null>(null);
   const [quickStockDelta, setQuickStockDelta] = useState<number>(10);
@@ -290,7 +298,13 @@ export const ProductManagementPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
           <div className="flex items-center gap-2 text-stone-700 text-xs font-bold">
             <span className="material-symbols-outlined text-lg text-[#c41230]">inventory_2</span>
-            <span>Master Katalog & Stok ({products.length} SKU Aktif)</span>
+            <span>
+              {language === 'JP'
+                ? `商品マスター＆在庫管理 (${products.length} SKU 有効)`
+                : language === 'EN'
+                ? `Master Catalog & Inventory (${products.length} Active SKUs)`
+                : `Master Katalog & Stok (${products.length} SKU Aktif)`}
+            </span>
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
@@ -319,7 +333,9 @@ export const ProductManagementPage: React.FC = () => {
             <span className="p-1.5 bg-blue-50 text-blue-600 rounded-lg material-symbols-outlined text-base">format_list_bulleted</span>
           </div>
           <div className="text-2xl font-black text-stone-900">{totalSku} <span className="text-xs font-bold text-stone-400">SKU</span></div>
-          <p className="text-[11px] text-emerald-600 font-medium">✓ 100% Siap Jual Online & POS</p>
+          <p className="text-[11px] text-emerald-600 font-medium">
+            {language === 'JP' ? '✓ 100% Web・POS販売可能' : language === 'EN' ? '✓ 100% Ready for Online & POS' : '✓ 100% Siap Jual Online & POS'}
+          </p>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs space-y-1">
@@ -328,7 +344,9 @@ export const ProductManagementPage: React.FC = () => {
             <span className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg material-symbols-outlined text-base">warehouse</span>
           </div>
           <div className="text-2xl font-black text-stone-900">{totalStockUnits.toLocaleString()} <span className="text-xs font-bold text-stone-400">Unit</span></div>
-          <p className="text-[11px] text-stone-500">Tersedia di Gudang Tokyo & Osaka</p>
+          <p className="text-[11px] text-stone-500">
+            {language === 'JP' ? '東京・大阪拠点倉庫保管' : language === 'EN' ? 'Available in Tokyo & Osaka Hubs' : 'Tersedia di Gudang Tokyo & Osaka'}
+          </p>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs space-y-1">
@@ -337,7 +355,9 @@ export const ProductManagementPage: React.FC = () => {
             <span className="p-1.5 bg-amber-50 text-amber-600 rounded-lg material-symbols-outlined text-base">payments</span>
           </div>
           <div className="text-2xl font-black text-stone-900">¥{totalInventoryVal.toLocaleString()}</div>
-          <p className="text-[11px] text-stone-500">Estimasi Nilai Ritel Gabungan</p>
+          <p className="text-[11px] text-stone-500">
+            {language === 'JP' ? '総小売資産評価額' : language === 'EN' ? 'Estimated Combined Retail Value' : 'Estimasi Nilai Ritel Gabungan'}
+          </p>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs space-y-1">
@@ -348,7 +368,9 @@ export const ProductManagementPage: React.FC = () => {
           <div className={`text-2xl font-black ${lowStockCount > 0 ? 'text-[#c41230]' : 'text-stone-900'}`}>
             {lowStockCount} <span className="text-xs font-bold text-stone-400">Item</span>
           </div>
-          <p className="text-[11px] text-stone-500">Perlu Buat PO Supplier</p>
+          <p className="text-[11px] text-stone-500">
+            {language === 'JP' ? '仕入れ先PO発注推奨' : language === 'EN' ? 'Supplier PO Required' : 'Perlu Buat PO Supplier'}
+          </p>
         </div>
       </div>
 
@@ -383,7 +405,9 @@ export const ProductManagementPage: React.FC = () => {
             }}
             className="px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none"
           >
-            <option value="ALL">Semua Kategori ({products.length})</option>
+            <option value="ALL">
+              {language === 'JP' ? `すべてのカテゴリー (${products.length})` : language === 'EN' ? `All Categories (${products.length})` : `Semua Kategori (${products.length})`}
+            </option>
             {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat} ({products.filter((p) => p.category === cat).length})
@@ -400,10 +424,10 @@ export const ProductManagementPage: React.FC = () => {
             }}
             className="px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none"
           >
-            <option value="ALL">Semua Status Stok</option>
-            <option value="IN_STOCK">Stok Tersedia (&gt; 0)</option>
-            <option value="LOW_STOCK">Stok Kritis (&lt; 10)</option>
-            <option value="OUT_OF_STOCK">Habis (0)</option>
+            <option value="ALL">{language === 'JP' ? 'すべての在庫状態' : language === 'EN' ? 'All Stock Statuses' : 'Semua Status Stok'}</option>
+            <option value="IN_STOCK">{language === 'JP' ? '在庫あり (> 0)' : language === 'EN' ? 'In Stock (> 0)' : 'Stok Tersedia (> 0)'}</option>
+            <option value="LOW_STOCK">{language === 'JP' ? '品薄・要補充 (< 10)' : language === 'EN' ? 'Low Stock (< 10)' : 'Stok Kritis (< 10)'}</option>
+            <option value="OUT_OF_STOCK">{language === 'JP' ? '在庫切れ (0)' : language === 'EN' ? 'Out of Stock (0)' : 'Habis (0)'}</option>
           </select>
 
           {/* View Toggle */}
@@ -439,7 +463,9 @@ export const ProductManagementPage: React.FC = () => {
                 <tr className="bg-stone-50 border-b border-stone-200 text-stone-600 font-bold uppercase tracking-wider text-[10px]">
                   <th className="py-3 px-4 w-12">#</th>
                   <th className="py-3 px-4">{t('prod_col_item')}</th>
-                  <th className="py-3 px-4 min-w-[220px]">URL Image Address (Ganti Gambar)</th>
+                  <th className="py-3 px-4 min-w-[220px]">
+                    {language === 'JP' ? '商品画像URL (直接編集)' : language === 'EN' ? 'Image URL (Edit Directly)' : 'URL Image Address (Ganti Gambar)'}
+                  </th>
                   <th className="py-3 px-4">{t('prod_col_cat')}</th>
                   <th className="py-3 px-4 text-right">{t('prod_col_price')}</th>
                   <th className="py-3 px-4 text-center">{t('prod_col_stock')}</th>
@@ -634,8 +660,11 @@ export const ProductManagementPage: React.FC = () => {
           {/* Pagination */}
           <div className="p-4 bg-stone-50 border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-600">
             <div>
-              Menampilkan {Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)} -{' '}
-              {Math.min(currentPage * itemsPerPage, filteredProducts.length)} dari {filteredProducts.length} produk
+              {language === 'JP'
+                ? `表示中: ${Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)} - ${Math.min(currentPage * itemsPerPage, filteredProducts.length)} / ${filteredProducts.length} 商品`
+                : language === 'EN'
+                ? `Showing ${Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)} - ${Math.min(currentPage * itemsPerPage, filteredProducts.length)} of ${filteredProducts.length} products`
+                : `Menampilkan ${Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)} - ${Math.min(currentPage * itemsPerPage, filteredProducts.length)} dari ${filteredProducts.length} produk`}
             </div>
             <div className="flex items-center gap-1">
               <button
@@ -699,7 +728,7 @@ export const ProductManagementPage: React.FC = () => {
                       )}
                     </div>
                     <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/70 text-white font-bold text-[10px] rounded-md">
-                      Stok: {p.stock}
+                      {language === 'JP' ? `在庫: ${p.stock}` : language === 'EN' ? `Stock: ${p.stock}` : `Stok: ${p.stock}`}
                     </span>
                   </div>
 
@@ -851,7 +880,9 @@ export const ProductManagementPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-stone-700">Harga Jual + Pajak</label>
+                  <label className="font-bold text-stone-700">
+                    {language === 'JP' ? '税込価格 (¥)' : language === 'EN' ? 'Price + Tax (¥)' : 'Harga Jual + Pajak'}
+                  </label>
                   <input
                     type="number"
                     value={formData.priceTax}
@@ -945,7 +976,13 @@ export const ProductManagementPage: React.FC = () => {
             <div className="flex justify-between items-center border-b border-stone-100 pb-4">
               <h2 className="text-lg font-bold text-stone-900 flex items-center gap-2">
                 <span className="material-symbols-outlined text-blue-600">edit_note</span>
-                <span>Edit Produk: {editingProduct.name}</span>
+                <span>
+                  {language === 'JP'
+                    ? `商品編集: ${editingProduct.nameJp || editingProduct.name}`
+                    : language === 'EN'
+                    ? `Edit Product: ${editingProduct.nameEn || editingProduct.name}`
+                    : `Edit Produk: ${editingProduct.name}`}
+                </span>
               </h2>
               <button onClick={() => setEditingProduct(null)} className="text-stone-400 hover:text-stone-600 text-lg">
                 ✕
@@ -1031,7 +1068,9 @@ export const ProductManagementPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-stone-700">Harga Jual + Pajak</label>
+                  <label className="font-bold text-stone-700">
+                    {language === 'JP' ? '税込価格 (¥)' : language === 'EN' ? 'Price + Tax (¥)' : 'Harga Jual + Pajak'}
+                  </label>
                   <input
                     type="number"
                     value={formData.priceTax}
@@ -1124,9 +1163,13 @@ export const ProductManagementPage: React.FC = () => {
               📦
             </div>
             <div>
-              <h3 className="text-base font-bold text-stone-900">Update Stok Cepat</h3>
+              <h3 className="text-base font-bold text-stone-900">
+                {language === 'JP' ? 'クイック在庫数更新' : language === 'EN' ? 'Quick Stock Update' : 'Update Stok Cepat'}
+              </h3>
               <p className="text-xs text-stone-500 mt-0.5 line-clamp-1">{quickStockTarget.name}</p>
-              <p className="text-xs font-bold text-stone-700 mt-1">Stok Saat Ini: {quickStockTarget.current} Unit</p>
+              <p className="text-xs font-bold text-stone-700 mt-1">
+                {language === 'JP' ? `現在庫: ${quickStockTarget.current} 個` : language === 'EN' ? `Current Stock: ${quickStockTarget.current} Units` : `Stok Saat Ini: ${quickStockTarget.current} Unit`}
+              </p>
             </div>
 
             <form onSubmit={handleQuickStockSubmit} className="space-y-3">
@@ -1136,7 +1179,7 @@ export const ProductManagementPage: React.FC = () => {
                     key={delta}
                     type="button"
                     onClick={() => setQuickStockDelta(delta)}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       quickStockDelta === delta
                         ? 'bg-[#c41230] text-white'
                         : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
@@ -1148,7 +1191,7 @@ export const ProductManagementPage: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-center gap-2 text-xs">
-                <span>Jumlah Perubahan:</span>
+                <span>{language === 'JP' ? '変動数:' : language === 'EN' ? 'Change Delta:' : 'Jumlah Perubahan:'}</span>
                 <input
                   type="number"
                   value={quickStockDelta}
@@ -1158,22 +1201,23 @@ export const ProductManagementPage: React.FC = () => {
               </div>
 
               <div className="p-2.5 bg-stone-50 rounded-xl text-xs font-bold text-stone-700">
-                Stok Baru: <span className="text-emerald-600 font-black">{Math.max(0, quickStockTarget.current + quickStockDelta)} Unit</span>
+                {language === 'JP' ? '変更後在庫:' : language === 'EN' ? 'New Stock Level:' : 'Stok Baru:'}{' '}
+                <span className="text-emerald-600 font-black">{Math.max(0, quickStockTarget.current + quickStockDelta)} {language === 'JP' ? '個' : language === 'EN' ? 'Units' : 'Unit'}</span>
               </div>
 
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setQuickStockTarget(null)}
-                  className="flex-1 py-2 rounded-xl border border-stone-200 text-stone-700 text-xs font-bold"
+                  className="flex-1 py-2 rounded-xl border border-stone-200 text-stone-700 text-xs font-bold cursor-pointer"
                 >
-                  Batal
+                  {t('prod_cancel')}
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 rounded-xl bg-[#c41230] hover:bg-[#a80f28] text-white text-xs font-bold shadow-xs"
+                  className="flex-1 py-2 rounded-xl bg-[#c41230] hover:bg-[#a80f28] text-white text-xs font-bold shadow-xs cursor-pointer"
                 >
-                  Simpan Stok
+                  {language === 'JP' ? '在庫を保存' : language === 'EN' ? 'Save Stock' : 'Simpan Stok'}
                 </button>
               </div>
             </form>
@@ -1188,11 +1232,13 @@ export const ProductManagementPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-stone-100 pb-3">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#c41230] text-xl">image</span>
-                <h3 className="text-sm font-bold text-stone-900">Ganti URL Gambar Produk</h3>
+                <h3 className="text-sm font-bold text-stone-900">
+                  {language === 'JP' ? '商品画像URL変更' : language === 'EN' ? 'Change Product Image URL' : 'Ganti URL Gambar Produk'}
+                </h3>
               </div>
               <button
                 onClick={() => setQuickImageTarget(null)}
-                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg"
+                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg cursor-pointer"
               >
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
@@ -1206,7 +1252,7 @@ export const ProductManagementPage: React.FC = () => {
             {/* Live Image Preview */}
             <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3 text-center space-y-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">
-                Live Preview Gambar:
+                {language === 'JP' ? '画像プレビュー:' : language === 'EN' ? 'Live Image Preview:' : 'Live Preview Gambar:'}
               </span>
               <div className="w-32 h-32 mx-auto rounded-xl overflow-hidden border border-stone-300 bg-white flex items-center justify-center shadow-xs">
                 <img
@@ -1224,7 +1270,7 @@ export const ProductManagementPage: React.FC = () => {
             <form onSubmit={handleQuickImageSubmit} className="space-y-3">
               <div>
                 <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                  URL Image Address:
+                  {language === 'JP' ? '画像URL:' : language === 'EN' ? 'Image URL:' : 'URL Image Address:'}
                 </label>
                 <div className="flex gap-1.5">
                   <input
@@ -1251,7 +1297,11 @@ export const ProductManagementPage: React.FC = () => {
                   </button>
                 </div>
                 <p className="text-[10px] text-stone-400 mt-1">
-                  Bisa menggunakan link gambar dari internet, hosting CDN, Supabase, Google Photos, dsb.
+                  {language === 'JP'
+                    ? 'インターネット上の画像URL、CDN、Supabase、Googleフォト等のリンクを利用できます。'
+                    : language === 'EN'
+                    ? 'You can use image URLs from the web, CDN, Supabase, Google Photos, etc.'
+                    : 'Bisa menggunakan link gambar dari internet, hosting CDN, Supabase, Google Photos, dsb.'}
                 </p>
               </div>
 
@@ -1261,13 +1311,13 @@ export const ProductManagementPage: React.FC = () => {
                   onClick={() => setQuickImageTarget(null)}
                   className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-700 text-xs font-bold hover:bg-stone-50 cursor-pointer"
                 >
-                  Batal
+                  {t('prod_cancel')}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 py-2.5 rounded-xl bg-[#c41230] hover:bg-[#9a0021] text-white text-xs font-bold shadow-md transition-all cursor-pointer"
                 >
-                  Simpan URL Gambar
+                  {language === 'JP' ? '画像URLを保存' : language === 'EN' ? 'Save Image URL' : 'Simpan URL Gambar'}
                 </button>
               </div>
             </form>

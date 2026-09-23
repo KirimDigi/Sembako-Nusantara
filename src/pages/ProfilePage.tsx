@@ -11,7 +11,7 @@ type ActiveTab = 'overview' | 'barcode' | 'orders' | 'wishlist' | 'cart' | 'secu
 export const ProfilePage: React.FC = () => {
   const { isAuthenticated, currentUser, login, loginWithGoogle, logout, updateProfile, changePassword, isAdmin } = useAuth();
   const { wishlist, removeFromWishlist, clearWishlist, totalWishlistItems } = useWishlist();
-  const { cart, totalItems, totalPrice, removeFromCart, updateQuantity } = useCart();
+  const { cart, totalItems, subtotalTax: totalPrice, removeFromCart, updateQuantity } = useCart();
   const { orders } = useAdmin();
   const navigate = useNavigate();
 

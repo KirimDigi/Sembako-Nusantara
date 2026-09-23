@@ -89,7 +89,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [warehouses] = useState<Warehouse[]>(INITIAL_WAREHOUSES);
-  const [suppliers, setSuppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+    const saved = localStorage.getItem('sn_suppliers_v3');
+    return saved ? JSON.parse(saved) : INITIAL_SUPPLIERS;
+  });
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => {
     const saved = localStorage.getItem('sn_po_v2');
     return saved ? JSON.parse(saved) : INITIAL_PURCHASE_ORDERS;
@@ -107,13 +110,24 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return saved ? JSON.parse(saved) : INITIAL_ORDERS;
   });
   const [customers, setCustomers] = useState<CustomerCRM[]>(INITIAL_CUSTOMERS);
-  const [vouchers, setVouchers] = useState<Voucher[]>(INITIAL_VOUCHERS);
+  const [vouchers, setVouchers] = useState<Voucher[]>(() => {
+    const saved = localStorage.getItem('sn_vouchers_v3');
+    return saved ? JSON.parse(saved) : INITIAL_VOUCHERS;
+  });
   const [competitorPrices] = useState<CompetitorPrice[]>(INITIAL_COMPETITOR_PRICES);
   const [activeRole, setActiveRole] = useState<UserRole>('Super Admin (Owner)');
 
   useEffect(() => {
     localStorage.setItem('sn_products_v3', JSON.stringify(products));
   }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('sn_suppliers_v3', JSON.stringify(suppliers));
+  }, [suppliers]);
+
+  useEffect(() => {
+    localStorage.setItem('sn_vouchers_v3', JSON.stringify(vouchers));
+  }, [vouchers]);
 
   useEffect(() => {
     localStorage.setItem('sn_po_v2', JSON.stringify(purchaseOrders));
@@ -234,6 +248,23 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const addOrder = (newOrder: Order) => {
+    // Deduct stocks for items in online order
+    if (newOrder.items && Array.isArray(newOrder.items)) {
+      newOrder.items.forEach((item: any) => {
+        const prodId = item.id || item.productId;
+        const qty = item.quantity || item.qty || 1;
+        if (prodId) {
+          updateProductStock(
+            prodId,
+            -qty,
+            `Penjualan Online #${newOrder.id}`,
+            'OUT_ECOMMERCE',
+            'wh-tokyo'
+          );
+        }
+      });
+    }
+
     setOrders((prev) => {
       const updated = [newOrder, ...prev];
       try {
@@ -259,16 +290,18 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         paymentMethod: newOrder.paymentMethod || 'jpqr',
         shippingAddress: newOrder.shippingAddress,
         address: newOrder.shippingAddress,
-        items: newOrder.items.map((it) => ({
-          name: it.productName,
-          productName: it.productName,
-          productImage: it.productImage,
-          qty: it.quantity,
-          quantity: it.quantity,
+        items: (newOrder.items || []).map((it: any) => ({
+          id: it.id || it.productId,
+          productId: it.id || it.productId,
+          name: it.name || it.productName,
+          productName: it.name || it.productName,
+          productImage: it.productImage || it.image,
+          qty: it.qty || it.quantity || 1,
+          quantity: it.qty || it.quantity || 1,
           price: it.price
         }))
       };
-      const filteredUserOrders = existingUserOrders.filter((o: any) => o.id !== newOrder.id);
+      const filteredUserOrders = existingUserOrders.filter((o: any) => o.id !== newOrder.id && o.orderId !== newOrder.id);
       filteredUserOrders.unshift(userOrderSummary);
       localStorage.setItem('sn_user_orders', JSON.stringify(filteredUserOrders));
     } catch (e) {}

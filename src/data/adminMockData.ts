@@ -30,56 +30,7 @@ export const INITIAL_WAREHOUSES: Warehouse[] = [
   }
 ];
 
-export const INITIAL_SUPPLIERS: Supplier[] = [
-  {
-    id: 'sup-1',
-    name: 'PT Indofood CBP Sukses Makmur (Importir Jepang)',
-    contactPerson: 'Hendra Tan',
-    email: 'japan-dist@indofood.co.jp',
-    phone: '+81-3-3344-5566',
-    address: 'Minato-ku, Tokyo',
-    origin: 'Indonesia',
-    leadTimeDays: 7,
-    paymentTerms: 'Net 30 Days',
-    rating: 4.9
-  },
-  {
-    id: 'sup-2',
-    name: 'CV Sumber Rempah Nusantara',
-    contactPerson: 'Bambang Irawan',
-    email: 'export@sumberrempah.id',
-    phone: '+62-21-555-1234',
-    address: 'Surabaya, Jawa Timur, Indonesia',
-    origin: 'Indonesia',
-    leadTimeDays: 14,
-    paymentTerms: '50% DP / 50% On Arrival',
-    rating: 4.7
-  },
-  {
-    id: 'sup-3',
-    name: 'Japan Halal Meat & Frozen Foods Co., Ltd.',
-    contactPerson: 'Tariq Al-Yamani',
-    email: 'order@japanhalalmeat.jp',
-    phone: '+81-45-7788-9900',
-    address: 'Yokohama, Kanagawa',
-    origin: 'Japan',
-    leadTimeDays: 2,
-    paymentTerms: 'Net 14 Days',
-    rating: 4.8
-  },
-  {
-    id: 'sup-4',
-    name: 'Kara Coconut Products Distributor JP',
-    contactPerson: 'Yuki Takahashi',
-    email: 'sales@karajapan.jp',
-    phone: '+81-3-9988-7766',
-    address: 'Koto-ku, Tokyo',
-    origin: 'Other',
-    leadTimeDays: 3,
-    paymentTerms: 'COD / Bank Transfer',
-    rating: 4.9
-  }
-];
+export const INITIAL_SUPPLIERS: Supplier[] = [];
 
 export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [];
 
@@ -191,42 +142,7 @@ export const INITIAL_CUSTOMERS: CustomerCRM[] = [
   }
 ];
 
-export const INITIAL_VOUCHERS: Voucher[] = [
-  {
-    code: 'INDONESIA500',
-    title: 'Diskon Sambutan WNI di Jepang',
-    description: 'Potongan langsung ¥500 untuk transaksi minimal ¥5.000',
-    discountType: 'FIXED',
-    discountValue: 500,
-    minSpend: 5000,
-    validUntil: '2026-12-31',
-    usageCount: 0,
-    isActive: true
-  },
-  {
-    code: 'NUSANTARA10',
-    title: 'Diskon Spesial Nusantara 10%',
-    description: 'Diskon 10% maksimal ¥1.000 untuk belanja minimal ¥8.000',
-    discountType: 'PERCENTAGE',
-    discountValue: 10,
-    minSpend: 8000,
-    maxDiscount: 1000,
-    validUntil: '2026-11-30',
-    usageCount: 0,
-    isActive: true
-  },
-  {
-    code: 'FREESHIP7K',
-    title: 'Voucher Subsidi Ekstra Ongkir',
-    description: 'Potongan ongkir ¥300 untuk pembelian di atas ¥6.000',
-    discountType: 'FIXED',
-    discountValue: 300,
-    minSpend: 6000,
-    validUntil: '2026-12-31',
-    usageCount: 0,
-    isActive: true
-  }
-];
+export const INITIAL_VOUCHERS: Voucher[] = [];
 
 export const INITIAL_STOCK_MOVEMENTS: StockMovement[] = [];
 
