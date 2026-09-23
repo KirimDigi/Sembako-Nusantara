@@ -27,7 +27,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Total Inventory Valuation (Aset Lancar Sembako di Gudang)
   const totalInventoryValuation = isZeroState ? 0 : products.reduce((acc, p) => acc + p.stock * Math.round(p.price * 0.65), 0);
-  const totalEstimatedAssets = isZeroState ? 0 : 4820000 + totalInventoryValuation + 1650000; // Kas/Bank + Stok + Aset Tetap
+  const totalEstimatedAssets = isZeroState ? 0 : totalGrossRevenue; // Total aset dinamis dari orderan masuk
 
   const txt = useMemo(() => {
     if (language === 'JP') {

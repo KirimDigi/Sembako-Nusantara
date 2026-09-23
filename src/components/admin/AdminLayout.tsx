@@ -275,11 +275,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
           </button>
           <div className="flex items-center gap-2 font-bold text-sm">
             <img
-              src={assetUrl('logo-transparent.png')}
+              src={assetUrl('logo-admin.jpeg')}
               alt="Logo"
-              className="h-6 w-auto object-contain"
+              className="h-7 w-7 rounded-lg object-cover shadow-xs border border-stone-700"
               onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = assetUrl('logo-sn-white.png');
+                (e.currentTarget as HTMLImageElement).src = assetUrl('LOGO PUTIH SN.jpeg');
               }}
             />
             <span className="tracking-tight">Sembako Admin</span>
@@ -314,11 +314,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
           <div className="flex items-center justify-between pb-5 border-b border-stone-800">
             <div className="flex items-center gap-2.5">
               <img
-                src={assetUrl('logo-transparent.png')}
+                src={assetUrl('logo-admin.jpeg')}
                 alt="Logo Sembako Nusantara"
-                className="w-9 h-9 rounded-xl object-contain shadow-md shrink-0 bg-white/10 p-1"
+                className="w-10 h-10 rounded-xl object-cover shadow-md shrink-0 border border-stone-700/80"
                 onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = assetUrl('logo-sn-red.jpeg');
+                  (e.currentTarget as HTMLImageElement).src = assetUrl('LOGO PUTIH SN.jpeg');
                 }}
               />
               <div>

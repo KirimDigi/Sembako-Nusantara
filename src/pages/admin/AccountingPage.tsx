@@ -339,33 +339,33 @@ export const AccountingPage: React.FC = () => {
   const balanceSheet = {
     assets: {
       currentAssets: {
-        cashStorePOS: isZeroState ? 0 : 250000,
-        bankJapanPost: isZeroState ? 0 : 1850000,
-        bankMUFG: isZeroState ? 0 : 2400000,
-        payPaySettlement: isZeroState ? 0 : 420000,
-        accountsReceivable: isZeroState ? 0 : 310000,
-        inventoryStock: inventoryValuation
+        cashStorePOS: isZeroState ? 0 : totalPosRevenue,
+        bankJapanPost: isZeroState ? 0 : totalOnlineRevenue,
+        bankMUFG: 0,
+        payPaySettlement: 0,
+        accountsReceivable: 0,
+        inventoryStock: 0
       },
       fixedAssets: {
-        coldStorageFreezers: isZeroState ? 0 : 1200000,
-        posHardwareEquipment: isZeroState ? 0 : 350000,
-        warehouseShelving: isZeroState ? 0 : 280000,
-        accumulatedDepreciation: isZeroState ? 0 : -180000
+        coldStorageFreezers: 0,
+        posHardwareEquipment: 0,
+        warehouseShelving: 0,
+        accumulatedDepreciation: 0
       }
     },
     liabilities: {
       currentLiabilities: {
-        accountsPayableSupplier: isZeroState ? 0 : 680000,
+        accountsPayableSupplier: 0,
         accruedTaxesJCT: totalTaxJCT,
-        accruedExpenses: isZeroState ? 0 : 145000,
-        customerDeposits: isZeroState ? 0 : 65000
+        accruedExpenses: 0,
+        customerDeposits: 0
       },
       longTermLiabilities: {
-        businessLoan: isZeroState ? 0 : 1500000
+        businessLoan: 0
       }
     },
     equity: {
-      capitalPaidIn: isZeroState ? 0 : 4500000,
+      capitalPaidIn: 0,
       retainedEarnings: 0
     }
   };
