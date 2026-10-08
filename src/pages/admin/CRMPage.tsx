@@ -4,17 +4,34 @@ import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useAdmin } from '../../context/AdminContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Voucher, LoyaltyTier, Language } from '../../types';
+import { PromoBanner, getStoredPromoBanners, savePromoBanners, resetPromoBanners, fetchRemotePromoBanners } from '../../utils/banners';
 
 export const CRMPage: React.FC = () => {
   const { customers, vouchers, addVoucher, toggleVoucher, addCustomer } = useAdmin();
   const { language } = useLanguage();
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'members' | 'vouchers'>('members');
+  const [activeTab, setActiveTab] = useState<'members' | 'vouchers' | 'banners'>('members');
+
+  // Promo Banners State (3 Slides)
+  const [promoBanners, setPromoBanners] = useState<PromoBanner[]>(() => getStoredPromoBanners());
+  const [bannerSaveMsg, setBannerSaveMsg] = useState<{ text: string; isError: boolean } | null>(null);
+  const [isSavingBanners, setIsSavingBanners] = useState<boolean>(false);
+
+  // Sync latest promo banners from Supabase cloud on load
+  useEffect(() => {
+    fetchRemotePromoBanners().then((remote) => {
+      if (remote && remote.length >= 3) {
+        setPromoBanners(remote);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab === 'vouchers') {
       setActiveTab('vouchers');
+    } else if (tab === 'banners') {
+      setActiveTab('banners');
     } else if (tab === 'members' || tab === 'customers') {
       setActiveTab('members');
     }
@@ -259,6 +276,56 @@ export const CRMPage: React.FC = () => {
     setVDesc('');
   };
 
+  // Promo Banner Handlers
+  const handleBannerImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Ukuran gambar terlalu besar! Maksimal 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setPromoBanners((prev) => {
+        const next = [...prev];
+        next[index] = { ...next[index], imageUrl: dataUrl };
+        return next;
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleBannerTextChange = (index: number, field: keyof PromoBanner, val: string) => {
+    setPromoBanners((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: val };
+      return next;
+    });
+  };
+
+  const handleSaveBanners = async () => {
+    setIsSavingBanners(true);
+    setBannerSaveMsg(null);
+    const res = await savePromoBanners(promoBanners);
+    setIsSavingBanners(false);
+    setBannerSaveMsg({ text: res.message, isError: !res.success });
+    setTimeout(() => {
+      setBannerSaveMsg(null);
+    }, 4500);
+  };
+
+  const handleResetBanners = () => {
+    if (window.confirm('Kembalikan semua 3 banner promo ke gambar default?')) {
+      const def = resetPromoBanners();
+      setPromoBanners(def);
+      setBannerSaveMsg({ text: 'Banner berhasil dikembalikan ke default!', isError: false });
+      setTimeout(() => setBannerSaveMsg(null), 3000);
+    }
+  };
+
   // Filtered customer list
   const filteredCustomers = useMemo(() => {
     const q = customerSearchQuery.toLowerCase().trim();
@@ -277,7 +344,7 @@ export const CRMPage: React.FC = () => {
       <div className="space-y-6 max-w-7xl mx-auto">
         {/* Tab Selector & Action Buttons */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex gap-2 bg-stone-200/70 p-1 rounded-2xl w-fit">
+          <div className="flex flex-wrap gap-2 bg-stone-200/70 p-1 rounded-2xl w-fit">
             <button
               onClick={() => setActiveTab('members')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -297,6 +364,17 @@ export const CRMPage: React.FC = () => {
               }`}
             >
               {txt.tabVouchers(vouchers.length)}
+            </button>
+            <button
+              onClick={() => setActiveTab('banners')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'banners'
+                  ? 'bg-[#c41230] text-white shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <span className="material-symbols-outlined text-sm">view_carousel</span>
+              <span>Banner Promo Beranda (3 Slide)</span>
             </button>
           </div>
 
@@ -318,6 +396,17 @@ export const CRMPage: React.FC = () => {
             >
               <span className="material-symbols-outlined text-sm">add_circle</span>
               <span>{txt.btnCreateVoucher}</span>
+            </button>
+          )}
+
+          {activeTab === 'banners' && (
+            <button
+              onClick={handleSaveBanners}
+              disabled={isSavingBanners}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-sm">save</span>
+              <span>{isSavingBanners ? 'Menyimpan...' : 'Simpan Banner Promo (Save)'}</span>
             </button>
           )}
         </div>
@@ -501,6 +590,190 @@ export const CRMPage: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* TAB 3: BANNER PROMO BERANDA (3 SLIDE) */}
+        {activeTab === 'banners' && (
+          <div className="space-y-6">
+            {/* Header Info & Action Controls */}
+            <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-2xl text-[#c41230]">view_carousel</span>
+                  <h3 className="text-base font-bold text-stone-900">
+                    Pengaturan Foto Sampul & Banner Promo Beranda (3 Slide)
+                  </h3>
+                </div>
+                <p className="text-xs text-stone-500 max-w-2xl leading-relaxed">
+                  Ganti 3 foto sampul promosi di bagian atas halaman Beranda. Tampilan beranda kini berupa <strong>foto murni secara penuh</strong> (tanpa teks overlay bawaan) agar gambar promo buatan Anda tampil bersih dan maksimal. Unggah foto langsung dari HP/Laptop atau masukkan URL gambar, lalu klik <strong>"Simpan Banner Promo"</strong>.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleResetBanners}
+                  className="px-3.5 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-sm">restart_alt</span>
+                  <span>Reset Default</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveBanners}
+                  disabled={isSavingBanners}
+                  className="px-5 py-2 bg-[#c41230] hover:bg-[#a80f28] text-white rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-sm">save</span>
+                  <span>{isSavingBanners ? 'Menyimpan...' : 'Simpan Banner Promo (Save)'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Notification message if saved */}
+            {bannerSaveMsg && (
+              <div
+                className={`p-4 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                  bannerSaveMsg.isError
+                    ? 'bg-rose-50 border border-rose-200 text-rose-800'
+                    : 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">
+                  {bannerSaveMsg.isError ? 'error' : 'check_circle'}
+                </span>
+                <span>{bannerSaveMsg.text}</span>
+              </div>
+            )}
+
+            {/* Grid of 3 Slide Editors */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {promoBanners.map((banner, index) => (
+                <div
+                  key={banner.id || index}
+                  className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden flex flex-col justify-between"
+                >
+                  <div className="p-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+                    <span className="text-xs font-bold text-stone-800 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-[#c41230] text-white text-[11px] font-black flex items-center justify-center">
+                        {index + 1}
+                      </span>
+                      <span>Slide {index + 1}</span>
+                    </span>
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-stone-200 text-stone-700">
+                      Rasio 16:9 / 21:9
+                    </span>
+                  </div>
+
+                  {/* Image Preview Box */}
+                  <div className="p-4 space-y-4">
+                    <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-stone-900 border border-stone-200 group">
+                      <img
+                        src={banner.imageUrl}
+                        alt={`Slide ${index + 1}`}
+                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2 text-center text-white text-xs font-semibold">
+                        Preview Slide {index + 1}
+                      </div>
+                    </div>
+
+                    {/* Change Photo Inputs */}
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[11px] font-bold text-stone-700 block mb-1">
+                          Unggah Foto dari HP / Komputer:
+                        </label>
+                        <label className="w-full px-3 py-2 bg-stone-50 hover:bg-stone-100 border border-dashed border-stone-300 hover:border-[#c41230] rounded-xl text-xs font-medium text-stone-700 flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                          <span className="material-symbols-outlined text-base text-[#c41230]">add_photo_alternate</span>
+                          <span>Pilih File Foto Baru...</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleBannerImageUpload(index, e)}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-stone-700 block mb-1">
+                          Atau Tautan URL Gambar:
+                        </label>
+                        <input
+                          type="text"
+                          value={banner.imageUrl}
+                          onChange={(e) => handleBannerTextChange(index, 'imageUrl', e.target.value)}
+                          placeholder="https://example.com/promo-banner.jpg"
+                          className="w-full px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#c41230]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-stone-700 block mb-1 flex items-center justify-between">
+                          <span>Judul Slide / Catatan Admin:</span>
+                          <span className="text-[10px] text-stone-400 font-normal">Opsional</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={banner.title}
+                          onChange={(e) => handleBannerTextChange(index, 'title', e.target.value)}
+                          placeholder="Contoh: Promo Spesial Sembako"
+                          className="w-full px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#c41230]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-stone-700 block mb-1 flex items-center justify-between">
+                          <span>Link Tujuan Saat Foto Diklik:</span>
+                          <span className="text-[10px] text-emerald-600 font-bold">Aktif</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={banner.linkUrl}
+                          onChange={(e) => handleBannerTextChange(index, 'linkUrl', e.target.value)}
+                          placeholder="/catalog"
+                          className="w-full px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#c41230]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-stone-50 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500">
+                    <span>Status: <strong>Aktif di Beranda</strong></span>
+                    <a
+                      href="/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#c41230] font-bold hover:underline flex items-center gap-0.5"
+                    >
+                      <span>Lihat Live</span>
+                      <span className="material-symbols-outlined text-xs">open_in_new</span>
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bottom Save Action Bar */}
+            <div className="bg-stone-900 text-white p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <h4 className="text-sm font-bold">Simpan & Publikasikan Perubahan Banner Promo</h4>
+                <p className="text-xs text-stone-400">
+                  Perubahan akan langsung terlihat oleh pengunjung website di halaman Beranda.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveBanners}
+                disabled={isSavingBanners}
+                className="w-full sm:w-auto px-6 py-3 bg-[#c41230] hover:bg-[#a80f28] text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-sm">save</span>
+                <span>{isSavingBanners ? 'Menyimpan...' : 'Simpan Banner Promo (Save)'}</span>
+              </button>
+            </div>
           </div>
         )}
       </div>

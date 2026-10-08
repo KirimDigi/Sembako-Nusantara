@@ -55,6 +55,8 @@ export interface Order {
   customerName?: string;
   paymentMethod?: string;
   taxAmount?: number;
+  currency?: 'JPY' | 'IDR';
+  totalAmountIDR?: number;
 }
 
 export interface Recipe {
@@ -109,6 +111,10 @@ export interface POSTransaction {
   changeAmount: number;
   customerName?: string;
   notes?: string;
+  currency?: 'JPY' | 'IDR';
+  exchangeRate?: number;
+  amountPaidOriginal?: number;
+  changeAmountOriginal?: number;
 }
 
 // === PHASE 1 & 3: Multi-Warehouse & Inventory Types ===
@@ -263,4 +269,75 @@ export interface AuthUser {
   loyaltyPoints?: number;
   tier?: string;
 }
+
+// === Vendor Price Comparison Types ===
+export interface VendorPurchaseQuote {
+  vendorId: string;
+  vendorName: string;
+  price: number; // e.g. ¥3200
+  previousPrice?: number; // e.g. ¥3100
+  lastPurchasedDate: string; // e.g. '2026-10-02'
+  minOrderQty?: string; // e.g. '10 Dus'
+  leadTimeDays?: number; // e.g. 2
+  notes?: string;
+  invoiceNo?: string;
+}
+
+export interface VendorProductPriceComparison {
+  id: string;
+  productId: string;
+  productName: string;
+  category: string;
+  unit: string;
+  sellingPrice: number; // our retail price on web/POS
+  vendors: VendorPurchaseQuote[];
+  trend: 'up' | 'down' | 'stable';
+  trendPercentage: number; // % change vs previous average purchase price
+  cheapestVendorId: string;
+  potentialSavings: number; // difference between highest and lowest vendor price
+}
+
+// === Cashier Management & Access Permissions ===
+export interface CashierPermissionItem {
+  id: string;
+  label: string;
+  description: string;
+  category: 'operasional' | 'diskon_harga' | 'keuangan';
+  enabled: boolean;
+}
+
+export interface CashierAccount {
+  id: string;
+  name: string;
+  role: string;
+  pin: string;
+  status: 'Aktif' | 'Nonaktif';
+  lastActive: string;
+  shift: string;
+  allowedPermissions?: string[];
+}
+
+// === Direct Purchase Transaction (Pembelian Masuk & Stok Terintegrasi) ===
+export interface DirectPurchaseItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  costPrice: number;
+  subtotal: number;
+}
+
+export interface DirectPurchaseEntry {
+  id: string;
+  invoiceNumber: string;
+  supplierName: string;
+  date: string;
+  warehouseId: string;
+  warehouseName?: string;
+  totalAmount: number;
+  status: 'Diterima' | 'Draft';
+  notes?: string;
+  items: DirectPurchaseItem[];
+}
+
+
 

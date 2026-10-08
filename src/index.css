@@ -6,9 +6,20 @@
   html, body {
     margin: 0;
     padding: 0;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    position: relative;
     background-color: #FDF8F0;
     color: #1A1A1A;
     font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    min-height: 100vh;
   }
 }
 
@@ -60,4 +71,87 @@
   animation: bounceShadowSlow 2.8s infinite;
   transform-origin: center center;
 }
+
+/* Animated Waving & Greeting Mascot (GIF-like Greeting Sticker) */
+@keyframes mascotGreetingWave {
+  0% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+  15% {
+    transform: translateY(-6px) rotate(-8deg) scale(1.03);
+  }
+  30% {
+    transform: translateY(-10px) rotate(9deg) scale(1.05);
+  }
+  45% {
+    transform: translateY(-6px) rotate(-7deg) scale(1.04);
+  }
+  60% {
+    transform: translateY(-10px) rotate(8deg) scale(1.05);
+  }
+  75% {
+    transform: translateY(-4px) rotate(-3deg) scale(1.02);
+  }
+  85% {
+    transform: translateY(0px) rotate(2deg) scale(1);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes mascotShadowGreeting {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.25;
+  }
+  30%, 60% {
+    transform: scale(0.72);
+    opacity: 0.12;
+  }
+}
+
+@keyframes greetingBubbleFloat {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-5px) scale(1.05);
+  }
+}
+
+@keyframes waveHandMotion {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  20%, 60% {
+    transform: rotate(22deg);
+  }
+  40%, 80% {
+    transform: rotate(-12deg);
+  }
+}
+
+.animate-mascot-greeting {
+  animation: mascotGreetingWave 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  transform-origin: bottom center;
+  will-change: transform;
+}
+
+.animate-mascot-shadow-greeting {
+  animation: mascotShadowGreeting 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+
+.animate-greeting-bubble {
+  animation: greetingBubbleFloat 2.2s ease-in-out infinite;
+}
+
+.animate-wave-hand {
+  display: inline-block;
+  transform-origin: 75% 75%;
+  animation: waveHandMotion 1.4s infinite;
+}
+
 

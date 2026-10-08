@@ -3,117 +3,17 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../context/LanguageContext';
 import { Section3D, Card3D, StaggerContainer3D, StaggerItem3D } from '../components/common/Motion3D';
+import { PromoBannerSlider } from '../components/home/PromoBannerSlider';
 import { assetUrl } from '../utils/assets';
 
 export const HomePage: React.FC = () => {
   const { t, language } = useLanguage();
 
   return (
-    <div className="w-full space-y-16 sm:space-y-24 pb-20 overflow-hidden">
-      {/* 1. HERO HEADER SECTION with 3D Motion */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <motion.div
-          initial={{ opacity: 0, y: 70, rotateX: 18, scale: 0.92 }}
-          animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
-          transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
-          style={{ perspective: 1000, transformStyle: 'preserve-3d' }}
-          className="relative min-h-[300px] lg:min-h-[360px] flex flex-col justify-center p-2 sm:p-6 bg-transparent"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center relative z-10">
-            {/* Left Column: Tags, Title, Subtitle, CTAs with 3D Stagger */}
-            <motion.div
-              initial={{ opacity: 0, x: -50, rotateY: 10 }}
-              animate={{ opacity: 1, x: 0, rotateY: 0 }}
-              transition={{ duration: 1.2, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-              className="md:col-span-7 lg:col-span-8 space-y-4"
-            >
-              {/* Tags */}
-              <div className="flex items-center gap-2 mb-2">
-                <motion.span
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#c41230] text-white text-xs uppercase tracking-wider font-bold shadow-sm"
-                >
-                  <span className="material-symbols-outlined text-xs">storefront</span>
-                  {t('hero_badge_agent')}
-                </motion.span>
-                <motion.span
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#DCFCE7] text-[#15803D] text-xs font-bold border border-emerald-200"
-                >
-                  <span className="material-symbols-outlined text-xs">verified</span>
-                  {t('hero_badge_halal')}
-                </motion.span>
-              </div>
-
-              {/* Hero Title */}
-              <h1 className="font-heading font-black text-3xl sm:text-5xl lg:text-[50px] xl:text-[56px] text-stone-900 leading-[1.3] sm:leading-[1.35] tracking-tight max-w-3xl">
-                {language === 'ID' ? (
-                  <>
-                    Cita Rasa Otentik Nusantara Langsung di Meja Makan Anda di{' '}
-                    <span className="inline-block whitespace-nowrap">
-                      <span
-                        className="font-black text-white"
-                        style={{
-                          WebkitTextStroke: '2.5px #1c1917',
-                          paintOrder: 'stroke fill',
-                          textShadow: '0 2px 4px rgba(0,0,0,0.08)'
-                        }}
-                      >
-                        Jep
-                      </span>
-                      <span className="font-black text-[#c41230]">ang</span>
-                    </span>
-                    ! 🏮
-                  </>
-                ) : (
-                  t('hero_title')
-                )}
-              </h1>
-
-              <p className="text-sm sm:text-base text-stone-600 max-w-xl leading-relaxed">
-                {t('hero_subtitle')}
-              </p>
-
-              {/* CTAs */}
-              <div className="pt-2 flex flex-row items-center gap-3 max-w-md">
-                <motion.div whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.96 }} className="flex-1 sm:flex-initial">
-                  <Link
-                    to="/catalog"
-                    className="w-full inline-flex items-center justify-center gap-1.5 bg-[#c41230] hover:bg-[#9a0021] text-white px-6 sm:px-8 py-3 rounded-full font-bold text-xs sm:text-sm shadow-md hover:shadow-xl transition-all cursor-pointer text-center whitespace-nowrap"
-                  >
-                    <span>{t('hero_cta_shop')}</span>
-                    <span className="material-symbols-outlined text-xs sm:text-sm">arrow_forward</span>
-                  </Link>
-                </motion.div>
-
-                <motion.div whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.96 }} className="flex-1 sm:flex-initial">
-                  <Link
-                    to="/contact"
-                    className="w-full inline-flex items-center justify-center gap-1.5 bg-white hover:bg-stone-50 text-stone-800 border border-stone-300 px-5 sm:px-7 py-3 rounded-full font-bold text-xs sm:text-sm shadow-sm hover:shadow transition-all text-center whitespace-nowrap"
-                  >
-                    <span className="material-symbols-outlined text-xs sm:text-sm text-[#c41230]">support_agent</span>
-                    <span>{t('hero_cta_contact')}</span>
-                  </Link>
-                </motion.div>
-              </div>
-            </motion.div>
-
-            {/* Right Column: Slow Bouncing Ball Mascot */}
-            <div className="md:col-span-5 lg:col-span-4 flex flex-col items-center justify-center py-6 relative">
-              {/* Mascot Image with Slow Smooth Ball Bounce */}
-              <div className="w-48 h-48 sm:w-56 sm:h-56 lg:w-64 lg:h-64 relative flex items-center justify-center animate-bounce-ball-slow z-10 cursor-pointer hover:scale-105 transition-transform">
-                <img
-                  src={assetUrl('mascot.png')}
-                  alt="Mascot Sembako Nusantara"
-                  className="w-full h-full object-contain drop-shadow-2xl"
-                />
-              </div>
-
-              {/* Synchronized Ground Shadow */}
-              <div className="w-36 sm:w-44 h-5 bg-stone-900/20 rounded-[100%] blur-[5px] animate-bounce-shadow-slow -mt-2"></div>
-            </div>
-          </div>
-        </motion.div>
+    <div className="w-full space-y-10 sm:space-y-16 pb-20 overflow-hidden">
+      {/* 1. HERO PROMO BANNER COVER PHOTO SLIDER (3 SLIDES) */}
+      <section className="w-full pt-2">
+        <PromoBannerSlider />
       </section>
 
       {/* 2. SECTION: KENAPA HARUS BELANJA DI SEMBAKO NUSANTARA with 3D Tilt Cards */}
@@ -380,21 +280,21 @@ export const HomePage: React.FC = () => {
           {/* Vision Card */}
           <Card3D delay={0.1}>
             <div className="bg-white p-8 sm:p-10 rounded-3xl border border-[#EBE5DF] shadow-md hover:shadow-2xl transition-all duration-300 relative overflow-hidden flex flex-col justify-between h-full">
-              <div className="absolute top-0 right-0 w-36 h-36 bg-gradient-to-bl from-amber-200/30 to-transparent rounded-bl-full pointer-events-none"></div>
+              <div className="absolute top-0 right-0 w-36 h-36 bg-gradient-to-bl from-red-200/30 to-transparent rounded-bl-full pointer-events-none"></div>
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xl mb-6 shadow-xs">
+                <div className="w-12 h-12 rounded-2xl bg-red-100 text-[#c41230] flex items-center justify-center font-bold text-xl mb-6 shadow-xs">
                   <span className="material-symbols-outlined text-2xl">visibility</span>
                 </div>
                 <h3 className="font-heading font-extrabold text-2xl text-stone-900 mb-4">
-                  Visi Kami
+                  Visi
                 </h3>
-                <p className="text-stone-700 text-base leading-relaxed">
-                  Menjadi <strong>platform distribusi dan ritel sembako halal Nusantara nomor 1 di Jepang</strong> yang dikenal atas integritas, kecepatan layanan, keaslian rasa, serta menjadi jembatan persahabatan budaya kuliner Indonesia–Jepang.
+                <p className="text-stone-800 text-base sm:text-lg font-medium leading-relaxed">
+                  Menjadi toko produk Indonesia terpercaya dan pilihan utama masyarakat Indonesia di Jepang.
                 </p>
               </div>
-              <div className="mt-8 pt-6 border-t border-stone-100 flex items-center gap-2 text-xs font-bold text-amber-700">
-                <span className="material-symbols-outlined text-sm">flag</span>
-                <span>Terdepan & Terpercaya Se-Jepang</span>
+              <div className="mt-8 pt-6 border-t border-stone-100 flex items-center gap-2 text-xs font-bold text-[#c41230]">
+                <span className="material-symbols-outlined text-sm">verified</span>
+                <span>Pilihan Utama Masyarakat Indonesia di Jepang</span>
               </div>
             </div>
           </Card3D>
@@ -402,36 +302,31 @@ export const HomePage: React.FC = () => {
           {/* Mission Card */}
           <Card3D delay={0.2}>
             <div className="bg-white p-8 sm:p-10 rounded-3xl border border-[#EBE5DF] shadow-md hover:shadow-2xl transition-all duration-300 relative overflow-hidden flex flex-col justify-between h-full">
-              <div className="absolute top-0 right-0 w-36 h-36 bg-gradient-to-bl from-red-200/30 to-transparent rounded-bl-full pointer-events-none"></div>
+              <div className="absolute top-0 right-0 w-36 h-36 bg-gradient-to-bl from-emerald-200/30 to-transparent rounded-bl-full pointer-events-none"></div>
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-red-100 text-[#c41230] flex items-center justify-center font-bold text-xl mb-6 shadow-xs">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xl mb-6 shadow-xs">
                   <span className="material-symbols-outlined text-2xl">rocket_launch</span>
                 </div>
                 <h3 className="font-heading font-extrabold text-2xl text-stone-900 mb-4">
-                  Misi Kami
+                  Misi
                 </h3>
-                <ul className="space-y-3.5 text-stone-700 text-sm sm:text-base">
-                  <li className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-emerald-600 text-lg shrink-0 mt-0.5">check_circle</span>
-                    <span><strong>Jaminan Halal Mutlak:</strong> Menyediakan produk bahan pokok pangan dan rempah yang 100% tersertifikasi halal.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-emerald-600 text-lg shrink-0 mt-0.5">check_circle</span>
-                    <span><strong>Logistik Cepat & Terjangkau:</strong> Menghadirkan ongkos kirim transparan dan pengiriman kilat ke seluruh 47 prefektur.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-emerald-600 text-lg shrink-0 mt-0.5">check_circle</span>
-                    <span><strong>Pelayanan Penuh Kehangatan:</strong> Mendampingi pelanggan dengan respon cepat, ramah, dan solutif dalam 3 bahasa.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-emerald-600 text-lg shrink-0 mt-0.5">check_circle</span>
-                    <span><strong>Pemberdayaan UMKM:</strong> Menjadi saluran resmi ekspor produk-produk unggulan produsen lokal Nusantara ke pasar Jepang.</span>
-                  </li>
-                </ul>
+                <p className="text-stone-800 text-base sm:text-lg font-medium leading-relaxed">
+                  Menyediakan produk Nusantara yang berkualitas dengan pelayanan yang mudah, cepat, dan terpercaya.
+                </p>
+                <div className="mt-6 space-y-2 text-stone-600 text-xs sm:text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-emerald-600 text-base">check_circle</span>
+                    <span>Produk halal Indonesia 100% otentik dan bermutu tinggi.</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-emerald-600 text-base">check_circle</span>
+                    <span>Pelayanan mudah, cepat, dan terpercaya bagi diaspora.</span>
+                  </div>
+                </div>
               </div>
-              <div className="mt-8 pt-6 border-t border-stone-100 flex items-center gap-2 text-xs font-bold text-[#c41230]">
+              <div className="mt-8 pt-6 border-t border-stone-100 flex items-center gap-2 text-xs font-bold text-emerald-700">
                 <span className="material-symbols-outlined text-sm">favorite</span>
-                <span>Melayani Sepenuh Hati</span>
+                <span>Mudah • Cepat • Terpercaya</span>
               </div>
             </div>
           </Card3D>

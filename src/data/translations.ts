@@ -3,7 +3,7 @@ import { Language } from '../types';
 export const TRANSLATIONS: Record<Language, Record<string, string>> = {
   ID: {
     // Header & Navigation
-    location: 'Okayama',
+    location: 'Tokyo (Nishikamata)',
     shop_now: 'Belanja',
     menu: 'Menu Navigasi',
     cart: 'Keranjang',
@@ -103,11 +103,15 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     admin_nav_products: 'Daftar Produk (Master SKU)',
     admin_nav_pos: 'POS Kasir Toko',
     admin_nav_inventory: 'Inventory & Gudang',
+    admin_nav_pembelian: 'Pembelian',
     admin_nav_purchasing: 'Purchasing & Supplier PO',
     admin_nav_orders: 'Pesanan & Kurir',
     admin_nav_accounting: 'Accounting & Pajak',
-    admin_nav_competitor: 'Competitor Pricing Watch',
+    admin_nav_competitor: 'Pembanding Harga Vendor',
     admin_nav_crm: 'CRM & Loyalty Member',
+    admin_nav_laporan: 'Laporan Keuangan',
+    admin_nav_settings: 'Pengaturan',
+    admin_nav_cashier_mgmt: 'Kelola Kasir & Hak Akses',
     admin_view_store: 'Lihat Web Toko',
     admin_pos_online_connected: 'POS & Web Terhubung',
     admin_open_pos: 'Buka Kasir POS',
@@ -153,7 +157,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
 
   JP: {
     // Header & Navigation
-    location: '岡山',
+    location: '東京・西蒲田',
     shop_now: 'お買い物',
     menu: 'ナビゲーションメニュー',
     cart: 'カート',
@@ -253,11 +257,15 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     admin_nav_products: '商品一覧・マスター管理',
     admin_nav_pos: '店舗POSレジ',
     admin_nav_inventory: '在庫・倉庫管理',
+    admin_nav_pembelian: '仕入れ・購買管理',
     admin_nav_purchasing: '発注・仕入れ先PO',
     admin_nav_orders: '注文・配送管理',
     admin_nav_accounting: '会計・消費税管理',
-    admin_nav_competitor: '競合価格リサーチ',
+    admin_nav_competitor: '仕入先ベンダー価格比較',
     admin_nav_crm: '顧客・ロイヤルティCRM',
+    admin_nav_laporan: '財務・売上レポート',
+    admin_nav_settings: '設定・権限管理',
+    admin_nav_cashier_mgmt: 'レジ担当・権限管理',
     admin_view_store: 'ストア画面を見る',
     admin_pos_online_connected: 'POS & Web連動中',
     admin_open_pos: 'POSレジを開く',
@@ -303,7 +311,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
 
   EN: {
     // Header & Navigation
-    location: 'Okayama',
+    location: 'Tokyo (Nishikamata)',
     shop_now: 'Shop Now',
     menu: 'Navigation Menu',
     cart: 'Cart',
@@ -403,11 +411,15 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     admin_nav_products: 'Product Master List',
     admin_nav_pos: 'Store POS Cashier',
     admin_nav_inventory: 'Inventory & Warehouses',
+    admin_nav_pembelian: 'Purchasing & Procurement',
     admin_nav_purchasing: 'Purchasing & Supplier PO',
     admin_nav_orders: 'Orders & Courier',
     admin_nav_accounting: 'Accounting & Tax',
-    admin_nav_competitor: 'Competitor Pricing Watch',
+    admin_nav_competitor: 'Vendor Price Comparison',
     admin_nav_crm: 'CRM & Loyalty Member',
+    admin_nav_laporan: 'Financial Reports',
+    admin_nav_settings: 'System Settings',
+    admin_nav_cashier_mgmt: 'Cashier & Access Permissions',
     admin_view_store: 'View Storefront',
     admin_pos_online_connected: 'POS & Web Connected',
     admin_open_pos: 'Open POS Cashier',

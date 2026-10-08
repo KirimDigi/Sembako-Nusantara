@@ -77,9 +77,12 @@ export const Footer: React.FC = () => {
             Supermarket & e-commerce kuliner Indonesia nomor satu di Jepang. Menyediakan sembako, bumbu autentik, mi instan, kerupuk, dan frozen food halal terpercaya.
           </p>
           <div className="space-y-2 text-xs text-stone-600 pt-2">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-base text-[#c41230]">location_on</span>
-              <span>〒110-0015 Tokyo, Taito City, Higashiueno 1-chome</span>
+            <div className="flex items-start gap-2">
+              <span className="material-symbols-outlined text-base text-[#c41230] shrink-0 mt-0.5">location_on</span>
+              <div className="leading-tight">
+                <span className="font-bold text-stone-800">〒144-0051 東京都大田区西蒲田5丁目9-16</span>
+                <span className="block text-stone-500 text-[11px]">Tokyo, Ota-ku, Nishikamata 5-9-16</span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-base text-[#c41230]">schedule</span>
@@ -95,6 +98,12 @@ export const Footer: React.FC = () => {
               <span className="material-symbols-outlined text-base text-[#E1306C]">photo_camera</span>
               <a href="https://www.instagram.com/sembakonusantara.jp/" target="_blank" rel="noopener noreferrer" className="hover:underline font-bold text-stone-800">
                 Instagram: @sembakonusantara.jp
+              </a>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-base text-stone-900">smart_display</span>
+              <a href="https://www.tiktok.com/@sembakonusantara.jp" target="_blank" rel="noopener noreferrer" className="hover:underline font-bold text-stone-800">
+                TikTok: @sembakonusantara.jp
               </a>
             </div>
             <div className="flex items-center gap-2">
@@ -121,11 +130,11 @@ export const Footer: React.FC = () => {
         <div>
           <h5 className="font-bold text-sm text-stone-900 mb-4">{t('guides_help')}</h5>
           <ul className="space-y-2 text-xs text-stone-600">
-            <li><Link to="/guide" className="hover:text-[#c41230] transition-colors">Cara Bayar via JPQR / PayPay / Konbini</Link></li>
-            <li><Link to="/tracking" className="hover:text-[#c41230] transition-colors">Lacak Kiriman Yamato/Sagawa</Link></li>
-            <li><Link to="/contact" className="hover:text-[#c41230] transition-colors">Kontak & Layanan CS 24 Jam</Link></li>
+            <li><Link to="/guide" className="hover:text-[#c41230] transition-colors font-medium">Cara Bayar & Kebijakan Toko</Link></li>
+            <li><Link to="/contact" className="hover:text-[#c41230] transition-colors">Visi & Misi Toko Kami</Link></li>
+            <li><Link to="/tracking" className="hover:text-[#c41230] transition-colors">Lacak Kiriman Ekspedisi</Link></li>
+            <li><Link to="/contact" className="hover:text-[#c41230] transition-colors">Alamat Toko & Kontak CS 24 Jam</Link></li>
             <li><Link to="/referral" className="hover:text-[#c41230] transition-colors">Program Mitra & Komunitas</Link></li>
-            <li><Link to="/account" className="hover:text-[#c41230] transition-colors">Riwayat Pesanan Pelanggan</Link></li>
             <li className="pt-2 border-t border-stone-200">
               <Link to="/admin" className="text-[#c41230] font-bold hover:underline flex items-center gap-1">
                 <span className="material-symbols-outlined text-xs">shield_person</span>
@@ -154,22 +163,28 @@ export const Footer: React.FC = () => {
       {/* Payment & Logistics Badges */}
       <div className="border-t border-[#EBE5DF] py-6 px-4 sm:px-6 lg:px-8 bg-[#FDF8F0]">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-stone-500 font-semibold">{t('payment_methods')}</span>
-            <span className="px-2 py-1 bg-[#c41230] text-white font-black rounded text-[11px]">JPQR</span>
-            <span className="px-2 py-1 bg-red-100 text-[#c41230] font-bold rounded text-[11px]">JAPAN QRIS</span>
-            <span className="px-2 py-1 bg-white rounded border border-[#EBE5DF] font-bold text-stone-700">VISA</span>
-            <span className="px-2 py-1 bg-white rounded border border-[#EBE5DF] font-bold text-stone-700">MasterCard</span>
-            <span className="px-2 py-1 bg-white rounded border border-[#EBE5DF] font-bold text-stone-700">JCB</span>
-            <span className="px-2 py-1 bg-[#FF0033] text-white font-bold rounded">PayPay</span>
-            <span className="px-2 py-1 bg-[#06C755] text-white font-bold rounded">LINE Pay</span>
-            <span className="px-2 py-1 bg-white rounded border border-[#EBE5DF] font-bold text-stone-700">Konbini Pay</span>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="text-stone-500 font-bold mr-1">{t('payment_methods')}</span>
+            <span className="px-2 py-0.5 bg-emerald-600 text-white font-bold rounded text-[11px]">Cash</span>
+            <span className="px-2 py-0.5 bg-blue-600 text-white font-bold rounded text-[11px]">Transfer IDR/Yen</span>
+            <span className="px-2 py-0.5 bg-[#c41230] text-white font-black rounded text-[11px]">QRIS</span>
+            <span className="px-2 py-0.5 bg-white rounded border border-[#EBE5DF] font-bold text-stone-700">Debit / CC</span>
+            <span className="px-2 py-0.5 bg-amber-600 text-white font-bold rounded text-[11px]">E-Wallet</span>
+            <span className="px-2 py-0.5 bg-[#FF0033] text-white font-bold rounded text-[11px]">PayPay</span>
+            <span className="px-2 py-0.5 bg-stone-900 text-white font-bold rounded text-[11px]">COD</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-stone-500 font-semibold">{t('logistics')}</span>
-            <span className="px-2 py-1 bg-white rounded border border-[#EBE5DF] font-medium text-stone-700">Yamato Transport (宅急便)</span>
-            <span className="px-2 py-1 bg-white rounded border border-[#EBE5DF] font-medium text-stone-700">Sagawa Express (佐川急便)</span>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="text-stone-500 font-bold mr-1">{t('logistics')}</span>
+            <span className="px-2 py-0.5 bg-[#c41230]/10 text-[#c41230] border border-[#c41230]/30 font-bold rounded text-[11px]">
+              🚀 Delivery Service (Max 3 Station)
+            </span>
+            <span className="px-2 py-0.5 bg-white rounded border border-[#EBE5DF] font-medium text-stone-700">
+              📦 Ekspedisi (Yamato & Sagawa)
+            </span>
+            <span className="px-2 py-0.5 bg-stone-800 text-white font-bold rounded text-[11px]">
+              🤝 COD
+            </span>
           </div>
         </div>
       </div>

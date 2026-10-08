@@ -260,3 +260,47 @@ CREATE POLICY "Allow public delete pos_transaction_items"
     TO anon, authenticated
     USING (true);
 
+-- --------------------------------------------------------------------
+-- 5. TABLE: promo_banners (Homepage Hero Cover Photos & Promo Banners)
+-- --------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.promo_banners (
+    id INT PRIMARY KEY,                       -- 1, 2, 3
+    image_url TEXT NOT NULL,
+    title VARCHAR(255),
+    subtitle TEXT,
+    link_url VARCHAR(255) DEFAULT '/catalog',
+    badge VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.promo_banners ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read promo_banners" ON public.promo_banners;
+CREATE POLICY "Allow public read promo_banners"
+    ON public.promo_banners FOR SELECT
+    TO anon, authenticated
+    USING (true);
+
+DROP POLICY IF EXISTS "Allow public upsert promo_banners" ON public.promo_banners;
+CREATE POLICY "Allow public upsert promo_banners"
+    ON public.promo_banners FOR ALL
+    TO anon, authenticated
+    USING (true)
+    WITH CHECK (true);
+
+-- Seed Initial 3 Slides
+INSERT INTO public.promo_banners (id, image_url, title, subtitle, link_url, badge)
+VALUES
+    (1, '/banner-promo-1.jpg', 'Sembako Nusantara Jepang', 'Belanja Produk Indonesia Otentik di Seluruh 47 Prefektur Jepang!', '/catalog', 'PROMO SPESIAL'),
+    (2, '/banner-promo-2.jpg', 'Gratis Ongkir Se-Jepang!', 'Gratis Ongkir Otomatis untuk Belanja Minimal ¥15,000 via Yamato & Sagawa', '/catalog', 'GRATIS ONGKIR ¥15,000+'),
+    (3, '/banner-promo-3.jpg', 'Halal Frozen Food & Bumbu Nusantara', 'Bakso Sapi, Rendang, Bebek Ungkep, Aneka Sambal & Bumbu Masakan Lengkap', '/catalog?category=Frozen+Food', '100% HALAL & PRAKTIS')
+ON CONFLICT (id) DO UPDATE SET
+    image_url = EXCLUDED.image_url,
+    title = EXCLUDED.title,
+    subtitle = EXCLUDED.subtitle,
+    link_url = EXCLUDED.link_url,
+    badge = EXCLUDED.badge,
+    updated_at = timezone('utc'::text, now());
+
+

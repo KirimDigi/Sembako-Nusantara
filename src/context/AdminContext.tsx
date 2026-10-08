@@ -10,7 +10,8 @@ import {
   CustomerCRM,
   Voucher,
   CompetitorPrice,
-  UserRole
+  UserRole,
+  DirectPurchaseEntry
 } from '../types';
 import { PRODUCTS_DATA } from '../data/products';
 import {
@@ -30,6 +31,8 @@ interface AdminContextType {
   warehouses: Warehouse[];
   suppliers: Supplier[];
   purchaseOrders: PurchaseOrder[];
+  directPurchases: DirectPurchaseEntry[];
+  addDirectPurchase: (purchaseData: Omit<DirectPurchaseEntry, 'id'>) => DirectPurchaseEntry;
   stockMovements: StockMovement[];
   posTransactions: POSTransaction[];
   orders: Order[];
@@ -149,6 +152,33 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     localStorage.setItem('sn_pos_tx_v2', JSON.stringify(posTransactions));
   }, [posTransactions]);
+
+  const [directPurchases, setDirectPurchases] = useState<DirectPurchaseEntry[]>(() => {
+    const saved = localStorage.getItem('sn_direct_purchases_v1');
+    return saved
+      ? JSON.parse(saved)
+      : [
+          {
+            id: 'dp-1',
+            invoiceNumber: 'INV/NDT/2610-001',
+            supplierName: 'PT Nusantara Direct Tokyo',
+            date: '2026-10-05',
+            warehouseId: 'wh-tokyo',
+            warehouseName: 'Gudang Utama Tokyo (Kanto Hub)',
+            totalAmount: 147500,
+            status: 'Diterima',
+            notes: 'Restock mingguan mie instan dan kecap',
+            items: [
+              { productId: '1', productName: 'Indomie Mi Goreng Spesial (Dus / 40 Pcs)', quantity: 25, costPrice: 2950, subtotal: 73750 },
+              { productId: '2', productName: 'Kecap Manis Bango 550ml', quantity: 15, costPrice: 4950, subtotal: 74250 }
+            ]
+          }
+        ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sn_direct_purchases_v1', JSON.stringify(directPurchases));
+  }, [directPurchases]);
 
   useEffect(() => {
     localStorage.setItem('sn_admin_orders_v2', JSON.stringify(orders));
@@ -382,6 +412,32 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPurchaseOrders((prev) =>
       prev.map((po) => (po.id === poId ? { ...po, status: 'Received' } : po))
     );
+  };
+
+  const addDirectPurchase = (
+    purchaseData: Omit<DirectPurchaseEntry, 'id'>
+  ): DirectPurchaseEntry => {
+    const newEntry: DirectPurchaseEntry = {
+      ...purchaseData,
+      id: 'dp-' + Date.now()
+    };
+
+    // If status is 'Diterima', immediately update stocks in admin & customer catalog
+    if (newEntry.status === 'Diterima' && newEntry.items && newEntry.items.length > 0) {
+      newEntry.items.forEach((item) => {
+        updateProductStock(
+          item.productId,
+          item.quantity,
+          `Pembelian Masuk #${newEntry.invoiceNumber} (${newEntry.supplierName})`,
+          'IN_PO',
+          undefined,
+          newEntry.warehouseId || 'wh-tokyo'
+        );
+      });
+    }
+
+    setDirectPurchases((prev) => [newEntry, ...prev]);
+    return newEntry;
   };
 
   const addOrder = (newOrder: Order) => {
@@ -626,6 +682,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         warehouses,
         suppliers,
         purchaseOrders,
+        directPurchases,
+        addDirectPurchase,
         stockMovements,
         posTransactions,
         orders,

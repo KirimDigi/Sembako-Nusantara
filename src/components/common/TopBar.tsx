@@ -121,45 +121,53 @@ export const TopBar: React.FC = () => {
 
   return (
     <>
-      <div className="bg-[#111111] text-white text-xs py-1.5 px-4 sm:px-6 lg:px-8 border-b border-white/10">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <div className="bg-[#111111] text-white text-xs py-1.5 px-3 sm:px-6 lg:px-8 border-b border-white/10 w-full overflow-hidden">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 min-w-0">
           {/* Automatic Live Location & 24 Jam Service Hours */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 overflow-hidden">
             <button
               type="button"
               onClick={() => setShowLocationModal(true)}
               title="Klik untuk ubah atau perbarui lokasi Anda"
-              className="flex items-center gap-1.5 font-medium hover:text-white group cursor-pointer transition-colors"
+              className="flex items-center gap-1 font-medium hover:text-white group cursor-pointer transition-colors min-w-0 shrink"
             >
-              <span className="text-[#c41230] text-sm animate-bounce">📍</span>
-              <span className="text-stone-200 group-hover:underline underline-offset-2 flex items-center gap-1">
-                <span>{liveLocation}</span>
+              <span className="text-[#c41230] text-sm animate-bounce shrink-0">📍</span>
+              <span className="text-stone-200 group-hover:underline underline-offset-2 flex items-center gap-1 min-w-0">
+                <span className="truncate max-w-[110px] xs:max-w-[160px] sm:max-w-xs">{liveLocation}</span>
                 {isDetecting && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping shrink-0"></span>
                 )}
               </span>
-              <span className="material-symbols-outlined text-xs text-stone-500 group-hover:text-stone-300">
+              <span className="material-symbols-outlined text-xs text-stone-500 group-hover:text-stone-300 shrink-0">
                 expand_more
               </span>
             </button>
 
             {/* Separator Dot & Operational Hours Info (Buka Setiap Hari 24 Jam) */}
-            <span className="text-stone-600">•</span>
-            <div className="flex items-center gap-1.5 text-stone-300">
+            <span className="text-stone-600 shrink-0 hidden xs:inline">•</span>
+            <div className="hidden xs:flex items-center gap-1.5 text-stone-300 shrink-0">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-              <span className="font-semibold text-[11px] text-stone-200 whitespace-nowrap">
+              <span className="font-semibold text-[10px] sm:text-[11px] text-stone-200 whitespace-nowrap">
                 {language === 'JP'
-                  ? '毎日24時間営業'
+                  ? '24時間営業'
                   : language === 'EN'
-                  ? 'Open 24/7 Everyday'
-                  : 'Buka Setiap Hari 24 Jam'}
+                  ? 'Open 24/7'
+                  : 'Buka 24 Jam'}
               </span>
             </div>
           </div>
 
           {/* Social Links & Language Switcher */}
-          <div className="flex items-center gap-4 sm:gap-6">
+          <div className="flex items-center gap-2 sm:gap-6 shrink-0">
             <div className="flex items-center gap-3 sm:gap-4 text-stone-300">
+              <a
+                href="https://www.tiktok.com/@sembakonusantara.jp"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition-colors text-xs hidden md:inline"
+              >
+                TikTok
+              </a>
               <a
                 href="https://www.instagram.com/sembakonusantara.jp/"
                 target="_blank"
@@ -179,13 +187,13 @@ export const TopBar: React.FC = () => {
             </div>
 
             {/* Language Switcher Pill */}
-            <div className="flex items-center bg-[#222222] rounded-full p-0.5 border border-white/15 text-[11px] font-semibold">
+            <div className="flex items-center bg-[#222222] rounded-full p-0.5 border border-white/15 text-[11px] font-semibold shrink-0">
               {languages.map((lang) => (
                 <button
                   key={lang}
                   type="button"
                   onClick={() => setLanguage(lang)}
-                  className={`px-2.5 py-0.5 rounded-full transition-all cursor-pointer ${
+                  className={`px-2 sm:px-2.5 py-0.5 rounded-full transition-all cursor-pointer ${
                     language === lang
                       ? 'bg-white text-black font-bold shadow-sm'
                       : 'text-stone-400 hover:text-white'

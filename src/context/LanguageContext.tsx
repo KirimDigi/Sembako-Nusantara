@@ -18,7 +18,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return saved && (saved === 'ID' || saved === 'JP' || saved === 'EN') ? saved : 'ID';
   });
 
-  const [location, setLocation] = useState<string>('Okayama');
+  const [location, setLocation] = useState<string>('Tokyo (Nishikamata)');
 
   const handleSetLanguage = (lang: Language) => {
     setLanguage(lang);

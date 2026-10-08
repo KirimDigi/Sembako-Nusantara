@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { NavigationDrawer } from './NavigationDrawer';
 import { useCart } from '../../context/CartContext';
@@ -10,6 +10,8 @@ import { assetUrl } from '../../utils/assets';
 
 export const Header: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const location = useLocation();
+  const isCatalogPage = location.pathname === '/catalog';
   const { totalItems } = useCart();
   const { totalWishlistItems } = useWishlist();
   const { t, language } = useLanguage();
@@ -117,18 +119,20 @@ export const Header: React.FC = () => {
                 )}
               </Link>
 
-              {/* Belanja Button */}
-              <Link
-                to="/catalog"
-                className="inline-flex items-center justify-center bg-[#c41230] hover:bg-[#9a0021] text-white font-bold text-xs sm:text-sm px-4 sm:px-6 py-2 sm:py-2.5 rounded-full shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-              >
-                {t('shop_now')}
-              </Link>
+              {/* Belanja Button (Shown on desktop/tablet when not already on catalog page) */}
+              {!isCatalogPage && (
+                <Link
+                  to="/catalog"
+                  className="hidden md:inline-flex items-center justify-center bg-[#c41230] hover:bg-[#9a0021] text-white font-bold text-xs sm:text-sm px-4 sm:px-6 py-2 sm:py-2.5 rounded-full shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  {t('shop_now')}
+                </Link>
+              )}
 
               {/* Cart Icon Link */}
               <Link
                 to="/cart"
-                className="relative p-1.5 text-stone-700 hover:text-[#c41230] transition-colors"
+                className="relative p-1.5 text-stone-700 hover:text-[#c41230] transition-colors shrink-0"
                 title={t('cart')}
               >
                 <span className="material-symbols-outlined text-2xl sm:text-3xl block">
@@ -141,12 +145,13 @@ export const Header: React.FC = () => {
                 )}
               </Link>
 
-              {/* Hamburger Menu Button (ONLY VISIBLE ON MOBILE < lg) */}
+              {/* Hamburger Menu Button (ALWAYS VISIBLE ON MOBILE < lg) */}
               <button
                 type="button"
                 onClick={() => setIsDrawerOpen(true)}
-                className="lg:hidden p-1.5 text-stone-800 hover:text-[#c41230] focus:outline-none transition-colors rounded-lg hover:bg-stone-100"
+                className="lg:hidden p-1.5 text-stone-800 hover:text-[#c41230] bg-stone-100 hover:bg-stone-200 active:bg-stone-300 transition-colors rounded-xl flex items-center justify-center shrink-0 cursor-pointer shadow-2xs"
                 aria-label={t('menu')}
+                title="Buka Menu"
               >
                 <span className="material-symbols-outlined text-2xl sm:text-3xl block">
                   menu

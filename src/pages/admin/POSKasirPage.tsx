@@ -4,6 +4,7 @@ import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useAdmin } from '../../context/AdminContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Product, POSCartItem, POSTransaction } from '../../types';
+import { CurrencyType, getActiveExchangeRate, convertJpyToIdr, formatIdr, formatJpy } from '../../utils/currency';
 
 export const POSKasirPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -19,6 +20,10 @@ export const POSKasirPage: React.FC = () => {
   const [discountPercent, setDiscountPercent] = useState<number>(0);
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
   const [txNotes, setTxNotes] = useState<string>('');
+
+  // Dual Currency POS State (Yen / Rupiah)
+  const [payCurrency, setPayCurrency] = useState<CurrencyType>('JPY');
+  const exchangeRate = getActiveExchangeRate();
 
   // Quick Add Customer Modal State (from POS)
   const [isQuickAddCustomerOpen, setIsQuickAddCustomerOpen] = useState<boolean>(false);
@@ -488,20 +493,22 @@ export const POSKasirPage: React.FC = () => {
   const taxableAmount = subtotal - discountAmount;
   const taxAmount = Math.round(taxableAmount * 0.08); // 8% food consumption tax (軽減税率 8%)
   const totalAmount = taxableAmount + taxAmount;
+  const totalAmountIDR = convertJpyToIdr(totalAmount, exchangeRate);
 
   const handleOpenPayment = () => {
     if (cart.length === 0) return;
-    setCashGiven(totalAmount); // Default exact cash
+    setCashGiven(payCurrency === 'IDR' ? totalAmountIDR : totalAmount); // Default exact cash in chosen currency
     setIsPaymentOpen(true);
   };
 
   const handleProcessPayment = () => {
-    if (paymentMethod === 'Cash' && cashGiven < totalAmount) {
+    const activeTotalDue = payCurrency === 'IDR' ? totalAmountIDR : totalAmount;
+    if (paymentMethod === 'Cash' && cashGiven < activeTotalDue) {
       alert(txt.alertCashNotEnough);
       return;
     }
 
-    const change = paymentMethod === 'Cash' ? cashGiven - totalAmount : 0;
+    const change = paymentMethod === 'Cash' ? cashGiven - activeTotalDue : 0;
 
     const txPayload = {
       cashierName:
@@ -527,8 +534,12 @@ export const POSKasirPage: React.FC = () => {
       discountAmount,
       totalAmount,
       paymentMethod,
-      amountPaid: paymentMethod === 'Cash' ? cashGiven : totalAmount,
+      amountPaid: paymentMethod === 'Cash' ? cashGiven : activeTotalDue,
       changeAmount: change,
+      currency: payCurrency,
+      exchangeRate,
+      amountPaidOriginal: paymentMethod === 'Cash' ? cashGiven : activeTotalDue,
+      changeAmountOriginal: change,
       customerName:
         selectedCustomer.trim() ||
         (language === 'JP'
@@ -1012,7 +1023,14 @@ export const POSKasirPage: React.FC = () => {
 
                           {/* Grand Total */}
                           <td className="py-3 px-4 text-right font-mono font-black text-stone-900 whitespace-nowrap text-sm">
-                            ¥{tx.totalAmount.toLocaleString()}
+                            {tx.currency === 'IDR' ? (
+                              <div>
+                                <span>{formatIdr(tx.amountPaidOriginal || convertJpyToIdr(tx.totalAmount, tx.exchangeRate))}</span>
+                                <div className="text-[10px] text-stone-400 font-normal">¥{tx.totalAmount.toLocaleString()}</div>
+                              </div>
+                            ) : (
+                              <span>¥{tx.totalAmount.toLocaleString()}</span>
+                            )}
                           </td>
 
                           {/* Status */}
@@ -1395,9 +1413,63 @@ export const POSKasirPage: React.FC = () => {
                 />
               </div>
 
-              <div className="flex justify-between text-base font-black text-stone-900 pt-2 border-t border-stone-200">
+              {/* Currency Selector (Bayar Yen / Rupiah) */}
+              <div className="pt-2 border-t border-stone-200">
+                <div className="flex items-center justify-between text-xs font-bold text-stone-700 mb-1">
+                  <span className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs text-[#c41230]">currency_exchange</span>
+                    <span>Mata Uang Bayar:</span>
+                  </span>
+                  <span className="text-[10px] text-stone-400 font-normal">
+                    1 JPY = Rp {exchangeRate}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 p-1 bg-stone-100 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPayCurrency('JPY');
+                      if (isPaymentOpen) setCashGiven(totalAmount);
+                    }}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                      payCurrency === 'JPY'
+                        ? 'bg-[#c41230] text-white shadow-xs'
+                        : 'text-stone-600 hover:bg-stone-200/60'
+                    }`}
+                  >
+                    <span>🇯🇵</span>
+                    <span>Yen (¥)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPayCurrency('IDR');
+                      if (isPaymentOpen) setCashGiven(totalAmountIDR);
+                    }}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                      payCurrency === 'IDR'
+                        ? 'bg-[#c41230] text-white shadow-xs'
+                        : 'text-stone-600 hover:bg-stone-200/60'
+                    }`}
+                  >
+                    <span>🇮🇩</span>
+                    <span>Rupiah (Rp)</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-baseline text-base font-black text-stone-900 pt-2 border-t border-stone-200">
                 <span>{txt.totalPay}</span>
-                <span className="text-[#c41230] text-lg">¥{totalAmount.toLocaleString()}</span>
+                <div className="text-right">
+                  <span className="text-[#c41230] text-lg block">
+                    {payCurrency === 'IDR' ? formatIdr(totalAmountIDR) : formatJpy(totalAmount)}
+                  </span>
+                  <span className="text-[10px] text-stone-400 font-normal">
+                    {payCurrency === 'IDR'
+                      ? `(Ekuivalen: ${formatJpy(totalAmount)})`
+                      : `(Ekuivalen: ${formatIdr(totalAmountIDR)})`}
+                  </span>
+                </div>
               </div>
 
               {/* Pay Button */}
@@ -1411,7 +1483,9 @@ export const POSKasirPage: React.FC = () => {
                 }`}
               >
                 <span className="material-symbols-outlined text-lg">payments</span>
-                <span>{txt.btnPay(totalAmount)}</span>
+                <span>
+                  Bayar Transaksi ({payCurrency === 'IDR' ? formatIdr(totalAmountIDR) : formatJpy(totalAmount)})
+                </span>
               </button>
             </div>
           </div>
@@ -1509,13 +1583,52 @@ export const POSKasirPage: React.FC = () => {
               </button>
             </div>
 
+            {/* Currency Switcher in Payment Modal */}
+            <div className="p-1 bg-stone-100 rounded-xl grid grid-cols-2 gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setPayCurrency('JPY');
+                  setCashGiven(totalAmount);
+                }}
+                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  payCurrency === 'JPY'
+                    ? 'bg-[#c41230] text-white shadow-xs'
+                    : 'text-stone-600 hover:bg-stone-200/60'
+                }`}
+              >
+                <span>🇯🇵</span>
+                <span>Bayar Yen (¥)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPayCurrency('IDR');
+                  setCashGiven(totalAmountIDR);
+                }}
+                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  payCurrency === 'IDR'
+                    ? 'bg-[#c41230] text-white shadow-xs'
+                    : 'text-stone-600 hover:bg-stone-200/60'
+                }`}
+              >
+                <span>🇮🇩</span>
+                <span>Bayar Rupiah (Rp)</span>
+              </button>
+            </div>
+
             {/* Total Due Banner */}
             <div className="bg-stone-900 text-white p-4 rounded-2xl text-center">
               <div className="text-[11px] uppercase tracking-wider text-stone-400 font-bold">
-                {txt.payTotalLabel}
+                {txt.payTotalLabel} ({payCurrency === 'IDR' ? 'Rupiah Indonesia' : 'Yen Jepang'})
               </div>
               <div className="text-3xl font-black text-amber-400 mt-0.5">
-                ¥{totalAmount.toLocaleString()}
+                {payCurrency === 'IDR' ? formatIdr(totalAmountIDR) : formatJpy(totalAmount)}
+              </div>
+              <div className="text-[10px] text-stone-400 mt-1">
+                {payCurrency === 'IDR'
+                  ? `Ekuivalen: ${formatJpy(totalAmount)} • Kurs 1 JPY = Rp ${exchangeRate}`
+                  : `Ekuivalen: ${formatIdr(totalAmountIDR)}`}
               </div>
             </div>
 
@@ -1556,12 +1669,14 @@ export const POSKasirPage: React.FC = () => {
             {paymentMethod === 'Cash' && (
               <div className="space-y-3 bg-stone-50 p-3.5 rounded-2xl border border-stone-200">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-stone-700">{txt.cashGivenLabel}</label>
+                  <label className="text-xs font-bold text-stone-700">
+                    Uang Diterima ({payCurrency === 'IDR' ? 'Rp' : '¥'}):
+                  </label>
                   <button
-                    onClick={() => setCashGiven(totalAmount)}
+                    onClick={() => setCashGiven(payCurrency === 'IDR' ? totalAmountIDR : totalAmount)}
                     className="text-[10px] font-bold text-[#c41230] hover:underline cursor-pointer"
                   >
-                    {txt.cashExact} (¥{totalAmount.toLocaleString()})
+                    {txt.cashExact} ({payCurrency === 'IDR' ? formatIdr(totalAmountIDR) : formatJpy(totalAmount)})
                   </button>
                 </div>
                 <input
@@ -1573,13 +1688,16 @@ export const POSKasirPage: React.FC = () => {
 
                 {/* Quick denomination chips */}
                 <div className="flex flex-wrap gap-1.5">
-                  {[1000, 2000, 5000, 10000].map((amt) => (
+                  {(payCurrency === 'IDR'
+                    ? [50000, 100000, 200000, 500000, 1000000]
+                    : [1000, 2000, 5000, 10000]
+                  ).map((amt) => (
                     <button
                       key={amt}
                       onClick={() => setCashGiven(amt)}
                       className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-bold text-stone-700 hover:bg-stone-100 cursor-pointer"
                     >
-                      ¥{amt.toLocaleString()}
+                      {payCurrency === 'IDR' ? formatIdr(amt) : `¥${amt.toLocaleString()}`}
                     </button>
                   ))}
                 </div>
@@ -1587,9 +1705,11 @@ export const POSKasirPage: React.FC = () => {
                 {/* Change Calculation */}
                 <div className="pt-2 border-t border-stone-200 flex justify-between items-center text-xs">
                   <span className="font-bold text-stone-600">{txt.changeLabel}</span>
-                  {cashGiven >= totalAmount ? (
+                  {cashGiven >= (payCurrency === 'IDR' ? totalAmountIDR : totalAmount) ? (
                     <span className="text-base font-black text-emerald-600 font-mono">
-                      ¥{(cashGiven - totalAmount).toLocaleString()}
+                      {payCurrency === 'IDR'
+                        ? formatIdr(cashGiven - totalAmountIDR)
+                        : formatJpy(cashGiven - totalAmount)}
                     </span>
                   ) : (
                     <span className="text-xs font-bold text-rose-600">{txt.changeShort}</span>
@@ -1605,7 +1725,14 @@ export const POSKasirPage: React.FC = () => {
                   <span className="material-symbols-outlined text-xl">qr_code_2</span>
                 </div>
                 <h4 className="text-xs font-bold text-purple-900">{txt.jpqrTitle}</h4>
-                <p className="text-[11px] text-purple-700 leading-relaxed">{txt.jpqrGuideDesc}</p>
+                <div className="inline-block bg-white border border-purple-300 rounded-xl px-3 py-1 font-mono font-black text-sm text-purple-900 shadow-xs">
+                  Nominal Scan: {payCurrency === 'IDR' ? formatIdr(totalAmountIDR) : formatJpy(totalAmount)}
+                </div>
+                <p className="text-[11px] text-purple-700 leading-relaxed">
+                  {payCurrency === 'IDR'
+                    ? 'Pelanggan memindai QRIS dengan m-Banking / e-Wallet Indonesia (BCA, Mandiri, BRI, GoPay, OVO, ShopeePay).'
+                    : txt.jpqrGuideDesc}
+                </p>
               </div>
             )}
 
@@ -1725,17 +1852,36 @@ export const POSKasirPage: React.FC = () => {
               </div>
               <div className="flex justify-between font-bold text-sm text-stone-900 pt-1 border-t border-stone-200">
                 <span>{txt.receiptTotal}</span>
-                <span>¥{completedTx.totalAmount.toLocaleString()}</span>
+                <div className="text-right">
+                  <span>
+                    {completedTx.currency === 'IDR'
+                      ? formatIdr(completedTx.amountPaidOriginal || convertJpyToIdr(completedTx.totalAmount, completedTx.exchangeRate))
+                      : formatJpy(completedTx.totalAmount)}
+                  </span>
+                  {completedTx.currency === 'IDR' && (
+                    <span className="block text-[10px] text-stone-400 font-normal">
+                      (Ekuivalen: {formatJpy(completedTx.totalAmount)})
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex justify-between text-stone-600 pt-1">
                 <span>
-                  {txt.receiptPaid} ({completedTx.paymentMethod})
+                  {txt.receiptPaid} ({completedTx.paymentMethod} {completedTx.currency === 'IDR' ? 'Rp' : '¥'})
                 </span>
-                <span>¥{completedTx.amountPaid.toLocaleString()}</span>
+                <span>
+                  {completedTx.currency === 'IDR'
+                    ? formatIdr(completedTx.amountPaidOriginal || completedTx.amountPaid)
+                    : formatJpy(completedTx.amountPaid)}
+                </span>
               </div>
               <div className="flex justify-between text-stone-600">
                 <span>{txt.receiptChange}</span>
-                <span>¥{completedTx.changeAmount.toLocaleString()}</span>
+                <span>
+                  {completedTx.currency === 'IDR'
+                    ? formatIdr(completedTx.changeAmountOriginal || completedTx.changeAmount)
+                    : formatJpy(completedTx.changeAmount)}
+                </span>
               </div>
             </div>
 

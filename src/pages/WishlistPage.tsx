@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -109,12 +110,36 @@ export const WishlistPage: React.FC = () => {
       ) : (
         /* Empty State */
         <div className="bg-white rounded-3xl border border-[#EBE5DF] p-8 sm:p-14 text-center space-y-5 shadow-xs max-w-2xl mx-auto">
-          <div className="w-28 h-28 sm:w-36 sm:h-36 mx-auto relative flex items-center justify-center">
-            <img
-              src={assetUrl('mascot-love.png')}
-              alt="Mascot Love Sembako Nusantara"
-              className="w-full h-full object-contain drop-shadow-md animate-bounce-ball-slow"
-            />
+          {/* Animated Greeting Mascot (GIF-like Waving Sticker with Speech Bubble) */}
+          <div className="relative w-36 h-40 sm:w-44 sm:h-48 mx-auto flex flex-col items-center justify-end pb-2">
+            {/* Cute Floating Greeting Speech Bubble */}
+            <div className="absolute top-0 z-10 animate-greeting-bubble">
+              <div className="bg-gradient-to-r from-red-600 to-[#c41230] text-white text-[11px] sm:text-xs font-bold px-3 py-1 rounded-full shadow-md flex items-center gap-1 border border-white/40">
+                <span>{language === 'JP' ? 'こんにちは！' : 'Hai Sahabat!'}</span>
+                <span className="animate-wave-hand text-sm">👋</span>
+              </div>
+              <div className="w-2 h-2 bg-[#c41230] rotate-45 mx-auto -mt-1 shadow-xs"></div>
+            </div>
+
+            {/* Waving Mascot Character */}
+            <motion.div
+              whileHover={{ scale: 1.12, rotate: 6 }}
+              whileTap={{ scale: 0.95 }}
+              className="relative w-28 h-28 sm:w-36 sm:h-36 flex items-center justify-center cursor-pointer select-none"
+            >
+              <img
+                src={assetUrl('mascot-love.png')}
+                alt="Mascot Waving Sembako Nusantara"
+                className="w-full h-full object-contain drop-shadow-lg animate-mascot-greeting"
+              />
+              {/* Floating Little Heart */}
+              <span className="absolute -top-1 -right-1 text-sm sm:text-base animate-pulse select-none">
+                ❤️
+              </span>
+            </motion.div>
+
+            {/* Soft Shadow Underneath Mascot */}
+            <div className="w-20 sm:w-24 h-3 bg-stone-900/20 rounded-[50%] blur-[2px] -mt-1 animate-mascot-shadow-greeting"></div>
           </div>
 
           <div className="space-y-2">

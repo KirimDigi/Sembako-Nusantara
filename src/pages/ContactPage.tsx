@@ -59,13 +59,13 @@ export const ContactPage: React.FC = () => {
       badgeColor: 'bg-blue-100 text-blue-800'
     },
     {
-      title: 'Hub & Gudang Logistik Kanto',
-      desc: 'Fulfillment center pengiriman kilat Cool Takkyubin ke seluruh 47 prefektur Jepang.',
-      contact: 'Tokyo & Okayama Hub',
-      actionUrl: 'https://maps.google.com',
-      actionText: 'Lihat di Google Maps',
-      icon: 'location_on',
-      badge: 'Fulfillment Center',
+      title: 'Toko Resmi & Hub Kanto',
+      desc: 'Lokasi toko fisik & pusat pengiriman kilat ke seluruh 47 prefektur Jepang.',
+      contact: '〒144-0051 Tokyo, Ota-ku, Nishikamata 5-9-16',
+      actionUrl: 'https://www.google.com/maps/search/?api=1&query=〒144-0051+東京都大田区西蒲田5丁目9-16',
+      actionText: 'Lihat Peta Google Maps',
+      icon: 'storefront',
+      badge: 'Alamat Toko Resmi',
       badgeColor: 'bg-red-100 text-[#c41230]'
     }
   ];
@@ -89,8 +89,8 @@ export const ContactPage: React.FC = () => {
     },
     {
       name: 'TikTok Official',
-      handle: '@sembakonusantara',
-      url: 'https://tiktok.com',
+      handle: '@sembakonusantara.jp',
+      url: 'https://www.tiktok.com/@sembakonusantara.jp',
       color: 'bg-black text-white',
       desc: 'Video unboxing frozen food, sambal, & mie instan',
       iconType: 'tiktok'
@@ -416,21 +416,39 @@ export const ContactPage: React.FC = () => {
 
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-[#c41230] text-lg shrink-0">
-                  location_on
+                  storefront
                 </span>
                 <div>
-                  <p className="font-bold text-stone-200">Hub Tokyo (Kanto):</p>
-                  <p className="text-stone-400 text-[11px]">〒110-0015 Tokyo, Taito City, Higashiueno 1-chome</p>
+                  <p className="font-bold text-stone-200">Alamat Lengkap Toko (Tokyo):</p>
+                  <p className="text-stone-200 text-xs font-semibold mt-0.5">〒144-0051 東京都大田区西蒲田5丁目9-16</p>
+                  <p className="text-stone-400 text-[11px]">Tokyo, Ota-ku, Nishikamata 5-9-16</p>
+                  <a
+                    href="https://www.google.com/maps/search/?api=1&query=〒144-0051+東京都大田区西蒲田5丁目9-16"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[#ff8093] hover:underline text-[11px] font-bold mt-1"
+                  >
+                    <span>Buka Petunjuk Arah Google Maps</span>
+                    <span className="material-symbols-outlined text-[12px]">arrow_outward</span>
+                  </a>
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-[#c41230] text-lg shrink-0">
-                  warehouse
+                  local_shipping
                 </span>
                 <div>
-                  <p className="font-bold text-stone-200">Hub Okayama (Chugoku/Kansai):</p>
-                  <p className="text-stone-400 text-[11px]">〒700-0821 Okayama-shi, Kita-ku Fulfillment Center</p>
+                  <p className="font-bold text-stone-200">Layanan Pengiriman:</p>
+                  <p className="text-stone-300 text-[11px] mt-0.5">
+                    • <strong>Delivery Service:</strong> Max jarak 3 station dari toko
+                  </p>
+                  <p className="text-stone-300 text-[11px]">
+                    • <strong>Ekspedisi:</strong> Seluruh 47 Prefektur Jepang (Yamato & Sagawa)
+                  </p>
+                  <p className="text-stone-300 text-[11px]">
+                    • <strong>COD:</strong> Cash on Delivery (Bayar di Tempat)
+                  </p>
                 </div>
               </div>
 
@@ -444,6 +462,182 @@ export const ContactPage: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Visi & Misi Perusahaan Section */}
+      <div id="visi-misi" className="bg-gradient-to-br from-[#FDF8F0] via-white to-red-50/40 rounded-3xl border border-[#EBE5DF] p-6 sm:p-10 shadow-sm space-y-6">
+        <div className="text-center max-w-2xl mx-auto space-y-2">
+          <span className="text-xs font-extrabold uppercase tracking-widest text-[#c41230]">
+            Visi & Misi / Tentang Perusahaan
+          </span>
+          <h2 className="font-heading font-black text-2xl sm:text-3xl text-stone-900">
+            Komitmen Kami untuk Masyarakat Nusantara di Jepang
+          </h2>
+          <p className="text-xs sm:text-sm text-stone-600">
+            Sembako Nusantara hadir sebagai jembatan cita rasa dan kebutuhan sehari-hari warga Indonesia di perantauan Jepang.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+          {/* Card Visi */}
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-red-100 shadow-xs hover:shadow-md transition-all space-y-3 relative overflow-hidden group">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-[#c41230] flex items-center justify-center font-bold text-xl mb-2">
+              <span className="material-symbols-outlined text-2xl">visibility</span>
+            </div>
+            <span className="text-[11px] font-black uppercase tracking-wider text-[#c41230]">Visi Kami</span>
+            <h3 className="font-heading font-bold text-lg sm:text-xl text-stone-900">
+              Visi
+            </h3>
+            <p className="text-stone-700 text-sm sm:text-base leading-relaxed font-medium">
+              Menjadi toko produk Indonesia terpercaya dan pilihan utama masyarakat Indonesia di Jepang.
+            </p>
+            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-red-50 rounded-full opacity-50 group-hover:scale-125 transition-transform -z-0 pointer-events-none" />
+          </div>
+
+          {/* Card Misi */}
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-emerald-100 shadow-xs hover:shadow-md transition-all space-y-3 relative overflow-hidden group">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xl mb-2">
+              <span className="material-symbols-outlined text-2xl">flag</span>
+            </div>
+            <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700">Misi Kami</span>
+            <h3 className="font-heading font-bold text-lg sm:text-xl text-stone-900">
+              Misi
+            </h3>
+            <p className="text-stone-700 text-sm sm:text-base leading-relaxed font-medium">
+              Menyediakan produk Nusantara yang berkualitas dengan pelayanan yang mudah, cepat, dan terpercaya.
+            </p>
+            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-emerald-50 rounded-full opacity-50 group-hover:scale-125 transition-transform -z-0 pointer-events-none" />
+          </div>
+        </div>
+      </div>
+
+      {/* Kebijakan Toko Section */}
+      <div id="kebijakan-toko" className="bg-white rounded-3xl border border-[#EBE5DF] p-6 sm:p-10 shadow-sm space-y-6">
+        <div className="max-w-3xl space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 text-[#c41230] text-xs font-bold uppercase tracking-wider">
+            <span className="material-symbols-outlined text-sm">policy</span>
+            <span>Ketentuan & Transparansi Layanan</span>
+          </div>
+          <h2 className="font-heading font-bold text-xl sm:text-2xl text-stone-900">
+            Kebijakan Toko Sembako Nusantara Jepang
+          </h2>
+          <p className="text-stone-700 text-xs sm:text-sm font-medium leading-relaxed bg-[#FDF8F0] p-4 rounded-xl border border-amber-200/70">
+            "Kami berkomitmen menyediakan produk Indonesia berkualitas dengan pelayanan yang aman dan terpercaya."
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+          {/* Pengembalian Produk */}
+          <div className="p-5 rounded-2xl border border-stone-200 bg-stone-50/60 space-y-2 hover:bg-white hover:border-red-200 transition-all">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-red-100 text-[#c41230] flex items-center justify-center font-bold text-sm shrink-0">
+                <span className="material-symbols-outlined text-base">assignment_return</span>
+              </span>
+              <h4 className="font-bold text-sm text-stone-900">Pengembalian Produk</h4>
+            </div>
+            <p className="text-xs text-stone-600 leading-relaxed pl-10">
+              Produk makanan dan minuman yang telah dibeli tidak dapat dikembalikan setelah kemasan dibuka, kecuali terdapat kesalahan pesanan, kerusakan, atau kondisi produk yang tidak sesuai saat diterima.
+            </p>
+          </div>
+
+          {/* Komplain */}
+          <div className="p-5 rounded-2xl border border-stone-200 bg-stone-50/60 space-y-2 hover:bg-white hover:border-amber-200 transition-all">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm shrink-0">
+                <span className="material-symbols-outlined text-base">timer</span>
+              </span>
+              <h4 className="font-bold text-sm text-stone-900">Komplain (Maksimal 24 Jam)</h4>
+            </div>
+            <p className="text-xs text-stone-600 leading-relaxed pl-10">
+              Keluhan terkait pesanan wajib disampaikan kepada Customer Service maksimal 24 jam setelah barang diterima dengan menyertakan bukti foto/video.
+            </p>
+          </div>
+
+          {/* Pesanan */}
+          <div className="p-5 rounded-2xl border border-stone-200 bg-stone-50/60 space-y-2 hover:bg-white hover:border-blue-200 transition-all">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-sm shrink-0">
+                <span className="material-symbols-outlined text-base">edit_note</span>
+              </span>
+              <h4 className="font-bold text-sm text-stone-900">Ketentuan Pesanan</h4>
+            </div>
+            <p className="text-xs text-stone-600 leading-relaxed pl-10">
+              Pastikan data penerima dan alamat pengiriman sudah benar sebelum melakukan pembayaran. Pesanan yang telah diproses atau dikirim mengikuti ketentuan pembatalan yang berlaku.
+            </p>
+          </div>
+
+          {/* Kompensasi / Retur */}
+          <div className="p-5 rounded-2xl border border-stone-200 bg-stone-50/60 space-y-2 hover:bg-white hover:border-emerald-200 transition-all">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm shrink-0">
+                <span className="material-symbols-outlined text-base">verified</span>
+              </span>
+              <h4 className="font-bold text-sm text-stone-900">Kompensasi / Retur</h4>
+            </div>
+            <p className="text-xs text-stone-600 leading-relaxed pl-10">
+              Setiap pengajuan akan diperiksa berdasarkan kondisi produk dan bukti transaksi sebelum keputusan retur, penggantian produk, atau kompensasi diberikan.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Metode Pembayaran & Pengiriman Highlights */}
+      <div className="bg-[#111111] text-white rounded-3xl p-6 sm:p-10 shadow-lg space-y-6 border border-white/10">
+        <div className="text-center max-w-2xl mx-auto space-y-2">
+          <span className="text-[11px] font-black uppercase tracking-widest text-[#ff8093]">
+            Metode Pembayaran & Pengiriman Resmi
+          </span>
+          <h2 className="font-heading font-black text-xl sm:text-2xl text-white">
+            Fleksibel, Nyaman, dan Terpercaya
+          </h2>
+          <p className="text-xs text-stone-400">
+            Disesuaikan khusus untuk memudahkan kawan-kawan PMI, Kenshusei, Pelajar, dan Keluarga Indonesia di seluruh wilayah Jepang.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+          {/* Payment Methods */}
+          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+            <div className="flex items-center gap-2 text-amber-400">
+              <span className="material-symbols-outlined text-xl">payments</span>
+              <h4 className="font-bold text-sm text-white">Metode Pembayaran Lengkap</h4>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-700/80 text-white font-bold">💵 Cash (Tunai)</span>
+              <span className="px-2.5 py-1 rounded-lg bg-blue-600/80 text-white font-bold">🏦 Transfer IDR / Yen</span>
+              <span className="px-2.5 py-1 rounded-lg bg-[#c41230] text-white font-black">📱 QRIS / JPQR</span>
+              <span className="px-2.5 py-1 rounded-lg bg-stone-700 text-white font-bold">💳 Debit / CC</span>
+              <span className="px-2.5 py-1 rounded-lg bg-purple-700/80 text-white font-bold">📲 E-wallet</span>
+              <span className="px-2.5 py-1 rounded-lg bg-[#FF0033] text-white font-bold">⚡ Pay-pay</span>
+              <span className="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-bold">🤝 COD (Bayar di Tempat)</span>
+            </div>
+            <p className="text-[11px] text-stone-400 leading-relaxed">
+              Dapat bayar dengan Rupiah (rekening bank Indonesia) atau Yen Jepang (PayPay, Yucho Bank, Konbini, Cash).
+            </p>
+          </div>
+
+          {/* Delivery Services */}
+          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+            <div className="flex items-center gap-2 text-emerald-400">
+              <span className="material-symbols-outlined text-xl">local_shipping</span>
+              <h4 className="font-bold text-sm text-white">Layanan Pengiriman Cepat</h4>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="px-2.5 py-1 rounded-lg bg-[#c41230]/40 border border-[#c41230] text-white font-bold">
+                🛵 Delivery Service (Max Jarak 3 Station)
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-stone-700 text-white font-bold">
+                📦 Ekspedisi (Yamato & Sagawa)
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-bold">
+                🤝 COD (Cash on Delivery)
+              </span>
+            </div>
+            <p className="text-[11px] text-stone-400 leading-relaxed">
+              Pengiriman instan untuk area dekat toko (max 3 stasiun), serta pengiriman ekspedisi Cool Takkyubin bersuhu minus ke seluruh Jepang.
+            </p>
           </div>
         </div>
       </div>

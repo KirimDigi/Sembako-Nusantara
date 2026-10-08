@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAdmin } from '../context/AdminContext';
 import { useAuth } from '../context/AuthContext';
+import { CurrencyType, getActiveExchangeRate, convertJpyToIdr, formatIdr, formatJpy } from '../utils/currency';
+import { FreeShippingProgressBar } from '../components/common/FreeShippingProgressBar';
+import { assetUrl } from '../utils/assets';
 
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -12,6 +15,8 @@ export const CheckoutPage: React.FC = () => {
 
   const [paymentMethod, setPaymentMethod] = useState<'jpqr' | 'paypay' | 'konbini' | 'card' | 'bank' | 'cod'>('jpqr');
   const [courier, setCourier] = useState<'Yamato Transport' | 'Sagawa Express'>('Yamato Transport');
+  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>('JPY');
+  const exchangeRate = getActiveExchangeRate();
   const [formData, setFormData] = useState({
     fullName: currentUser?.name || 'Willy Pratama',
     phone: currentUser?.phone || '+81 80-1122-3344',
@@ -56,6 +61,12 @@ export const CheckoutPage: React.FC = () => {
   const shippingFee = isFreeShipping ? 0 : 850;
   const grandTotal = Math.max(0, subtotalTax - discountVal + shippingFee);
 
+  // Dual Currency Calculations
+  const grandTotalIdr = convertJpyToIdr(grandTotal, exchangeRate);
+  const subtotalTaxIdr = convertJpyToIdr(subtotalTax, exchangeRate);
+  const discountValIdr = convertJpyToIdr(discountVal, exchangeRate);
+  const shippingFeeIdr = convertJpyToIdr(shippingFee, exchangeRate);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) {
@@ -75,8 +86,10 @@ export const CheckoutPage: React.FC = () => {
       courier: courier,
       status: 'Dikemas' as const,
       paymentMethod,
+      currency: selectedCurrency,
       total: grandTotal,
       totalAmount: grandTotal,
+      totalAmountIDR: grandTotalIdr,
       taxAmount: foodTaxAmount,
       date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
       customerName: formData.fullName ? `${formData.fullName}` : 'Pelanggan Diaspora',
@@ -150,6 +163,11 @@ export const CheckoutPage: React.FC = () => {
         </div>
       )}
 
+      {/* Free Shipping Progress Indicator (Mascot walking towards gift) */}
+      <div className="mb-6">
+        <FreeShippingProgressBar />
+      </div>
+
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Form (8 cols) */}
         <div className="lg:col-span-8 space-y-6">
@@ -222,14 +240,16 @@ export const CheckoutPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">Pilihan Kurir Ekspedisi</label>
+                <label className="block text-xs font-bold text-stone-700 mb-1">Pilihan Layanan Pengiriman</label>
                 <select
                   value={courier}
                   onChange={(e) => setCourier(e.target.value as any)}
                   className="w-full px-3.5 py-2.5 bg-stone-50 rounded-xl border border-stone-200 text-xs sm:text-sm font-bold focus:border-[#c41230] outline-none"
                 >
-                  <option value="Yamato Transport">🐱 Kuroneko Yamato Transport (ヤマト運輸)</option>
-                  <option value="Sagawa Express">🚚 Sagawa Express (佐川急便)</option>
+                  <option value="Yamato Transport">🐱 Ekspedisi Kuroneko Yamato (ヤマト運輸 - Reguler & Cool)</option>
+                  <option value="Sagawa Express">🚚 Ekspedisi Sagawa Express (佐川急便 - Reguler)</option>
+                  <option value="Delivery Service (Max 3 Station)">🛵 Delivery Service Toko (Max Jarak 3 Stasiun Nishikamata)</option>
+                  <option value="COD (Cash on Delivery)">🤝 COD - Cash on Delivery (Bayar di Tempat)</option>
                 </select>
               </div>
 
@@ -272,9 +292,9 @@ export const CheckoutPage: React.FC = () => {
                 <div className="flex-1">
                   <div className="font-bold text-xs text-stone-900 flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 bg-[#c41230] text-white text-[10px] font-black tracking-wider rounded">JPQR</span>
-                      <span className="px-2 py-0.5 bg-red-100 text-[#c41230] text-[10px] font-bold rounded">JAPAN QRIS</span>
-                      <span className="text-stone-900 font-bold">Standard Unified QR (JPQR 統一QR)</span>
+                      <span className="px-2 py-0.5 bg-[#c41230] text-white text-[10px] font-black tracking-wider rounded">QRIS</span>
+                      <span className="px-2 py-0.5 bg-red-100 text-[#c41230] text-[10px] font-bold rounded">JPQR</span>
+                      <span className="text-stone-900 font-bold">QRIS & JPQR (Scan QR Antarnegara)</span>
                     </div>
                     <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">⚡ Rekomendasi Bebas Biaya</span>
                   </div>
@@ -284,7 +304,6 @@ export const CheckoutPage: React.FC = () => {
 
                   {paymentMethod === 'jpqr' && (
                     <div className="mt-3 p-4 bg-white rounded-xl border border-stone-200 shadow-xs flex flex-col sm:flex-row items-center gap-4 animate-in fade-in">
-                      {/* Barcode / QR Frame Box Placeholder */}
                       <div className="w-32 h-32 bg-stone-50 rounded-xl border-2 border-dashed border-[#c41230] p-2 flex flex-col items-center justify-center text-center relative overflow-hidden group">
                         <div className="w-full h-full bg-white rounded-lg flex flex-col items-center justify-center p-2 shadow-inner">
                           <span className="material-symbols-outlined text-3xl text-[#c41230] animate-pulse">qr_code_scanner</span>
@@ -306,7 +325,17 @@ export const CheckoutPage: React.FC = () => {
                         <ol className="text-[11px] text-stone-500 space-y-1 list-decimal list-inside">
                           <li>Klik tombol <strong>"Konfirmasi & Buat Pesanan"</strong>.</li>
                           <li>Scan Barcode JPQR / QRIS dengan aplikasi Bank/E-Wallet Anda.</li>
-                          <li>Masukkan nominal pembayaran pas <strong>¥{grandTotal.toLocaleString()}</strong>.</li>
+                          <li>
+                            Masukkan nominal pembayaran pas{' '}
+                            <strong className="text-[#c41230]">
+                              {selectedCurrency === 'IDR' ? formatIdr(grandTotalIdr) : formatJpy(grandTotal)}
+                            </strong>
+                            {selectedCurrency === 'IDR' && (
+                              <span className="text-[10px] text-stone-400 block sm:inline sm:ml-1">
+                                (Ekuivalen: {formatJpy(grandTotal)})
+                              </span>
+                            )}
+                          </li>
                           <li>Pesanan akan diverifikasi secara otomatis & langsung diproses.</li>
                         </ol>
                       </div>
@@ -331,34 +360,57 @@ export const CheckoutPage: React.FC = () => {
                 <div>
                   <div className="font-bold text-xs text-stone-900 flex items-center gap-1.5">
                     <span className="px-1.5 py-0.5 bg-[#FF0033] text-white text-[10px] font-bold rounded">PayPay</span>
-                    <span>QR & Aplikasi</span>
+                    <span>QR & Aplikasi Pay-pay</span>
                   </div>
                   <p className="text-[11px] text-stone-500 mt-1">Scan kode QR PayPay instan tanpa biaya transfer.</p>
                 </div>
               </label>
 
-              {/* Konbini Pay */}
+              {/* Bank Transfer IDR / Yen */}
               <label
                 className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
-                  paymentMethod === 'konbini' ? 'border-[#c41230] bg-red-50/40 ring-1 ring-[#c41230]' : 'border-stone-200 hover:border-stone-300'
+                  paymentMethod === 'bank' ? 'border-blue-600 bg-blue-50/40 ring-1 ring-blue-600' : 'border-stone-200 hover:border-stone-300'
                 }`}
               >
                 <input
                   type="radio"
                   name="payment"
-                  checked={paymentMethod === 'konbini'}
-                  onChange={() => setPaymentMethod('konbini')}
+                  checked={paymentMethod === 'bank'}
+                  onChange={() => setPaymentMethod('bank')}
                   className="mt-1"
                 />
                 <div>
-                  <div className="font-bold text-xs text-stone-900">
-                    🏪 Konbini Pay (コンビニ決済)
+                  <div className="font-bold text-xs text-stone-900 flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 bg-blue-600 text-white text-[10px] font-bold rounded">Transfer</span>
+                    <span>Transfer Bank (IDR / Yen)</span>
                   </div>
-                  <p className="text-[11px] text-stone-500 mt-1">Lawson (Loppi), FamilyMart (FamiPort), 7-Eleven.</p>
+                  <p className="text-[11px] text-stone-500 mt-1">BCA, Mandiri, BRI, BNI serta Yucho Bank (ゆうちょ銀行).</p>
                 </div>
               </label>
 
-              {/* Credit Card */}
+              {/* Cash & COD */}
+              <label
+                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
+                  paymentMethod === 'cod' ? 'border-emerald-600 bg-emerald-50/40 ring-1 ring-emerald-600' : 'border-stone-200 hover:border-stone-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="payment"
+                  checked={paymentMethod === 'cod'}
+                  onChange={() => setPaymentMethod('cod')}
+                  className="mt-1"
+                />
+                <div>
+                  <div className="font-bold text-xs text-stone-900 flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 bg-emerald-600 text-white text-[10px] font-bold rounded">Cash / COD</span>
+                    <span>Tunai & COD (Bayar di Tempat)</span>
+                  </div>
+                  <p className="text-[11px] text-stone-500 mt-1">Bayar tunai kepada staf saat delivery atau kurir ekspedisi.</p>
+                </div>
+              </label>
+
+              {/* Debit / Credit Card */}
               <label
                 className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
                   paymentMethod === 'card' ? 'border-[#c41230] bg-red-50/40 ring-1 ring-[#c41230]' : 'border-stone-200 hover:border-stone-300'
@@ -372,31 +424,32 @@ export const CheckoutPage: React.FC = () => {
                   className="mt-1"
                 />
                 <div>
-                  <div className="font-bold text-xs text-stone-900">
-                    💳 Kartu Kredit (クレジットカード)
+                  <div className="font-bold text-xs text-stone-900 flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 bg-stone-800 text-white text-[10px] font-bold rounded">Debit / CC</span>
+                    <span>Kartu Debit & Kredit</span>
                   </div>
                   <p className="text-[11px] text-stone-500 mt-1">Visa, Mastercard, JCB, American Express.</p>
                 </div>
               </label>
 
-              {/* Bank Transfer */}
+              {/* Konbini Pay */}
               <label
-                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
-                  paymentMethod === 'bank' ? 'border-[#c41230] bg-red-50/40 ring-1 ring-[#c41230]' : 'border-stone-200 hover:border-stone-300'
+                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3 sm:col-span-2 ${
+                  paymentMethod === 'konbini' ? 'border-[#c41230] bg-red-50/40 ring-1 ring-[#c41230]' : 'border-stone-200 hover:border-stone-300'
                 }`}
               >
                 <input
                   type="radio"
                   name="payment"
-                  checked={paymentMethod === 'bank'}
-                  onChange={() => setPaymentMethod('bank')}
+                  checked={paymentMethod === 'konbini'}
+                  onChange={() => setPaymentMethod('konbini')}
                   className="mt-1"
                 />
                 <div>
                   <div className="font-bold text-xs text-stone-900">
-                    🏦 Transfer Bank Jepang (銀行振込)
+                    🏪 Konbini Pay / E-Wallet Minimarket (コンビニ決済)
                   </div>
-                  <p className="text-[11px] text-stone-500 mt-1">Yucho Bank (ゆうちょ銀行) & SMBC.</p>
+                  <p className="text-[11px] text-stone-500 mt-1">Lawson (Loppi), FamilyMart (FamiPort), 7-Eleven.</p>
                 </div>
               </label>
             </div>
@@ -454,25 +507,117 @@ export const CheckoutPage: React.FC = () => {
               )}
             </div>
 
+            {/* Currency Selector (Bayar Yen / Rupiah) */}
+            <div className="pt-3 border-t border-stone-100">
+              <div className="flex items-center justify-between text-xs font-bold text-stone-700 mb-1.5">
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm text-[#c41230]">currency_exchange</span>
+                  <span>Mata Uang Pembayaran:</span>
+                </span>
+                <span className="text-[10px] text-stone-400 font-normal">
+                  Kurs: 1 JPY = Rp {exchangeRate}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-stone-50 rounded-xl border border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCurrency('JPY')}
+                  className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    selectedCurrency === 'JPY'
+                      ? 'bg-[#c41230] text-white shadow-xs'
+                      : 'text-stone-600 hover:bg-stone-200/70'
+                  }`}
+                >
+                  <span>🇯🇵</span>
+                  <span>Bayar Yen (¥)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCurrency('IDR')}
+                  className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    selectedCurrency === 'IDR'
+                      ? 'bg-[#c41230] text-white shadow-xs'
+                      : 'text-stone-600 hover:bg-stone-200/70'
+                  }`}
+                >
+                  <span>🇮🇩</span>
+                  <span>Bayar Rupiah (Rp)</span>
+                </button>
+              </div>
+            </div>
+
             <div className="border-t border-stone-200 pt-3 space-y-1.5 text-xs text-stone-600">
               <div className="flex justify-between">
                 <span>Subtotal Produk:</span>
-                <span>¥{subtotalTax.toLocaleString()}</span>
+                <span>
+                  {selectedCurrency === 'IDR' ? (
+                    <>
+                      <strong className="text-stone-900">{formatIdr(subtotalTaxIdr)}</strong>{' '}
+                      <span className="text-[10px] text-stone-400">({formatJpy(subtotalTax)})</span>
+                    </>
+                  ) : (
+                    <span>{formatJpy(subtotalTax)}</span>
+                  )}
+                </span>
               </div>
               {discountVal > 0 && (
                 <div className="flex justify-between text-emerald-700 font-bold">
                   <span>Potongan Voucher:</span>
-                  <span>-¥{discountVal.toLocaleString()}</span>
+                  <span>
+                    {selectedCurrency === 'IDR'
+                      ? `-${formatIdr(discountValIdr)}`
+                      : `-${formatJpy(discountVal)}`}
+                  </span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span>Ongkir ({courier}):</span>
-                <span>{isFreeShipping ? <span className="text-emerald-600 font-bold">GRATIS</span> : `¥${shippingFee.toLocaleString()}`}</span>
+                <span>
+                  {isFreeShipping ? (
+                    <span className="text-emerald-600 font-bold">GRATIS</span>
+                  ) : selectedCurrency === 'IDR' ? (
+                    <>
+                      <strong className="text-stone-900">{formatIdr(shippingFeeIdr)}</strong>{' '}
+                      <span className="text-[10px] text-stone-400">({formatJpy(shippingFee)})</span>
+                    </>
+                  ) : (
+                    formatJpy(shippingFee)
+                  )}
+                </span>
               </div>
-              <div className="flex justify-between items-baseline pt-2 text-base font-bold text-[#c41230] border-t border-stone-100">
-                <span>Total Bayar:</span>
-                <span className="text-2xl font-black">¥{grandTotal.toLocaleString()}</span>
+
+              {/* Total Bayar Section */}
+              <div className="pt-2 border-t border-stone-100">
+                <div className="flex justify-between items-baseline text-base font-bold text-[#c41230]">
+                  <span>Total Bayar:</span>
+                  <span className="text-2xl font-black">
+                    {selectedCurrency === 'IDR' ? formatIdr(grandTotalIdr) : formatJpy(grandTotal)}
+                  </span>
+                </div>
+                <div className="text-[11px] text-stone-400 text-right mt-0.5">
+                  {selectedCurrency === 'IDR' ? (
+                    <span>Ekuivalen: {formatJpy(grandTotal)} • Kurs 1 JPY = Rp {exchangeRate}</span>
+                  ) : (
+                    <span>Ekuivalen: {formatIdr(grandTotalIdr)} (Rp)</span>
+                  )}
+                </div>
               </div>
+            </div>
+
+            {/* Kebijakan Toko Alert */}
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 space-y-1">
+              <div className="flex items-center gap-1 font-bold text-amber-950">
+                <span className="material-symbols-outlined text-xs text-[#c41230]">policy</span>
+                <span>Kebijakan Toko Sembako Nusantara:</span>
+              </div>
+              <p className="leading-relaxed text-amber-900">
+                • Komplain wajib dilaporkan max <strong>24 jam</strong> setelah barang diterima dengan bukti foto/video.<br />
+                • Produk makanan & minuman tidak dapat dikembalikan setelah kemasan dibuka.<br />
+                • Pastikan alamat & penerima sudah benar sebelum pembayaran.
+              </p>
+              <Link to="/guide" target="_blank" className="text-[#c41230] font-bold hover:underline inline-block pt-0.5">
+                Lihat Ketentuan & Kebijakan Toko Selengkapnya →
+              </Link>
             </div>
 
             <button
@@ -490,14 +635,22 @@ export const CheckoutPage: React.FC = () => {
       {completedOrder && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto text-3xl font-bold">
-              ✓
+            <div className="w-24 h-24 sm:w-28 sm:h-28 mx-auto relative flex items-center justify-center">
+              <img
+                src={assetUrl('mascot-oke.png')}
+                alt="Pesanan Berhasil"
+                className="w-full h-full object-contain drop-shadow-md animate-bounce-ball-slow"
+              />
             </div>
 
             <div>
-              <h3 className="text-xl font-bold text-stone-900">Pesanan Berhasil Dibuat!</h3>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold mb-2">
+                <span className="material-symbols-outlined text-sm">check_circle</span>
+                <span>Pesanan Berhasil Dibuat!</span>
+              </div>
+              <h3 className="text-xl font-bold text-stone-900">Terima Kasih Banyak!</h3>
               <p className="text-xs text-stone-500 mt-1">
-                Terima kasih atas pesanan Anda di Sembako Nusantara Jepang. Kami akan segera mengemas dan mengirimkan pesanan Anda.
+                Pesanan Anda telah diterima oleh Sembako Nusantara Jepang. Kami akan segera mengemas dan mengirimkan pesanan ke alamat Anda.
               </p>
             </div>
 
@@ -518,9 +671,20 @@ export const CheckoutPage: React.FC = () => {
                 <span className="text-stone-500">Metode Bayar:</span>
                 <span className="font-bold text-stone-800 uppercase">{completedOrder.paymentMethod}</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-stone-200 font-bold">
+              <div className="flex justify-between items-baseline pt-2 border-t border-stone-200 font-bold">
                 <span className="text-stone-900">Total Pembayaran:</span>
-                <span className="text-[#c41230] text-sm font-black">¥{completedOrder.totalAmount.toLocaleString()}</span>
+                <div className="text-right">
+                  <span className="text-[#c41230] text-sm font-black block">
+                    {completedOrder.currency === 'IDR'
+                      ? formatIdr(completedOrder.totalAmountIDR || convertJpyToIdr(completedOrder.totalAmount))
+                      : formatJpy(completedOrder.totalAmount)}
+                  </span>
+                  <span className="text-[10px] text-stone-400 font-normal">
+                    {completedOrder.currency === 'IDR'
+                      ? `(${formatJpy(completedOrder.totalAmount)})`
+                      : `(${formatIdr(completedOrder.totalAmountIDR || convertJpyToIdr(completedOrder.totalAmount))})`}
+                  </span>
+                </div>
               </div>
             </div>
 

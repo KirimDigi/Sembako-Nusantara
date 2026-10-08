@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAdmin } from '../context/AdminContext';
+import { FreeShippingProgressBar } from '../components/common/FreeShippingProgressBar';
 
 export const CartPage: React.FC = () => {
   const {
@@ -61,11 +62,15 @@ export const CartPage: React.FC = () => {
       </div>
 
       {cart.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-[#EBE5DF] p-12 text-center shadow-sm space-y-4">
-          <span className="material-symbols-outlined text-6xl text-stone-300">
-            remove_shopping_cart
-          </span>
-          <h2 className="text-xl font-bold text-stone-800">
+        <div className="bg-white rounded-3xl border border-[#EBE5DF] p-10 sm:p-14 text-center shadow-sm space-y-4 max-w-lg mx-auto">
+          <div className="w-28 h-28 sm:w-36 sm:h-36 mx-auto relative flex items-center justify-center">
+            <img
+              src={assetUrl('mascot-belanja.png')}
+              alt="Mascot Belanja Sembako Nusantara"
+              className="w-full h-full object-contain drop-shadow-md animate-bounce-ball-slow"
+            />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-heading font-bold text-stone-800">
             {t('cart_empty_title')}
           </h2>
           <p className="text-xs text-stone-500 max-w-sm mx-auto">
@@ -83,28 +88,8 @@ export const CartPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Cart Items List (8 cols) */}
           <div className="lg:col-span-8 space-y-4">
-            {/* Free Shipping Progress Indicator */}
-            <div className="bg-[#FDF8F0] p-4 rounded-xl border border-[#EBE5DF]">
-              <div className="flex items-center justify-between text-xs font-bold mb-2">
-                <span className="flex items-center gap-1 text-stone-800">
-                  <span className="material-symbols-outlined text-sm text-[#c41230]">local_shipping</span>
-                  <span>{t('free_shipping_target')}</span>
-                </span>
-                <span className={isFreeShipping ? 'text-[#15803D]' : 'text-[#c41230]'}>
-                  {isFreeShipping
-                    ? t('free_shipping_achieved')
-                    : `${t('free_shipping_remaining')} ¥${remainingForFreeShipping.toLocaleString()}`}
-                </span>
-              </div>
-              <div className="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-[#c41230] h-full transition-all duration-500"
-                  style={{
-                    width: `${Math.min(100, (subtotalTax / freeShippingThreshold) * 100)}%`
-                  }}
-                />
-              </div>
-            </div>
+            {/* Free Shipping Progress Indicator (Mascot walking towards gift) */}
+            <FreeShippingProgressBar />
 
             {/* Item Rows */}
             <div className="bg-white rounded-2xl border border-[#EBE5DF] overflow-hidden shadow-sm divide-y divide-stone-100">

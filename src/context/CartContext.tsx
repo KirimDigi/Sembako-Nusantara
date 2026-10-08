@@ -92,7 +92,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
   const subtotalTax = cart.reduce((sum, item) => sum + (item.product.priceTax * item.quantity), 0);
-  const freeShippingThreshold = 7000;
+  const freeShippingThreshold = 15000;
   const isFreeShipping = subtotalTax >= freeShippingThreshold;
   const remainingForFreeShipping = Math.max(0, freeShippingThreshold - subtotalTax);
 

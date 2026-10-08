@@ -410,6 +410,33 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Promo Banner Quick Action Card */}
+        <div className="bg-gradient-to-r from-red-50 via-white to-amber-50 p-4 sm:p-5 rounded-2xl border border-red-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#c41230] text-white flex items-center justify-center shrink-0 shadow-sm">
+              <span className="material-symbols-outlined text-xl">view_carousel</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-stone-900 text-sm">Banner Promo Beranda (Hero Slider 3 Slide)</h4>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                  Live di Beranda
+                </span>
+              </div>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Ganti atau upload 3 foto promo sampul beranda. Cukup klik Simpan untuk langsung tayang di website toko.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/admin/crm?tab=banners"
+            className="px-4 py-2.5 bg-[#c41230] hover:bg-[#a50e28] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm shrink-0"
+          >
+            <span className="material-symbols-outlined text-sm">edit</span>
+            <span>Kelola 3 Slide Promo</span>
+          </Link>
+        </div>
+
         {/* Middle Section: Channel Sales Split & Low Stock Alert */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Revenue Breakdown */}

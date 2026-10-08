@@ -127,9 +127,9 @@ export const CatalogPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full pb-20">
+    <div className="w-full max-w-full overflow-x-hidden pb-20">
       {/* Top Banner & Title Section */}
-      <section className="bg-gradient-to-b from-white to-[#FDF8F0] border-b border-[#EBE5DF] py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
+      <section className="bg-gradient-to-b from-white to-[#FDF8F0] border-b border-[#EBE5DF] py-6 sm:py-12 px-4 sm:px-6 lg:px-8 w-full max-w-full overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
@@ -180,7 +180,7 @@ export const CatalogPage: React.FC = () => {
           </div>
 
           {/* Horizontal Category Pill Bar */}
-          <div className="mt-8 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+          <div className="mt-6 sm:mt-8 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none w-full max-w-full min-w-0">
             {categories.map((cat) => {
               const isActive = selectedCategory === cat.key;
               return (
@@ -206,47 +206,49 @@ export const CatalogPage: React.FC = () => {
       </section>
 
       {/* Main Content Area: Controls + Product Grid */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 w-full max-w-full min-w-0">
         {/* Filter and Sort Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-stone-200">
-          <div className="flex items-center gap-4 text-xs sm:text-sm font-semibold text-stone-600">
-            <span>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 pb-6 border-b border-stone-200 w-full min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 text-xs sm:text-sm font-semibold text-stone-600 min-w-0">
+            <span className="w-full sm:w-auto text-stone-700">
               Menampilkan <strong className="text-stone-900 font-bold">{filteredProducts.length}</strong> produk
               {totalPages > 1 && (
-                <span className="text-stone-400 font-normal ml-2">
+                <span className="text-stone-400 font-normal ml-1 sm:ml-2">
                   (Halaman {currentPage} dari {totalPages})
                 </span>
               )}
             </span>
             {/* Quick Toggle Filters */}
-            <label className="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-stone-200 hover:border-stone-400 text-xs">
-              <input
-                type="checkbox"
-                checked={filterFrozenOnly}
-                onChange={(e) => {
-                  setFilterFrozenOnly(e.target.checked);
-                  setCurrentPage(1);
-                }}
-                className="rounded text-[#c41230] focus:ring-[#c41230]"
-              />
-              <span>❄️ Frozen Food</span>
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-stone-200 hover:border-stone-400 text-xs">
-              <input
-                type="checkbox"
-                checked={filterHalalOnly}
-                onChange={(e) => {
-                  setFilterHalalOnly(e.target.checked);
-                  setCurrentPage(1);
-                }}
-                className="rounded text-[#c41230] focus:ring-[#c41230]"
-              />
-              <span>✅ 100% Halal</span>
-            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 sm:px-3 py-1.5 rounded-lg border border-stone-200 hover:border-stone-400 text-xs shadow-xs">
+                <input
+                  type="checkbox"
+                  checked={filterFrozenOnly}
+                  onChange={(e) => {
+                    setFilterFrozenOnly(e.target.checked);
+                    setCurrentPage(1);
+                  }}
+                  className="rounded text-[#c41230] focus:ring-[#c41230]"
+                />
+                <span>❄️ Frozen Food</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 sm:px-3 py-1.5 rounded-lg border border-stone-200 hover:border-stone-400 text-xs shadow-xs">
+                <input
+                  type="checkbox"
+                  checked={filterHalalOnly}
+                  onChange={(e) => {
+                    setFilterHalalOnly(e.target.checked);
+                    setCurrentPage(1);
+                  }}
+                  className="rounded text-[#c41230] focus:ring-[#c41230]"
+                />
+                <span>✅ 100% Halal</span>
+              </label>
+            </div>
           </div>
 
           {/* Sort Dropdown */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
             <span className="text-xs text-stone-500 font-medium">Urutkan:</span>
             <select
               value={sortBy}
@@ -254,7 +256,7 @@ export const CatalogPage: React.FC = () => {
                 setSortBy(e.target.value as any);
                 setCurrentPage(1);
               }}
-              className="bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs sm:text-sm text-stone-800 font-semibold focus:outline-none focus:ring-2 focus:ring-[#c41230] shadow-sm cursor-pointer"
+              className="bg-white border border-stone-300 rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-stone-800 font-semibold focus:outline-none focus:ring-2 focus:ring-[#c41230] shadow-sm cursor-pointer"
             >
               <option value="popular">Paling Populer</option>
               <option value="price_asc">Harga: Rendah ke Tinggi</option>
@@ -292,7 +294,7 @@ export const CatalogPage: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 sm:gap-6 mt-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-6 mt-6 sm:mt-8 w-full min-w-0">
               {paginatedProducts.map((product) => {
                 const isAdded = addedProductId === product.id;
                 return (
@@ -305,63 +307,63 @@ export const CatalogPage: React.FC = () => {
                       <img
                         src={product.image}
                         alt={product.name}
-                        className="absolute inset-0 w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-500"
+                        className="absolute inset-0 w-full h-full object-contain p-3 sm:p-4 group-hover:scale-105 transition-transform duration-500"
                         loading="lazy"
                       />
                       {/* Badges on Top of Image */}
-                      <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 z-10">
+                      <div className="absolute top-2 left-2 sm:top-2.5 sm:left-2.5 flex flex-col gap-1 sm:gap-1.5 z-10">
                         {product.isHalal && (
-                          <span className="px-2 py-0.5 bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] rounded-md shadow-sm border border-emerald-200">
+                          <span className="px-1.5 sm:px-2 py-0.5 bg-[#DCFCE7] text-[#15803D] font-bold text-[9px] sm:text-[10px] rounded-md shadow-sm border border-emerald-200">
                             HALAL
                           </span>
                         )}
                         {product.isFrozen && (
-                          <span className="px-2 py-0.5 bg-sky-100 text-sky-800 font-bold text-[10px] rounded-md shadow-sm border border-sky-200">
+                          <span className="px-1.5 sm:px-2 py-0.5 bg-sky-100 text-sky-800 font-bold text-[9px] sm:text-[10px] rounded-md shadow-sm border border-sky-200">
                             ❄️ FROZEN
                           </span>
                         )}
                       </div>
 
                       {product.discountPercentage && product.discountPercentage > 0 && (
-                        <span className="absolute top-2.5 right-2.5 px-2 py-0.5 bg-[#c41230] text-white font-bold text-[10px] rounded-md shadow-sm">
+                        <span className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 px-1.5 sm:px-2 py-0.5 bg-[#c41230] text-white font-bold text-[9px] sm:text-[10px] rounded-md shadow-sm">
                           -{product.discountPercentage}%
                         </span>
                       )}
                     </Link>
 
                     {/* Product Details */}
-                    <div className="p-4 flex-1 flex flex-col justify-between">
+                    <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between">
                       <div>
-                        <div className="flex items-center justify-between text-[11px] text-stone-400 font-medium mb-1">
+                        <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-stone-400 font-medium mb-1">
                           <span className="text-[#c41230] font-semibold">{product.category}</span>
                           {product.unit && <span>{product.unit}</span>}
                         </div>
 
                         <Link to={`/product/${product.id}`} className="block group-hover:text-[#c41230] transition-colors">
-                          <h3 className="font-bold text-stone-900 text-sm line-clamp-2 leading-snug">
+                          <h3 className="font-bold text-stone-900 text-xs sm:text-sm line-clamp-2 leading-snug">
                             {getProductName(product)}
                           </h3>
                         </Link>
 
                         {/* Rating & Reviews */}
-                        <div className="flex items-center gap-1.5 mt-1.5 text-xs text-stone-500">
+                        <div className="flex items-center gap-1 sm:gap-1.5 mt-1 sm:mt-1.5 text-xs text-stone-500">
                           <div className="flex items-center text-amber-500">
-                            <span className="material-symbols-outlined text-sm">star</span>
-                            <span className="font-bold ml-0.5 text-stone-800">{product.rating}</span>
+                            <span className="material-symbols-outlined text-xs sm:text-sm">star</span>
+                            <span className="font-bold ml-0.5 text-stone-800 text-[11px] sm:text-xs">{product.rating}</span>
                           </div>
                           <span>•</span>
-                          <span className="text-[11px]">({product.reviewCount} ulasan)</span>
+                          <span className="text-[10px] sm:text-[11px]">({product.reviewCount} ulasan)</span>
                         </div>
                       </div>
 
                       {/* Pricing & Add to Cart */}
-                      <div className="mt-4 pt-3 border-t border-stone-100">
+                      <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-stone-100">
                         <div className="flex items-baseline justify-between mb-2">
                           <div>
-                            <span className="font-bold text-[#c41230] text-base sm:text-lg">
+                            <span className="font-bold text-[#c41230] text-sm sm:text-lg">
                               ¥{product.price.toLocaleString()}
                             </span>
-                            <span className="text-[10px] text-stone-400 ml-1">
+                            <span className="text-[9px] sm:text-[10px] text-stone-400 ml-1">
                               (Pajak ¥{product.priceTax.toLocaleString()})
                             </span>
                           </div>
@@ -369,16 +371,16 @@ export const CatalogPage: React.FC = () => {
 
                         <button
                           onClick={(e) => handleAddToCart(product, e)}
-                          className={`w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer ${
+                          className={`w-full py-2 sm:py-2.5 rounded-xl font-bold text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer ${
                             isAdded
                               ? 'bg-red-700 text-white shadow-md'
                               : 'bg-[#c41230] hover:bg-[#9a0021] text-white hover:shadow-md'
                           }`}
                         >
-                          <span className="material-symbols-outlined text-sm">
+                          <span className="material-symbols-outlined text-xs sm:text-sm">
                             {isAdded ? 'check_circle' : 'add_shopping_cart'}
                           </span>
-                          <span>{isAdded ? 'Berhasil Ditambahkan!' : 'Tambah ke Keranjang'}</span>
+                          <span>{isAdded ? 'Ditambahkan!' : 'Tambah'}</span>
                         </button>
                       </div>
                     </div>
@@ -389,24 +391,24 @@ export const CatalogPage: React.FC = () => {
 
             {/* Pagination Controls Bar */}
             {totalPages > 1 && (
-              <div className="mt-12 pt-6 border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-xs sm:text-sm text-stone-500">
+              <div className="mt-8 sm:mt-12 pt-6 border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-4 w-full min-w-0">
+                <div className="text-xs sm:text-sm text-stone-500 text-center sm:text-left">
                   Menampilkan <strong className="text-stone-900">{((currentPage - 1) * itemsPerPage) + 1}</strong> - <strong className="text-stone-900">{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</strong> dari <strong className="text-stone-900">{filteredProducts.length}</strong> produk
                 </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-center max-w-full">
                   {/* Previous Button */}
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1 transition-all ${
+                    className={`px-2.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1 transition-all ${
                       currentPage === 1
                         ? 'bg-stone-100 text-stone-300 cursor-not-allowed border border-stone-200'
                         : 'bg-white text-stone-700 hover:bg-stone-100 border border-stone-300 shadow-sm cursor-pointer'
                     }`}
                   >
                     <span className="material-symbols-outlined text-sm">chevron_left</span>
-                    <span>Sebelumnya</span>
+                    <span className="hidden xs:inline">Sebelumnya</span>
                   </button>
 
                   {/* Numbered Page Buttons */}
@@ -422,7 +424,7 @@ export const CatalogPage: React.FC = () => {
                       ) {
                         if (pageNum === 2 || pageNum === totalPages - 1) {
                           return (
-                            <span key={pageNum} className="px-1.5 text-stone-400 text-xs font-bold">
+                            <span key={pageNum} className="px-1 text-stone-400 text-xs font-bold">
                               ...
                             </span>
                           );
@@ -434,7 +436,7 @@ export const CatalogPage: React.FC = () => {
                         <button
                           key={pageNum}
                           onClick={() => handlePageChange(pageNum)}
-                          className={`w-9 h-9 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center transition-all cursor-pointer ${
+                          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center transition-all cursor-pointer ${
                             isActive
                               ? 'bg-[#c41230] text-white shadow-md scale-105'
                               : 'bg-white text-stone-700 hover:bg-stone-100 border border-stone-200'
@@ -450,13 +452,13 @@ export const CatalogPage: React.FC = () => {
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1 transition-all ${
+                    className={`px-2.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1 transition-all ${
                       currentPage === totalPages
                         ? 'bg-stone-100 text-stone-300 cursor-not-allowed border border-stone-200'
                         : 'bg-white text-stone-700 hover:bg-stone-100 border border-stone-300 shadow-sm cursor-pointer'
                     }`}
                   >
-                    <span>Selanjutnya</span>
+                    <span className="hidden xs:inline">Selanjutnya</span>
                     <span className="material-symbols-outlined text-sm">chevron_right</span>
                   </button>
                 </div>

@@ -16,13 +16,16 @@ interface AdminLayoutProps {
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subtitle }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { products, orders, posTransactions, suppliers, customers, vouchers, activeRole, setActiveRole } = useAdmin();
+  const { products, orders, posTransactions, suppliers, purchaseOrders, directPurchases, customers, vouchers, activeRole, setActiveRole } = useAdmin();
   const { currentUser, logout } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isMasterDataOpen, setIsMasterDataOpen] = useState(true);
-  const [isPosOpen, setIsPosOpen] = useState(true);
-  const [isAccountingOpen, setIsAccountingOpen] = useState(true);
+  const [isMasterDataOpen, setIsMasterDataOpen] = useState(false);
+  const [isPosOpen, setIsPosOpen] = useState(false);
+  const [isPembelianOpen, setIsPembelianOpen] = useState(false);
+  const [isAccountingOpen, setIsAccountingOpen] = useState(false);
+  const [isLaporanOpen, setIsLaporanOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [supabaseStatus, setSupabaseStatus] = useState<{ connected: boolean; latencyMs?: number }>({
     connected: true,
     latencyMs: 45
@@ -121,13 +124,23 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
       badgeColor: 'bg-amber-600 text-white',
       isActive: location.pathname === '/admin/crm' && location.search.includes('tab=vouchers'),
       allowedRoles: ['Super Admin (Owner)', 'Kasir (POS)']
+    },
+    {
+      id: 'banners',
+      label: language === 'JP' ? 'ホームページバナー' : language === 'EN' ? 'Homepage Promo Banners' : 'Banner Promo Beranda',
+      path: '/admin/crm?tab=banners',
+      icon: 'view_carousel',
+      badge: '3 Slide',
+      badgeColor: 'bg-rose-600 text-white',
+      isActive: location.pathname === '/admin/crm' && location.search.includes('tab=banners'),
+      allowedRoles: ['Super Admin (Owner)', 'Kasir (POS)']
     }
   ];
 
   const isAnyMasterDataActive =
     location.pathname === '/admin/products' ||
     (location.pathname === '/admin/purchasing' && location.search.includes('tab=suppliers')) ||
-    (location.pathname === '/admin/crm' && (location.search.includes('tab=members') || location.search.includes('tab=vouchers')));
+    (location.pathname === '/admin/crm' && (location.search.includes('tab=members') || location.search.includes('tab=vouchers') || location.search.includes('tab=banners')));
 
   // Sub-menu for POS Kasir Toko
   const posSubItems = [
@@ -221,6 +234,108 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
 
   const isAccountingActive = location.pathname === '/admin/accounting';
 
+  // Sub-menu for Pembelian (Transaksi Pembelian, Supplier PO, Pembanding Harga Vendor, Daftar Supplier)
+  const pembelianSubItems = [
+    {
+      id: 'entry',
+      label: language === 'JP' ? '仕入れ・購買入力 (+在庫反映)' : language === 'EN' ? 'Purchase Entry (+Stock)' : 'Transaksi Pembelian',
+      path: '/admin/purchasing?tab=entry',
+      icon: 'add_shopping_cart',
+      badge: `${directPurchases.length}`,
+      badgeColor: 'bg-emerald-600 text-white',
+      isActive: location.pathname === '/admin/purchasing' && (location.search.includes('tab=entry') || (!location.search.includes('tab=po') && !location.search.includes('tab=suppliers'))),
+      allowedRoles: ['Super Admin (Owner)', 'Admin Gudang', 'Finance / Akuntan']
+    },
+    {
+      id: 'po',
+      label: language === 'JP' ? '発注書・サプライヤーPO' : language === 'EN' ? 'Purchasing & Supplier PO' : 'Purchasing & Supplier PO',
+      path: '/admin/purchasing?tab=po',
+      icon: 'receipt_long',
+      badge: `${purchaseOrders.length}`,
+      badgeColor: 'bg-blue-600 text-white',
+      isActive: location.pathname === '/admin/purchasing' && location.search.includes('tab=po'),
+      allowedRoles: ['Super Admin (Owner)', 'Admin Gudang', 'Finance / Akuntan']
+    },
+    {
+      id: 'competitor',
+      label: language === 'JP' ? '仕入先ベンダー価格比較' : language === 'EN' ? 'Vendor Price Comparison' : 'Pembanding Harga Vendor',
+      path: '/admin/competitors',
+      icon: 'compare_arrows',
+      badge: 'Vendor PO',
+      badgeColor: 'bg-indigo-600 text-white',
+      isActive: location.pathname === '/admin/competitors',
+      allowedRoles: ['Super Admin (Owner)', 'Finance / Akuntan', 'Admin Gudang']
+    },
+    {
+      id: 'suppliers',
+      label: language === 'JP' ? 'サプライヤー・仕入先一覧' : language === 'EN' ? 'Supplier Directory' : 'Daftar Supplier',
+      path: '/admin/purchasing?tab=suppliers',
+      icon: 'domain',
+      badge: `${suppliers.length}`,
+      badgeColor: 'bg-stone-700 text-stone-200',
+      isActive: location.pathname === '/admin/purchasing' && location.search.includes('tab=suppliers'),
+      allowedRoles: ['Super Admin (Owner)', 'Admin Gudang', 'Finance / Akuntan']
+    }
+  ];
+
+  const isPembelianActive = location.pathname === '/admin/purchasing' || location.pathname === '/admin/competitors';
+
+  // Sub-menu for Laporan (Omzet Harian, Bulanan, Tahunan/YTD, Neraca, Laba Rugi)
+  const laporanSubItems = [
+    {
+      id: 'daily',
+      label: language === 'JP' ? '日次売上レポート' : language === 'EN' ? 'Daily Turnover Report' : 'Laporan Omzet Harian',
+      path: '/admin/reports?tab=daily',
+      icon: 'today',
+      badge: 'Daily',
+      badgeColor: 'bg-emerald-600 text-white',
+      isActive: location.pathname === '/admin/reports' && (location.search.includes('tab=daily') || (!location.search.includes('tab=monthly') && !location.search.includes('tab=ytd') && !location.search.includes('tab=balance_sheet') && !location.search.includes('tab=income_statement'))),
+      allowedRoles: ['Super Admin (Owner)', 'Finance / Akuntan']
+    },
+    {
+      id: 'monthly',
+      label: language === 'JP' ? '月次売上レポート' : language === 'EN' ? 'Monthly Turnover Report' : 'Laporan Omzet Bulanan',
+      path: '/admin/reports?tab=monthly',
+      icon: 'calendar_month',
+      badge: 'Monthly',
+      badgeColor: 'bg-blue-600 text-white',
+      isActive: location.pathname === '/admin/reports' && location.search.includes('tab=monthly'),
+      allowedRoles: ['Super Admin (Owner)', 'Finance / Akuntan']
+    },
+    {
+      id: 'ytd',
+      label: language === 'JP' ? '年次・年初来売上レポート' : language === 'EN' ? 'YTD / Annual Report' : 'Laporan Omzet s/d Hari Ini / Tahunan',
+      path: '/admin/reports?tab=ytd',
+      icon: 'date_range',
+      badge: 'YTD',
+      badgeColor: 'bg-purple-600 text-white',
+      isActive: location.pathname === '/admin/reports' && location.search.includes('tab=ytd'),
+      allowedRoles: ['Super Admin (Owner)', 'Finance / Akuntan']
+    },
+    {
+      id: 'balance_sheet',
+      label: language === 'JP' ? '貸借対照表 (バランスシート)' : language === 'EN' ? 'Balance Sheet' : 'Laporan Neraca',
+      path: '/admin/reports?tab=balance_sheet',
+      icon: 'account_balance',
+      badge: 'Neraca',
+      badgeColor: 'bg-amber-600 text-white',
+      isActive: location.pathname === '/admin/reports' && location.search.includes('tab=balance_sheet'),
+      allowedRoles: ['Super Admin (Owner)', 'Finance / Akuntan']
+    },
+    {
+      id: 'income_statement',
+      label: language === 'JP' ? '損益計算書 (P&L)' : language === 'EN' ? 'Income Statement (P&L)' : 'Laporan Laba Rugi',
+      path: '/admin/reports?tab=income_statement',
+      icon: 'query_stats',
+      badge: 'L/R',
+      badgeColor: 'bg-rose-600 text-white',
+      isActive: location.pathname === '/admin/reports' && location.search.includes('tab=income_statement'),
+      allowedRoles: ['Super Admin (Owner)', 'Finance / Akuntan']
+    }
+  ];
+
+  const isLaporanActive = location.pathname === '/admin/reports';
+
   const navItems = [
     {
       label: t('admin_nav_dashboard'),
@@ -247,11 +362,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
       allowedRoles: ['Super Admin (Owner)', 'Admin Gudang']
     },
     {
-      label: t('admin_nav_purchasing'),
+      label: t('admin_nav_pembelian'),
       path: '/admin/purchasing',
       icon: 'shopping_bag',
-      badge: null,
-      allowedRoles: ['Super Admin (Owner)', 'Admin Gudang', 'Finance / Akuntan']
+      badge: `${pembelianSubItems.length}`,
+      badgeColor: 'bg-rose-600 text-white',
+      allowedRoles: ['Super Admin (Owner)', 'Admin Gudang', 'Finance / Akuntan'],
+      isPembelianGroup: true
     },
     {
       label: t('admin_nav_orders'),
@@ -271,21 +388,47 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
       isAccountingGroup: true
     },
     {
-      label: t('admin_nav_competitor'),
-      path: '/admin/competitors',
-      icon: 'price_check',
-      badge: 'AI Price',
-      badgeColor: 'bg-indigo-600 text-white',
-      allowedRoles: ['Super Admin (Owner)', 'Finance / Akuntan']
-    },
-    {
       label: t('admin_nav_crm'),
       path: '/admin/crm',
       icon: 'group',
       badge: null,
       allowedRoles: ['Super Admin (Owner)', 'Kasir (POS)']
+    },
+    {
+      label: t('admin_nav_laporan'),
+      path: '/admin/reports',
+      icon: 'analytics',
+      badge: `${laporanSubItems.length}`,
+      badgeColor: 'bg-blue-600 text-white',
+      allowedRoles: ['Super Admin (Owner)', 'Finance / Akuntan'],
+      isLaporanGroup: true
+    },
+    {
+      label: t('admin_nav_settings'),
+      path: '/admin/settings',
+      icon: 'settings',
+      badge: 'Kelola',
+      badgeColor: 'bg-purple-600 text-white',
+      allowedRoles: ['Super Admin (Owner)'],
+      isSettingsGroup: true
     }
   ];
+
+  // Sub-menu for Pengaturan (Settings & Kasir Management)
+  const settingsSubItems = [
+    {
+      id: 'cashier_mgmt',
+      label: language === 'JP' ? 'レジ担当・権限管理' : language === 'EN' ? 'Cashier & Permissions' : 'Kelola Kasir & Hak Akses',
+      path: '/admin/settings?tab=cashier',
+      icon: 'badge',
+      badge: '12 Izin',
+      badgeColor: 'bg-purple-600 text-white',
+      isActive: location.pathname === '/admin/settings',
+      allowedRoles: ['Super Admin (Owner)']
+    }
+  ];
+
+  const isSettingsActive = location.pathname === '/admin/settings';
 
   const rolesList: UserRole[] = [
     'Super Admin (Owner)',
@@ -566,6 +709,77 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
                 );
               }
 
+              // Special treatment for Pembelian with Sub-menus (Transaksi Pembelian, Supplier PO, Pembanding Harga Vendor, Daftar Supplier)
+              if ((item as any).isPembelianGroup) {
+                return (
+                  <div key={item.path} className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsPembelianOpen(!isPembelianOpen)}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                        isPembelianActive && !isPembelianOpen
+                          ? 'bg-rose-600/20 text-rose-400 border border-rose-500/40'
+                          : 'text-stone-200 hover:bg-stone-800/80'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-lg text-rose-400">{item.icon}</span>
+                        <span>{item.label}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          {pembelianSubItems.length}
+                        </span>
+                        <span
+                          className={`material-symbols-outlined text-base text-stone-400 transition-transform duration-200 ${
+                            isPembelianOpen ? 'rotate-180 text-rose-400' : ''
+                          }`}
+                        >
+                          expand_more
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Pembelian Sub-menu List */}
+                    {isPembelianOpen && (
+                      <div className="mt-1 ml-3 pl-3 border-l-2 border-rose-500/30 space-y-1 animate-fadeIn">
+                        {pembelianSubItems.map((sub) => {
+                          const subAllowed = sub.allowedRoles.includes(activeRole);
+                          return (
+                            <Link
+                              key={sub.id}
+                              to={sub.path}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className={`flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-medium transition-all ${
+                                sub.isActive
+                                  ? 'bg-[#c41230] text-white font-bold shadow-xs'
+                                  : subAllowed
+                                  ? 'text-stone-300 hover:bg-stone-800 hover:text-white'
+                                  : 'text-stone-600 hover:bg-stone-900 cursor-not-allowed opacity-50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="material-symbols-outlined text-base shrink-0 opacity-80">{sub.icon}</span>
+                                <span className="truncate">{sub.label}</span>
+                              </div>
+                              {sub.badge && (
+                                <span
+                                  className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ml-1.5 ${
+                                    sub.badgeColor || 'bg-stone-700 text-stone-200'
+                                  }`}
+                                >
+                                  {sub.badge}
+                                </span>
+                              )}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
               // Special treatment for Accounting & Pajak with 4 Sub-menus
               if (item.isAccountingGroup) {
                 return (
@@ -601,6 +815,148 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
                     {isAccountingOpen && (
                       <div className="mt-1 ml-3 pl-3 border-l-2 border-emerald-500/30 space-y-1 animate-fadeIn">
                         {accountingSubItems.map((sub) => {
+                          const subAllowed = sub.allowedRoles.includes(activeRole);
+                          return (
+                            <Link
+                              key={sub.id}
+                              to={sub.path}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className={`flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-medium transition-all ${
+                                sub.isActive
+                                  ? 'bg-[#c41230] text-white font-bold shadow-xs'
+                                  : subAllowed
+                                  ? 'text-stone-300 hover:bg-stone-800 hover:text-white'
+                                  : 'text-stone-600 hover:bg-stone-900 cursor-not-allowed opacity-50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="material-symbols-outlined text-base shrink-0 opacity-80">{sub.icon}</span>
+                                <span className="truncate">{sub.label}</span>
+                              </div>
+                              {sub.badge && (
+                                <span
+                                  className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ml-1.5 ${
+                                    sub.badgeColor || 'bg-stone-700 text-stone-200'
+                                  }`}
+                                >
+                                  {sub.badge}
+                                </span>
+                              )}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // Special treatment for Laporan with 5 Sub-menus (Omzet Harian, Bulanan, Tahunan, Neraca, Laba Rugi)
+              if ((item as any).isLaporanGroup) {
+                return (
+                  <div key={item.path} className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsLaporanOpen(!isLaporanOpen)}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                        isLaporanActive && !isLaporanOpen
+                          ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
+                          : 'text-stone-200 hover:bg-stone-800/80'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-lg text-blue-400">{item.icon}</span>
+                        <span>{item.label}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                          {laporanSubItems.length}
+                        </span>
+                        <span
+                          className={`material-symbols-outlined text-base text-stone-400 transition-transform duration-200 ${
+                            isLaporanOpen ? 'rotate-180 text-blue-400' : ''
+                          }`}
+                        >
+                          expand_more
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Laporan Sub-menu List */}
+                    {isLaporanOpen && (
+                      <div className="mt-1 ml-3 pl-3 border-l-2 border-blue-500/30 space-y-1 animate-fadeIn">
+                        {laporanSubItems.map((sub) => {
+                          const subAllowed = sub.allowedRoles.includes(activeRole);
+                          return (
+                            <Link
+                              key={sub.id}
+                              to={sub.path}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className={`flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-medium transition-all ${
+                                sub.isActive
+                                  ? 'bg-[#c41230] text-white font-bold shadow-xs'
+                                  : subAllowed
+                                  ? 'text-stone-300 hover:bg-stone-800 hover:text-white'
+                                  : 'text-stone-600 hover:bg-stone-900 cursor-not-allowed opacity-50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="material-symbols-outlined text-base shrink-0 opacity-80">{sub.icon}</span>
+                                <span className="truncate">{sub.label}</span>
+                              </div>
+                              {sub.badge && (
+                                <span
+                                  className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ml-1.5 ${
+                                    sub.badgeColor || 'bg-stone-700 text-stone-200'
+                                  }`}
+                                >
+                                  {sub.badge}
+                                </span>
+                              )}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // Special treatment for Pengaturan with Sub-menus (Kelola Kasir)
+              if ((item as any).isSettingsGroup) {
+                return (
+                  <div key={item.path} className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                        isSettingsActive && !isSettingsOpen
+                          ? 'bg-purple-600/20 text-purple-400 border border-purple-500/40'
+                          : 'text-stone-200 hover:bg-stone-800/80'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-lg text-purple-400">{item.icon}</span>
+                        <span>{item.label}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                          {settingsSubItems.length}
+                        </span>
+                        <span
+                          className={`material-symbols-outlined text-base text-stone-400 transition-transform duration-200 ${
+                            isSettingsOpen ? 'rotate-180 text-purple-400' : ''
+                          }`}
+                        >
+                          expand_more
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Settings Sub-menu List */}
+                    {isSettingsOpen && (
+                      <div className="mt-1 ml-3 pl-3 border-l-2 border-purple-500/30 space-y-1 animate-fadeIn">
+                        {settingsSubItems.map((sub) => {
                           const subAllowed = sub.allowedRoles.includes(activeRole);
                           return (
                             <Link

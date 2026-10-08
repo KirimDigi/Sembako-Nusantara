@@ -108,6 +108,19 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
           ))}
         </div>
 
+        {/* Drawer Free Shipping Banner */}
+        <div className="mx-4 mb-2 p-3 rounded-2xl bg-gradient-to-r from-red-50 to-amber-50 border border-red-200/70 flex items-center gap-3">
+          <img
+            src={assetUrl('mascot-bendera.png')}
+            alt="Mascot Gratis Ongkir"
+            className="w-11 h-11 object-contain shrink-0 drop-shadow-xs"
+          />
+          <div className="text-[11px] leading-tight">
+            <span className="font-extrabold text-[#c41230] block">Gratis Ongkir ¥15,000+</span>
+            <span className="text-stone-500 text-[10px]">Yamato & Sagawa ke 47 prefektur Jepang</span>
+          </div>
+        </div>
+
         {/* Drawer Footer Info */}
         <div className="p-5 border-t border-[#EBE5DF] bg-stone-50 space-y-2">
           <div className="flex items-center justify-between text-xs text-stone-600">
