@@ -1,18 +1,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { assetUrl } from '../../utils/assets';
 
 export const Footer: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const { isAdmin } = useAuth();
 
   return (
     <footer className="w-full bg-white border-t border-[#EBE5DF] mt-16">
       {/* 4 Pillars of Trust */}
       <div className="border-b border-[#EBE5DF] bg-[#FDF8F0]/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="flex flex-col items-center text-center p-3 rounded-2xl bg-white border border-[#EBE5DF]/80 shadow-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
+            <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-white border border-[#EBE5DF]/80 shadow-xs">
               <span className="material-symbols-outlined text-[#c41230] text-3xl mb-1">
                 verified
               </span>
@@ -23,29 +25,7 @@ export const Footer: React.FC = () => {
                 {t('pillar_halal_desc')}
               </p>
             </div>
-            <div className="flex flex-col items-center text-center p-3 rounded-2xl bg-white border border-[#EBE5DF]/80 shadow-xs">
-              <span className="material-symbols-outlined text-[#c41230] text-3xl mb-1">
-                local_shipping
-              </span>
-              <h4 className="font-bold text-sm text-stone-900">
-                {t('pillar_ship_title')}
-              </h4>
-              <p className="text-xs text-stone-600 mt-1">
-                {t('pillar_ship_desc')}
-              </p>
-            </div>
-            <div className="flex flex-col items-center text-center p-3 rounded-2xl bg-white border border-[#EBE5DF]/80 shadow-xs">
-              <span className="material-symbols-outlined text-[#c41230] text-3xl mb-1">
-                ac_unit
-              </span>
-              <h4 className="font-bold text-sm text-stone-900">
-                {t('pillar_cool_title')}
-              </h4>
-              <p className="text-xs text-stone-600 mt-1">
-                {t('pillar_cool_desc')}
-              </p>
-            </div>
-            <div className="flex flex-col items-center text-center p-3 rounded-2xl bg-white border border-[#EBE5DF]/80 shadow-xs">
+            <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-white border border-[#EBE5DF]/80 shadow-xs">
               <span className="material-symbols-outlined text-[#c41230] text-3xl mb-1">
                 payments
               </span>
@@ -74,7 +54,11 @@ export const Footer: React.FC = () => {
             </span>
           </div>
           <p className="text-sm text-stone-600 max-w-sm leading-relaxed">
-            Supermarket & e-commerce kuliner Indonesia nomor satu di Jepang. Menyediakan sembako, bumbu autentik, mi instan, kerupuk, dan frozen food halal terpercaya.
+            {language === 'JP'
+              ? '日本最大級のインドネシア食材・スパイス・即席麺・ハラール冷凍食品専門店。安心のハラール品質と迅速な発送で本場の味をお届けします。'
+              : language === 'EN'
+              ? 'Japan’s premier Indonesian grocery and halal e-commerce. Providing authentic spices, instant noodles, crackers, and trusted halal frozen food.'
+              : 'Supermarket & e-commerce kuliner Indonesia nomor satu di Jepang. Menyediakan sembako, bumbu autentik, mi instan, kerupuk, dan frozen food halal terpercaya.'}
           </p>
           <div className="space-y-2 text-xs text-stone-600 pt-2">
             <div className="flex items-start gap-2">
@@ -86,7 +70,13 @@ export const Footer: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-base text-[#c41230]">schedule</span>
-              <span>Operasional: Buka Setiap Hari 24 Jam</span>
+              <span>
+                {language === 'JP'
+                  ? '営業時間: 年中無休・24時間営業'
+                  : language === 'EN'
+                  ? 'Operating Hours: Open 24/7 Daily'
+                  : 'Operasional: Buka Setiap Hari 24 Jam'}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-base text-[#15803D]">chat</span>
@@ -117,12 +107,36 @@ export const Footer: React.FC = () => {
         <div>
           <h5 className="font-bold text-sm text-stone-900 mb-4">{t('popular_categories')}</h5>
           <ul className="space-y-2 text-xs text-stone-600">
-            <li><Link to="/catalog" className="hover:text-[#c41230] transition-colors">Indomie Mi Goreng & Kuah</Link></li>
-            <li><Link to="/catalog" className="hover:text-[#c41230] transition-colors">Bumbu Rendang & Rawon</Link></li>
-            <li><Link to="/catalog" className="hover:text-[#c41230] transition-colors">Sambal Terasi ABC & Uleg</Link></li>
-            <li><Link to="/catalog" className="hover:text-[#c41230] transition-colors">Daging & Bakso Halal Frozen</Link></li>
-            <li><Link to="/catalog" className="hover:text-[#c41230] transition-colors">Kerupuk Udang & Emping</Link></li>
-            <li><Link to="/catalog" className="hover:text-[#c41230] transition-colors">Kopi Kapal Api & Teh Botol</Link></li>
+            <li>
+              <Link to="/catalog" className="hover:text-[#c41230] transition-colors">
+                {language === 'JP' ? 'インドミー 焼きそば・ラーメン' : language === 'EN' ? 'Indomie Fried & Soup Noodles' : 'Indomie Mi Goreng & Kuah'}
+              </Link>
+            </li>
+            <li>
+              <Link to="/catalog" className="hover:text-[#c41230] transition-colors">
+                {language === 'JP' ? 'ルンダン＆ラウォン特製調味料' : language === 'EN' ? 'Rendang & Rawon Spices' : 'Bumbu Rendang & Rawon'}
+              </Link>
+            </li>
+            <li>
+              <Link to="/catalog" className="hover:text-[#c41230] transition-colors">
+                {language === 'JP' ? 'ABC トラシ・特製サンバル' : language === 'EN' ? 'ABC Terasi & Chili Sambal' : 'Sambal Terasi ABC & Uleg'}
+              </Link>
+            </li>
+            <li>
+              <Link to="/catalog" className="hover:text-[#c41230] transition-colors">
+                {language === 'JP' ? 'ハラール冷凍肉・肉団子バソ' : language === 'EN' ? 'Halal Frozen Meat & Meatballs' : 'Daging & Bakso Halal Frozen'}
+              </Link>
+            </li>
+            <li>
+              <Link to="/catalog" className="hover:text-[#c41230] transition-colors">
+                {language === 'JP' ? 'えびせんべい・ウンピン' : language === 'EN' ? 'Prawn Crackers & Emping' : 'Kerupuk Udang & Emping'}
+              </Link>
+            </li>
+            <li>
+              <Link to="/catalog" className="hover:text-[#c41230] transition-colors">
+                {language === 'JP' ? 'カパルアピ珈琲・テボトル茶' : language === 'EN' ? 'Kapal Api Coffee & Bottled Tea' : 'Kopi Kapal Api & Teh Botol'}
+              </Link>
+            </li>
           </ul>
         </div>
 
@@ -130,17 +144,36 @@ export const Footer: React.FC = () => {
         <div>
           <h5 className="font-bold text-sm text-stone-900 mb-4">{t('guides_help')}</h5>
           <ul className="space-y-2 text-xs text-stone-600">
-            <li><Link to="/guide" className="hover:text-[#c41230] transition-colors font-medium">Cara Bayar & Kebijakan Toko</Link></li>
-            <li><Link to="/contact" className="hover:text-[#c41230] transition-colors">Visi & Misi Toko Kami</Link></li>
-            <li><Link to="/tracking" className="hover:text-[#c41230] transition-colors">Lacak Kiriman Ekspedisi</Link></li>
-            <li><Link to="/contact" className="hover:text-[#c41230] transition-colors">Alamat Toko & Kontak CS 24 Jam</Link></li>
-            <li><Link to="/referral" className="hover:text-[#c41230] transition-colors">Program Mitra & Komunitas</Link></li>
-            <li className="pt-2 border-t border-stone-200">
-              <Link to="/admin" className="text-[#c41230] font-bold hover:underline flex items-center gap-1">
-                <span className="material-symbols-outlined text-xs">shield_person</span>
-                <span>Portal Kasir (POS) & Admin ERP</span>
+            <li>
+              <Link to="/about" className="hover:text-[#c41230] transition-colors font-medium">
+                {language === 'JP' ? '会社概要・ビジョン＆ミッション' : language === 'EN' ? 'About Us, Vision & Mission' : 'Tentang Kami, Visi & Misi'}
               </Link>
             </li>
+            <li>
+              <Link to="/about#contact" className="hover:text-[#c41230] transition-colors">
+                {language === 'JP' ? '店舗所在地・24時間CS窓口' : language === 'EN' ? 'Store Address & 24h CS Support' : 'Alamat Toko & Kontak CS 24 Jam'}
+              </Link>
+            </li>
+            <li>
+              <Link to="/orders" className="hover:text-[#c41230] transition-colors">
+                {language === 'JP' ? '注文履歴・配送状況 (Pesanan Saya)' : language === 'EN' ? 'My Orders & Tracking' : 'Pesanan Saya (Lacak Order)'}
+              </Link>
+            </li>
+            <li>
+              <Link to="/referral" className="hover:text-[#c41230] transition-colors">
+                {language === 'JP' ? 'パートナー＆コミュニティ提携' : language === 'EN' ? 'Partner & Community Program' : 'Program Mitra & Komunitas'}
+              </Link>
+            </li>
+            {isAdmin && (
+              <li className="pt-2 border-t border-stone-200">
+                <Link to="/admin" className="text-[#c41230] font-bold hover:underline flex items-center gap-1">
+                  <span className="material-symbols-outlined text-xs">shield_person</span>
+                  <span>
+                    {language === 'JP' ? '店舗レジ (POS) ＆ 管理者ERP' : language === 'EN' ? 'Cashier POS & Admin ERP' : 'Portal Kasir (POS) & Admin ERP'}
+                  </span>
+                </Link>
+              </li>
+            )}
           </ul>
         </div>
 
@@ -155,7 +188,9 @@ export const Footer: React.FC = () => {
               <span className="material-symbols-outlined text-base">chat</span>
               <span>LINE @sembakonusantara</span>
             </div>
-            <p className="text-[11px] text-stone-500">Official LINE ID: @sembakonusantara</p>
+            <p className="text-[11px] text-stone-500">
+              {language === 'JP' ? 'LINE公式ID: @sembakonusantara' : 'Official LINE ID: @sembakonusantara'}
+            </p>
           </div>
         </div>
       </div>

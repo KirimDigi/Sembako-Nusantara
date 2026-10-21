@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAdmin } from '../context/AdminContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { CurrencyType, getActiveExchangeRate, convertJpyToIdr, formatIdr, formatJpy } from '../utils/currency';
 import { FreeShippingProgressBar } from '../components/common/FreeShippingProgressBar';
 import { assetUrl } from '../utils/assets';
+import { resolveProductImage, getPlaceholderImage } from '../components/common/ProductImage';
 
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const { cart, subtotalTax, isFreeShipping, clearCart } = useCart();
   const { applyVoucher, addOrder } = useAdmin();
   const { isAuthenticated, currentUser, loginAsCustomer } = useAuth();
+  const { language } = useLanguage();
 
   const [paymentMethod, setPaymentMethod] = useState<'jpqr' | 'paypay' | 'konbini' | 'card' | 'bank' | 'cod'>('jpqr');
   const [courier, setCourier] = useState<'Yamato Transport' | 'Sagawa Express'>('Yamato Transport');
@@ -43,6 +46,21 @@ export const CheckoutPage: React.FC = () => {
   const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; discount: number } | null>(null);
   const [voucherMsg, setVoucherMsg] = useState<string>('');
 
+  // 5-second Fullscreen Spinner & Processing State
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [loadingSecondsLeft, setLoadingSecondsLeft] = useState(5);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const processingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      if (processingTimerRef.current) clearTimeout(processingTimerRef.current);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    };
+  }, []);
+
   // Order Success Modal State
   const [completedOrder, setCompletedOrder] = useState<any | null>(null);
 
@@ -69,6 +87,7 @@ export const CheckoutPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessing) return; // Prevent double submission
     if (cart.length === 0) {
       alert('Keranjang belanja Anda kosong!');
       navigate('/');
@@ -92,7 +111,10 @@ export const CheckoutPage: React.FC = () => {
       totalAmountIDR: grandTotalIdr,
       taxAmount: foodTaxAmount,
       date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
-      customerName: formData.fullName ? `${formData.fullName}` : 'Pelanggan Diaspora',
+      userId: currentUser?.id,
+      userEmail: currentUser?.email,
+      customerName: formData.fullName ? `${formData.fullName}` : currentUser?.name || 'Pelanggan Diaspora',
+      phone: formData.phone || currentUser?.phone,
       shippingAddress: `${formData.postalCode} ${formData.prefecture} ${formData.city} ${formData.address}`,
       address: `${formData.postalCode} ${formData.prefecture} ${formData.city} ${formData.address}`,
       items: cart.map(item => ({
@@ -108,11 +130,37 @@ export const CheckoutPage: React.FC = () => {
       }))
     };
 
-    // Save directly to admin state and storage
-    addOrder(newOrder);
+    // Activate 5-second loading spinner overlay
+    setIsProcessing(true);
+    setLoadingSecondsLeft(5);
+    setLoadingProgress(0);
 
-    setCompletedOrder(newOrder);
-    clearCart();
+    const startTime = Date.now();
+    const duration = 5000; // 5 seconds interval for structured backend queue
+
+    // Clear previous timers if any
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    if (processingTimerRef.current) clearTimeout(processingTimerRef.current);
+
+    progressIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(100, Math.round((elapsed / duration) * 100));
+      const remainingSeconds = Math.max(1, Math.ceil((duration - elapsed) / 1000));
+      setLoadingProgress(progress);
+      setLoadingSecondsLeft(remainingSeconds);
+    }, 100);
+
+    processingTimerRef.current = setTimeout(() => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      setLoadingProgress(100);
+      setLoadingSecondsLeft(0);
+
+      // Save directly to admin state, persistence, and inventory after 5 seconds
+      addOrder(newOrder);
+      setCompletedOrder(newOrder);
+      clearCart();
+      setIsProcessing(false);
+    }, duration);
   };
 
   return (
@@ -185,83 +233,127 @@ export const CheckoutPage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">Nama Lengkap Penerima</label>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {language === 'JP' ? '氏名（受取人様のお名前）' : language === 'EN' ? 'Recipient Full Name' : 'Nama Lengkap Penerima'}
+                </label>
                 <input
                   type="text"
                   required
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  placeholder={
+                    language === 'JP'
+                      ? 'れい: やまだ たろう'
+                      : language === 'EN'
+                      ? 'e.g. John Doe'
+                      : 'Contoh: Willy Pratama'
+                  }
                   className="w-full px-3.5 py-2.5 bg-stone-50 rounded-xl border border-stone-200 text-xs sm:text-sm font-medium focus:border-[#c41230] focus:bg-white outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">Nomor Telepon (Jepang / WA)</label>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {language === 'JP' ? '電話番号（日本 / WhatsApp）' : language === 'EN' ? 'Phone Number (Japan / WA)' : 'Nomor Telepon (Jepang / WA)'}
+                </label>
                 <input
                   type="text"
                   required
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder={
+                    language === 'JP'
+                      ? 'れい: 080-1234-5678'
+                      : '+81 80-XXXX-XXXX'
+                  }
                   className="w-full px-3.5 py-2.5 bg-stone-50 rounded-xl border border-stone-200 text-xs sm:text-sm font-medium focus:border-[#c41230] focus:bg-white outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">Kode Pos (〒 郵便番号)</label>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {language === 'JP' ? '郵便番号 (〒)' : 'Kode Pos (〒 郵便番号)'}
+                </label>
                 <input
                   type="text"
                   required
                   value={formData.postalCode}
                   onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                  placeholder={
+                    language === 'JP'
+                      ? 'れい: 134-0088'
+                      : '134-0088'
+                  }
                   className="w-full px-3.5 py-2.5 bg-stone-50 rounded-xl border border-stone-200 text-xs sm:text-sm font-medium focus:border-[#c41230] focus:bg-white outline-none transition-all font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">Prefektur (都道府県)</label>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {language === 'JP' ? '都道府県' : 'Prefektur (都道府県)'}
+                </label>
                 <input
                   type="text"
                   required
                   value={formData.prefecture}
                   onChange={(e) => setFormData({ ...formData, prefecture: e.target.value })}
+                  placeholder={
+                    language === 'JP'
+                      ? 'れい: とうきょうと (東京都)'
+                      : 'Tokyo-to (東京都)'
+                  }
                   className="w-full px-3.5 py-2.5 bg-stone-50 rounded-xl border border-stone-200 text-xs sm:text-sm font-medium focus:border-[#c41230] focus:bg-white outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">Kota / Distrik (市区町村)</label>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {language === 'JP' ? '市区町村' : 'Kota / Distrik (市区町村)'}
+                </label>
                 <input
                   type="text"
                   required
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  placeholder={
+                    language === 'JP'
+                      ? 'れい: えどがわく (江戸川区)'
+                      : 'Edogawa-ku (江戸川区)'
+                  }
                   className="w-full px-3.5 py-2.5 bg-stone-50 rounded-xl border border-stone-200 text-xs sm:text-sm font-medium focus:border-[#c41230] focus:bg-white outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">Pilihan Layanan Pengiriman</label>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {language === 'JP' ? '配送サービス選択' : language === 'EN' ? 'Shipping Courier Option' : 'Pilihan Layanan Pengiriman'}
+                </label>
                 <select
                   value={courier}
                   onChange={(e) => setCourier(e.target.value as any)}
                   className="w-full px-3.5 py-2.5 bg-stone-50 rounded-xl border border-stone-200 text-xs sm:text-sm font-bold focus:border-[#c41230] outline-none"
                 >
-                  <option value="Yamato Transport">🐱 Ekspedisi Kuroneko Yamato (ヤマト運輸 - Reguler & Cool)</option>
-                  <option value="Sagawa Express">🚚 Ekspedisi Sagawa Express (佐川急便 - Reguler)</option>
-                  <option value="Delivery Service (Max 3 Station)">🛵 Delivery Service Toko (Max Jarak 3 Stasiun Nishikamata)</option>
-                  <option value="COD (Cash on Delivery)">🤝 COD - Cash on Delivery (Bayar di Tempat)</option>
+                  <option value="Yamato Transport">🐱 {language === 'JP' ? 'ヤマト運輸（クール便・通常便）' : 'Ekspedisi Kuroneko Yamato (ヤマト運輸 - Reguler & Cool)'}</option>
+                  <option value="Sagawa Express">🚚 {language === 'JP' ? '佐川急便（通常便）' : 'Ekspedisi Sagawa Express (佐川急便 - Reguler)'}</option>
+                  <option value="Delivery Service (Max 3 Station)">🛵 {language === 'JP' ? '店舗自社配達 (西蒲田から3駅以内)' : 'Delivery Service Toko (Max Jarak 3 Stasiun Nishikamata)'}</option>
+                  <option value="COD (Cash on Delivery)">🤝 {language === 'JP' ? '代金引換 (着払い)' : 'COD - Cash on Delivery (Bayar di Tempat)'}</option>
                 </select>
               </div>
 
               <div className="sm:col-span-2">
                 <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Alamat Lengkap & Nomor Apartemen / Mansion (番地・建物名・部屋番号)
+                  {language === 'JP' ? '番地・建物名・部屋番号' : 'Alamat Lengkap & Nomor Apartemen / Mansion (番地・建物名・部屋番号)'}
                 </label>
                 <input
                   type="text"
                   required
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder={
+                    language === 'JP'
+                      ? 'れい: にしかさい 3-1-4 マンション さくら #302'
+                      : 'Contoh: Nishi-Kasai 3-1-4, Mansion Sakura #302'
+                  }
                   className="w-full px-3.5 py-2.5 bg-stone-50 rounded-xl border border-stone-200 text-xs sm:text-sm font-medium focus:border-[#c41230] focus:bg-white outline-none transition-all"
                 />
               </div>
@@ -468,9 +560,18 @@ export const CheckoutPage: React.FC = () => {
               {cart.map((item) => (
                 <div key={item.product.id} className="py-2 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
-                    <img src={item.product.image} alt={item.product.name} className="w-9 h-9 rounded-lg object-cover" />
+                    <img
+                      src={resolveProductImage(item.product.image, language)}
+                      alt={language === 'JP' ? item.product.nameJp || item.product.name : language === 'EN' ? item.product.nameEn || item.product.name : item.product.name}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = getPlaceholderImage(language);
+                      }}
+                      className="w-9 h-9 rounded-lg object-contain p-0.5 bg-[#FAF8F5] border border-stone-200"
+                    />
                     <div>
-                      <p className="font-semibold text-stone-900 line-clamp-1 max-w-[130px]">{item.product.name}</p>
+                      <p className="font-semibold text-stone-900 line-clamp-1 max-w-[130px]">
+                        {language === 'JP' ? item.product.nameJp || item.product.name : language === 'EN' ? item.product.nameEn || item.product.name : item.product.name}
+                      </p>
                       <p className="text-stone-400">x{item.quantity}</p>
                     </div>
                   </div>
@@ -483,21 +584,27 @@ export const CheckoutPage: React.FC = () => {
 
             {/* Voucher Box */}
             <div className="pt-2 border-t border-stone-100">
-              <label className="text-[11px] font-bold text-stone-700 block mb-1">Kode Voucher Diskon:</label>
+              <label className="text-[11px] font-bold text-stone-700 block mb-1">
+                {language === 'JP' ? '割引クーポンコード:' : language === 'EN' ? 'Discount Voucher Code:' : 'Kode Voucher Diskon:'}
+              </label>
               <div className="flex gap-1.5">
                 <input
                   type="text"
                   value={voucherInput}
                   onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
-                  placeholder="INDONESIA500"
+                  placeholder={
+                    language === 'JP'
+                      ? 'れい: INDONESIA500'
+                      : 'INDONESIA500'
+                  }
                   className="flex-1 px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono font-bold uppercase focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleApplyVoucher}
-                  className="px-3 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-bold"
+                  className="px-3 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-bold cursor-pointer"
                 >
-                  Terapkan
+                  {language === 'JP' ? '適用' : language === 'EN' ? 'Apply' : 'Terapkan'}
                 </button>
               </div>
               {voucherMsg && (
@@ -608,28 +715,132 @@ export const CheckoutPage: React.FC = () => {
             <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 space-y-1">
               <div className="flex items-center gap-1 font-bold text-amber-950">
                 <span className="material-symbols-outlined text-xs text-[#c41230]">policy</span>
-                <span>Kebijakan Toko Sembako Nusantara:</span>
+                <span>
+                  {language === 'JP' ? 'センバコ・ヌサンタラ店舗ポリシー:' : language === 'EN' ? 'Store Policies:' : 'Kebijakan Toko Sembako Nusantara:'}
+                </span>
               </div>
               <p className="leading-relaxed text-amber-900">
-                • Komplain wajib dilaporkan max <strong>24 jam</strong> setelah barang diterima dengan bukti foto/video.<br />
-                • Produk makanan & minuman tidak dapat dikembalikan setelah kemasan dibuka.<br />
-                • Pastikan alamat & penerima sudah benar sebelum pembayaran.
+                {language === 'JP' ? (
+                  <>
+                    • クレーム受付は商品到着後<strong>24時間以内</strong>（写真・動画の添付が必須）<br />
+                    • 開封済みの食品・飲料は衛生管理上返品できません。<br />
+                    • お支払い前に受取人氏名とお届け先住所をご確認ください。
+                  </>
+                ) : language === 'EN' ? (
+                  <>
+                    • Complaints must be reported within <strong>24 hours</strong> of receipt with photo/video proof.<br />
+                    • Opened food and drink items cannot be returned.<br />
+                    • Please verify your address and recipient details before payment.
+                  </>
+                ) : (
+                  <>
+                    • Komplain wajib dilaporkan max <strong>24 jam</strong> setelah barang diterima dengan bukti foto/video.<br />
+                    • Produk makanan & minuman tidak dapat dikembalikan setelah kemasan dibuka.<br />
+                    • Pastikan alamat & penerima sudah benar sebelum pembayaran.
+                  </>
+                )}
               </p>
               <Link to="/guide" target="_blank" className="text-[#c41230] font-bold hover:underline inline-block pt-0.5">
-                Lihat Ketentuan & Kebijakan Toko Selengkapnya →
+                {language === 'JP'
+                  ? '利用規約と返品ポリシーの詳細を見る →'
+                  : language === 'EN'
+                  ? 'View Full Terms & Policies →'
+                  : 'Lihat Ketentuan & Kebijakan Toko Selengkapnya →'}
               </Link>
             </div>
 
             <button
               type="submit"
-              className="w-full inline-flex items-center justify-center gap-2 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold py-3.5 px-6 rounded-xl shadow-md active:scale-95 transition-all text-sm cursor-pointer"
+              disabled={isProcessing}
+              className={`w-full inline-flex items-center justify-center gap-2 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold py-3.5 px-6 rounded-xl shadow-md active:scale-95 transition-all text-sm cursor-pointer ${
+                isProcessing ? 'opacity-80 cursor-not-allowed pointer-events-none' : ''
+              }`}
             >
-              <span>Konfirmasi & Buat Pesanan</span>
-              <span className="material-symbols-outlined text-sm">lock</span>
+              {isProcessing ? (
+                <>
+                  <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+                  <span>
+                    {language === 'JP'
+                      ? `注文処理中... (${loadingSecondsLeft}秒)`
+                      : language === 'EN'
+                      ? `Processing... (${loadingSecondsLeft}s)`
+                      : `Memproses Pembayaran... (${loadingSecondsLeft}s)`}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>
+                    {language === 'JP' ? '注文を確定して申し込む' : language === 'EN' ? 'Confirm & Place Order' : 'Konfirmasi & Buat Pesanan'}
+                  </span>
+                  <span className="material-symbols-outlined text-sm">lock</span>
+                </>
+              )}
             </button>
           </div>
         </div>
       </form>
+
+      {/* 5-Second Centered Loading Spinner Modal */}
+      {isProcessing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm sm:max-w-md w-full p-6 sm:p-8 shadow-2xl text-center space-y-5 border border-stone-100 animate-in zoom-in-95 duration-200">
+            {/* Dual Ring Animated Spinner with Center Countdown */}
+            <div className="relative w-28 h-28 mx-auto flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-red-100 animate-ping opacity-25" />
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[#c41230] border-r-[#c41230] animate-spin" />
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-50 to-amber-50 flex flex-col items-center justify-center shadow-inner">
+                <span className="text-2xl font-black text-[#c41230] font-mono leading-none">
+                  {loadingSecondsLeft}s
+                </span>
+                <span className="text-[9px] font-bold text-stone-500 uppercase tracking-wider mt-0.5">
+                  Tunggu
+                </span>
+              </div>
+            </div>
+
+            {/* Title & Dynamic Status Message */}
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-bold text-stone-900">
+                {language === 'JP' ? '注文と決済を処理中...' : language === 'EN' ? 'Processing Order & Payment...' : 'Sedang Memproses Pesanan & Pembayaran...'}
+              </h3>
+              <p className="text-xs text-stone-600 min-h-[32px] flex items-center justify-center font-medium px-2">
+                {loadingProgress < 35
+                  ? (language === 'JP' ? '決済ゲートウェイと安全に通信中...' : language === 'EN' ? 'Connecting to payment gateway...' : 'Menghubungkan ke gateway pembayaran & verifikasi...')
+                  : loadingProgress < 75
+                  ? (language === 'JP' ? '在庫を引き当て・配送枠を確保中...' : language === 'EN' ? 'Allocating inventory & courier slot...' : 'Menyinkronkan stok barang & alokasi kurir...')
+                  : (language === 'JP' ? '注文書と追跡番号を発行中...' : language === 'EN' ? 'Generating invoice & tracking number...' : 'Menerbitkan nomor resi & menyelesaikan pesanan...')}
+              </p>
+            </div>
+
+            {/* Smooth 5-Second Progress Bar */}
+            <div className="space-y-1">
+              <div className="w-full bg-stone-100 rounded-full h-2.5 overflow-hidden p-0.5">
+                <div
+                  className="bg-gradient-to-r from-[#c41230] via-rose-500 to-amber-500 h-full rounded-full transition-all duration-100 ease-linear shadow-xs"
+                  style={{ width: `${loadingProgress}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] text-stone-400 font-mono">
+                <span>0s</span>
+                <span className="font-bold text-stone-600">{loadingProgress}%</span>
+                <span>5s</span>
+              </div>
+            </div>
+
+            {/* Security Notice */}
+            <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200/80 text-[11px] text-stone-500 flex items-center gap-2 text-left">
+              <span className="material-symbols-outlined text-[#c41230] text-base shrink-0">verified_user</span>
+              <span>
+                {language === 'JP'
+                  ? '安全な処理を行っています。ページを閉じたり再読み込みしないでください。'
+                  : language === 'EN'
+                  ? 'Securing backend transaction. Please do not close or refresh this page.'
+                  : 'Sistem sedang menata sinkronisasi backend agar rapi. Mohon jangan menutup atau me-refresh halaman.'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Order Completed Modal */}
       {completedOrder && (

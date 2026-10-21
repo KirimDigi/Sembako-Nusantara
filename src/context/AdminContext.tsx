@@ -11,7 +11,12 @@ import {
   Voucher,
   CompetitorPrice,
   UserRole,
-  DirectPurchaseEntry
+  DirectPurchaseEntry,
+  ItemDiscount,
+  ProductPromo,
+  WholesalePriceTier,
+  StockOpnameSession,
+  StockOpnameSessionItem
 } from '../types';
 import { PRODUCTS_DATA } from '../data/products';
 import {
@@ -22,7 +27,10 @@ import {
   INITIAL_POS_TRANSACTIONS,
   INITIAL_CUSTOMERS,
   INITIAL_VOUCHERS,
-  INITIAL_COMPETITOR_PRICES
+  INITIAL_COMPETITOR_PRICES,
+  INITIAL_ITEM_DISCOUNTS,
+  INITIAL_PRODUCT_PROMOS,
+  INITIAL_WHOLESALE_PRICES
 } from '../data/adminMockData';
 import { supabase } from '../lib/supabase';
 
@@ -33,6 +41,8 @@ interface AdminContextType {
   purchaseOrders: PurchaseOrder[];
   directPurchases: DirectPurchaseEntry[];
   addDirectPurchase: (purchaseData: Omit<DirectPurchaseEntry, 'id'>) => DirectPurchaseEntry;
+  updateDirectPurchase: (id: string, updatedData: Partial<DirectPurchaseEntry>) => void;
+  deleteDirectPurchase: (id: string) => void;
   stockMovements: StockMovement[];
   posTransactions: POSTransaction[];
   orders: Order[];
@@ -56,6 +66,8 @@ interface AdminContextType {
     poData: Omit<PurchaseOrder, 'id' | 'poNumber' | 'dateCreated'>
   ) => PurchaseOrder;
   receivePurchaseOrder: (poId: string) => void;
+  updatePurchaseOrder: (id: string, updatedData: Partial<PurchaseOrder>) => void;
+  deletePurchaseOrder: (id: string) => void;
   addOrder: (order: Order) => void;
   updateOrderStatus: (
     orderId: string,
@@ -63,18 +75,43 @@ interface AdminContextType {
     trackingNumber?: string,
     courier?: Order['courier']
   ) => void;
+  cancelOrder: (orderId: string, reason?: string) => void;
   addSupplier: (supplierData: Omit<Supplier, 'id'>) => Supplier;
+  updateSupplier: (id: string, updatedData: Partial<Supplier>) => void;
+  deleteSupplier: (id: string) => void;
   addCustomer: (customerData: Omit<CustomerCRM, 'id' | 'registeredDate'>) => CustomerCRM;
   addVoucher: (voucher: Voucher) => void;
   toggleVoucher: (code: string) => void;
+  deleteVoucher: (code: string) => void;
   applyVoucher: (
     code: string,
     subtotal: number
   ) => { valid: boolean; discount: number; message: string; voucher?: Voucher };
+  itemDiscounts: ItemDiscount[];
+  addItemDiscount: (discount: ItemDiscount) => void;
+  toggleItemDiscount: (id: string) => void;
+  deleteItemDiscount: (id: string) => void;
+  productPromos: ProductPromo[];
+  addProductPromo: (promo: ProductPromo) => void;
+  toggleProductPromo: (id: string) => void;
+  deleteProductPromo: (id: string) => void;
+  wholesalePrices: WholesalePriceTier[];
+  addWholesalePrice: (tier: WholesalePriceTier) => void;
+  toggleWholesalePrice: (id: string) => void;
+  deleteWholesalePrice: (id: string) => void;
   addNewProduct: (product: Product) => void;
   updateProduct: (id: string, updatedData: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
   clearAllTransactions: () => void;
+  batchApplyStockOpname: (
+    adjustments: {
+      productId: string;
+      physicalStock: number;
+      notes?: string;
+    }[],
+    officerName?: string,
+    sessionNotes?: string
+  ) => StockOpnameSession;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -83,13 +120,28 @@ const INITIAL_ORDERS: Order[] = [];
 
 export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('sn_products_v3');
+    // Purge legacy mock data cache so real Excel products are loaded cleanly
+    try {
+      localStorage.removeItem('sn_products_v6');
+      localStorage.removeItem('sn_products_v5');
+      localStorage.removeItem('sn_products_v4');
+      localStorage.removeItem('sn_products_v3');
+      localStorage.removeItem('sn_products_v2');
+      localStorage.removeItem('sn_products_v1');
+    } catch (e) {}
+
+    const saved = localStorage.getItem('sn_products_v7');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length >= 50) return parsed;
+        if (Array.isArray(parsed) && parsed.length >= 100 && parsed[0]?.sku?.startsWith('SN-')) {
+          return parsed;
+        }
       } catch (e) {}
     }
+    try {
+      localStorage.setItem('sn_products_v7', JSON.stringify(PRODUCTS_DATA));
+    } catch (e) {}
     return PRODUCTS_DATA;
   });
 
@@ -116,17 +168,37 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
   const [customers, setCustomers] = useState<CustomerCRM[]>(() => {
     const saved = localStorage.getItem('sn_customers_v1');
-    return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.map((c: any) => ({ ...c, loyaltyPoints: 0 }));
+        }
+      } catch (e) {}
+    }
+    return INITIAL_CUSTOMERS.map((c) => ({ ...c, loyaltyPoints: 0 }));
   });
   const [vouchers, setVouchers] = useState<Voucher[]>(() => {
     const saved = localStorage.getItem('sn_vouchers_v3');
     return saved ? JSON.parse(saved) : INITIAL_VOUCHERS;
   });
+  const [itemDiscounts, setItemDiscounts] = useState<ItemDiscount[]>(() => {
+    const saved = localStorage.getItem('sn_item_discounts_v1');
+    return saved ? JSON.parse(saved) : INITIAL_ITEM_DISCOUNTS;
+  });
+  const [productPromos, setProductPromos] = useState<ProductPromo[]>(() => {
+    const saved = localStorage.getItem('sn_product_promos_v1');
+    return saved ? JSON.parse(saved) : INITIAL_PRODUCT_PROMOS;
+  });
+  const [wholesalePrices, setWholesalePrices] = useState<WholesalePriceTier[]>(() => {
+    const saved = localStorage.getItem('sn_wholesale_prices_v1');
+    return saved ? JSON.parse(saved) : INITIAL_WHOLESALE_PRICES;
+  });
   const [competitorPrices] = useState<CompetitorPrice[]>(INITIAL_COMPETITOR_PRICES);
   const [activeRole, setActiveRole] = useState<UserRole>('Super Admin (Owner)');
 
   useEffect(() => {
-    localStorage.setItem('sn_products_v3', JSON.stringify(products));
+    localStorage.setItem('sn_products_v7', JSON.stringify(products));
   }, [products]);
 
   useEffect(() => {
@@ -140,6 +212,18 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     localStorage.setItem('sn_vouchers_v3', JSON.stringify(vouchers));
   }, [vouchers]);
+
+  useEffect(() => {
+    localStorage.setItem('sn_item_discounts_v1', JSON.stringify(itemDiscounts));
+  }, [itemDiscounts]);
+
+  useEffect(() => {
+    localStorage.setItem('sn_product_promos_v1', JSON.stringify(productPromos));
+  }, [productPromos]);
+
+  useEffect(() => {
+    localStorage.setItem('sn_wholesale_prices_v1', JSON.stringify(wholesalePrices));
+  }, [wholesalePrices]);
 
   useEffect(() => {
     localStorage.setItem('sn_po_v2', JSON.stringify(purchaseOrders));
@@ -167,6 +251,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             warehouseName: 'Gudang Utama Tokyo (Kanto Hub)',
             totalAmount: 147500,
             status: 'Diterima',
+            paymentStatus: 'LUNAS',
+            paymentMethod: 'CASH',
+            paidAt: '2026-10-05',
             notes: 'Restock mingguan mie instan dan kecap',
             items: [
               { productId: '1', productName: 'Indomie Mi Goreng Spesial (Dus / 40 Pcs)', quantity: 25, costPrice: 2950, subtotal: 73750 },
@@ -277,6 +364,96 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     fetchCloudPOSTransactions();
+
+    // Fetch live customers from Supabase
+    const fetchCloudCustomers = async () => {
+      try {
+        const { data, error } = await supabase.from('customers').select('*');
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          const cloudCust: CustomerCRM[] = data.map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            email: d.email || '',
+            phone: d.phone || '',
+            city: d.city || 'Tokyo',
+            totalOrders: Number(d.total_orders) || 0,
+            totalSpent: Number(d.total_spent) || 0,
+            loyaltyPoints: Number(d.loyalty_points) || 0,
+            tier: d.tier || 'Bronze',
+            registeredDate: d.registered_date || '',
+            preferredLanguage: d.preferred_language || 'ID'
+          }));
+          setCustomers((prev) => {
+            const merged = [...cloudCust];
+            prev.forEach((p) => {
+              if (!merged.some((m) => m.id === p.id)) merged.push(p);
+            });
+            return merged;
+          });
+        }
+      } catch (e) {}
+    };
+    fetchCloudCustomers();
+
+    // Fetch live suppliers from Supabase
+    const fetchCloudSuppliers = async () => {
+      try {
+        const { data, error } = await supabase.from('suppliers').select('*');
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          const cloudSup: Supplier[] = data.map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            contactPerson: d.contact_person || '',
+            phone: d.phone || '',
+            email: d.email || '',
+            address: d.address || '',
+            origin: (d.origin || 'Indonesia') as 'Indonesia' | 'Japan' | 'Other',
+            rating: Number(d.rating) || 5,
+            paymentTerms: d.payment_terms || 'TOP 30 Hari',
+            leadTimeDays: Number(d.lead_time_days) || 3,
+            isActive: d.is_active ?? true,
+            notes: d.notes || ''
+          }));
+          setSuppliers((prev) => {
+            const merged = [...cloudSup];
+            prev.forEach((p) => {
+              if (!merged.some((m) => m.id === p.id)) merged.push(p);
+            });
+            return merged;
+          });
+        }
+      } catch (e) {}
+    };
+    fetchCloudSuppliers();
+
+    // Fetch live vouchers from Supabase
+    const fetchCloudVouchers = async () => {
+      try {
+        const { data, error } = await supabase.from('vouchers').select('*');
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          const cloudVou: Voucher[] = data.map((d: any) => ({
+            code: d.code,
+            title: d.title,
+            description: d.description || '',
+            discountType: d.discount_type || 'PERCENTAGE',
+            discountValue: Number(d.discount_value) || 0,
+            minSpend: Number(d.min_spend) || 0,
+            maxDiscount: d.max_discount ? Number(d.max_discount) : undefined,
+            validUntil: d.valid_until || '2026-12-31',
+            usageCount: Number(d.usage_count) || 0,
+            isActive: d.is_active ?? true
+          }));
+          setVouchers((prev) => {
+            const merged = [...cloudVou];
+            prev.forEach((p) => {
+              if (!merged.some((m) => m.code === p.code)) merged.push(p);
+            });
+            return merged;
+          });
+        }
+      } catch (e) {}
+    };
+    fetchCloudVouchers();
   }, []);
 
   const updateProductStock = (
@@ -368,9 +545,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             quantity: it.quantity,
             subtotal: it.subtotal
           }));
-          supabase.from('pos_transaction_items').insert(itemsPayload).then(() => {}).catch(() => {});
+          supabase.from('pos_transaction_items').insert(itemsPayload).then(() => {}, () => {});
         }
-      }).catch(() => {});
+      }, () => {});
     } catch (e) {}
 
     return newTx;
@@ -414,6 +591,16 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   };
 
+  const updatePurchaseOrder = (id: string, updatedData: Partial<PurchaseOrder>) => {
+    setPurchaseOrders((prev) =>
+      prev.map((po) => (po.id === id ? { ...po, ...updatedData } : po))
+    );
+  };
+
+  const deletePurchaseOrder = (id: string) => {
+    setPurchaseOrders((prev) => prev.filter((po) => po.id !== id));
+  };
+
   const addDirectPurchase = (
     purchaseData: Omit<DirectPurchaseEntry, 'id'>
   ): DirectPurchaseEntry => {
@@ -438,6 +625,16 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setDirectPurchases((prev) => [newEntry, ...prev]);
     return newEntry;
+  };
+
+  const updateDirectPurchase = (id: string, updatedData: Partial<DirectPurchaseEntry>) => {
+    setDirectPurchases((prev) =>
+      prev.map((dp) => (dp.id === id ? { ...dp, ...updatedData } : dp))
+    );
+  };
+
+  const deleteDirectPurchase = (id: string) => {
+    setDirectPurchases((prev) => prev.filter((dp) => dp.id !== id));
   };
 
   const addOrder = (newOrder: Order) => {
@@ -472,6 +669,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const userOrderSummary = {
         id: newOrder.id,
         orderId: newOrder.id,
+        userId: newOrder.userId || (newOrder as any).userId,
+        userEmail: newOrder.userEmail || (newOrder as any).userEmail,
         trackingNumber: newOrder.trackingNumber,
         courier: newOrder.courier,
         status: newOrder.status,
@@ -480,6 +679,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         taxAmount: newOrder.taxAmount || 0,
         date: newOrder.date,
         customerName: newOrder.customerName || 'Pelanggan',
+        phone: newOrder.phone || (newOrder as any).phone,
         paymentMethod: newOrder.paymentMethod || 'jpqr',
         shippingAddress: newOrder.shippingAddress,
         address: newOrder.shippingAddress,
@@ -523,9 +723,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             quantity: Number(it.quantity || it.qty) || 1,
             subtotal: (Number(it.price) || 0) * (Number(it.quantity || it.qty) || 1)
           }));
-          supabase.from('order_items').insert(itemsPayload).then(() => {}).catch(() => {});
+          supabase.from('order_items').insert(itemsPayload).then(() => {}, () => {});
         }
-      }).catch(() => {});
+      }, () => {});
     } catch (e) {}
   };
 
@@ -577,8 +777,33 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         tracking_number: trackingNumber || undefined,
         courier: courier || undefined,
         updated_at: new Date().toISOString()
-      }).eq('id', orderId).then(() => {}).catch(() => {});
+      }).eq('id', orderId).then(() => {}, () => {});
     } catch (e) {}
+  };
+
+  const cancelOrder = (orderId: string, reason?: string) => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) return;
+
+    // Restore stock if not already cancelled
+    if (targetOrder.status !== 'Dibatalkan' && targetOrder.items && Array.isArray(targetOrder.items)) {
+      targetOrder.items.forEach((item: any) => {
+        const prodId = item.id || item.productId;
+        const qty = item.quantity || item.qty || 1;
+        if (prodId) {
+          updateProductStock(
+            prodId,
+            qty,
+            `Pengembalian Stok / Pembatalan Pesanan #${orderId}${reason ? ` (${reason})` : ''}`,
+            'IN_PO',
+            undefined,
+            'wh-tokyo'
+          );
+        }
+      });
+    }
+
+    updateOrderStatus(orderId, 'Dibatalkan');
   };
 
   const addSupplier = (supplierData: Omit<Supplier, 'id'>): Supplier => {
@@ -587,7 +812,39 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       id: 'sup-' + (suppliers.length + 1)
     };
     setSuppliers((prev) => [...prev, newSup]);
+
+    try {
+      supabase.from('suppliers').upsert({
+        id: newSup.id,
+        name: newSup.name,
+        contact_person: newSup.contactPerson || null,
+        phone: newSup.phone || null,
+        email: newSup.email || null,
+        address: newSup.address || null,
+        payment_terms: newSup.paymentTerms || 'TOP 30 Hari',
+        lead_time_days: newSup.leadTimeDays || 3,
+        is_active: newSup.isActive,
+        notes: newSup.notes || null
+      }).then(() => {}, () => {});
+    } catch (e) {}
+
     return newSup;
+  };
+
+  const updateSupplier = (id: string, updatedData: Partial<Supplier>) => {
+    setSuppliers((prev) =>
+      prev.map((sup) => (sup.id === id ? { ...sup, ...updatedData } : sup))
+    );
+    try {
+      supabase.from('suppliers').update(updatedData).eq('id', id).then(() => {}, () => {});
+    } catch (e) {}
+  };
+
+  const deleteSupplier = (id: string) => {
+    setSuppliers((prev) => prev.filter((sup) => sup.id !== id));
+    try {
+      supabase.from('suppliers').delete().eq('id', id).then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const addCustomer = (customerData: Omit<CustomerCRM, 'id' | 'registeredDate'>): CustomerCRM => {
@@ -602,17 +859,60 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       preferredLanguage: customerData.preferredLanguage ?? 'ID'
     };
     setCustomers((prev) => [newCust, ...prev]);
+
+    try {
+      supabase.from('customers').upsert({
+        id: newCust.id,
+        name: newCust.name,
+        email: newCust.email || null,
+        phone: newCust.phone || null,
+        city: newCust.city || 'Tokyo',
+        total_orders: newCust.totalOrders,
+        total_spent: newCust.totalSpent,
+        loyalty_points: newCust.loyaltyPoints,
+        tier: newCust.tier,
+        registered_date: newCust.registeredDate,
+        preferred_language: newCust.preferredLanguage
+      }).then(() => {}, () => {});
+    } catch (e) {}
+
     return newCust;
   };
 
   const addVoucher = (voucher: Voucher) => {
     setVouchers((prev) => [...prev, voucher]);
+
+    try {
+      supabase.from('vouchers').upsert({
+        code: voucher.code,
+        title: voucher.title,
+        description: voucher.description || null,
+        discount_type: voucher.discountType,
+        discount_value: voucher.discountValue,
+        min_spend: voucher.minSpend,
+        max_discount: voucher.maxDiscount || null,
+        valid_until: voucher.validUntil,
+        usage_count: voucher.usageCount || 0,
+        is_active: voucher.isActive
+      }).then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const toggleVoucher = (code: string) => {
+    let nextStatus = false;
     setVouchers((prev) =>
-      prev.map((v) => (v.code === code ? { ...v, isActive: !v.isActive } : v))
+      prev.map((v) => {
+        if (v.code === code) {
+          nextStatus = !v.isActive;
+          return { ...v, isActive: nextStatus };
+        }
+        return v;
+      })
     );
+
+    try {
+      supabase.from('vouchers').update({ is_active: nextStatus }).eq('code', code).then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const applyVoucher = (
@@ -636,8 +936,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     let calculatedDiscount = 0;
-    if (found.discountType === 'FIXED') {
+    if (found.discountType === 'FIXED' || found.discountType === 'NOMINAL_JPY') {
       calculatedDiscount = found.discountValue;
+    } else if (found.discountType === 'NOMINAL_IDR') {
+      calculatedDiscount = Math.round(found.discountValue / 105);
     } else {
       calculatedDiscount = Math.round((subtotal * found.discountValue) / 100);
       if (found.maxDiscount && calculatedDiscount > found.maxDiscount) {
@@ -651,6 +953,55 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       message: `Voucher ${found.code} berhasil diterapkan! Hemat ¥${calculatedDiscount.toLocaleString()}`,
       voucher: found
     };
+  };
+
+  const deleteVoucher = (code: string) => {
+    setVouchers((prev) => prev.filter((v) => v.code !== code));
+    try {
+      supabase.from('vouchers').delete().eq('code', code).then(() => {}, () => {});
+    } catch (e) {}
+  };
+
+  const addItemDiscount = (discount: ItemDiscount) => {
+    setItemDiscounts((prev) => [discount, ...prev.filter((d) => d.productId !== discount.productId)]);
+  };
+
+  const toggleItemDiscount = (id: string) => {
+    setItemDiscounts((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, isActive: !d.isActive } : d))
+    );
+  };
+
+  const deleteItemDiscount = (id: string) => {
+    setItemDiscounts((prev) => prev.filter((d) => d.id !== id));
+  };
+
+  const addProductPromo = (promo: ProductPromo) => {
+    setProductPromos((prev) => [promo, ...prev]);
+  };
+
+  const toggleProductPromo = (id: string) => {
+    setProductPromos((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p))
+    );
+  };
+
+  const deleteProductPromo = (id: string) => {
+    setProductPromos((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const addWholesalePrice = (tier: WholesalePriceTier) => {
+    setWholesalePrices((prev) => [tier, ...prev]);
+  };
+
+  const toggleWholesalePrice = (id: string) => {
+    setWholesalePrices((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, isActive: !w.isActive } : w))
+    );
+  };
+
+  const deleteWholesalePrice = (id: string) => {
+    setWholesalePrices((prev) => prev.filter((w) => w.id !== id));
   };
 
   const addNewProduct = (product: Product) => {
@@ -675,6 +1026,113 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.removeItem('sn_user_orders');
   };
 
+  const batchApplyStockOpname = (
+    adjustments: {
+      productId: string;
+      physicalStock: number;
+      notes?: string;
+    }[],
+    officerName: string = 'Willy Pratama (Admin)',
+    sessionNotes: string = 'Stok Opname Fisik Inventori'
+  ): StockOpnameSession => {
+    const timestamp = Date.now();
+    const dateStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const sessionCode = `SO-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
+
+    const adjustmentMap = new Map<string, { physicalStock: number; notes?: string }>();
+    adjustments.forEach((adj) => {
+      adjustmentMap.set(adj.productId, {
+        physicalStock: Math.max(0, Math.round(Number(adj.physicalStock) || 0)),
+        notes: adj.notes
+      });
+    });
+
+    const sessionItems: StockOpnameSessionItem[] = [];
+    const newMovements: StockMovement[] = [];
+    let itemsWithDiscrepancy = 0;
+    let totalDiscrepancyQty = 0;
+    let totalDiscrepancyValue = 0;
+
+    const updatedProducts = products.map((prod) => {
+      if (!adjustmentMap.has(prod.id)) {
+        return prod;
+      }
+      const adj = adjustmentMap.get(prod.id)!;
+      const physicalStock = adj.physicalStock;
+      const systemStock = prod.stock;
+      const diffQty = physicalStock - systemStock;
+      const costPrice = prod.costPrice || Math.round(prod.price * 0.65);
+      const diffVal = diffQty * costPrice;
+
+      if (diffQty !== 0) {
+        itemsWithDiscrepancy += 1;
+        totalDiscrepancyQty += diffQty;
+        totalDiscrepancyValue += diffVal;
+
+        newMovements.push({
+          id: `sm-so-${timestamp}-${prod.id}`,
+          date: dateStr,
+          productId: prod.id,
+          productName: prod.name,
+          type: 'ADJUSTMENT',
+          quantity: Math.abs(diffQty),
+          fromWarehouse: 'wh-tokyo',
+          referenceNumber: sessionCode,
+          notes: `Stok Opname #${sessionCode}: Sistem ${systemStock} -> Fisik ${physicalStock} (${diffQty > 0 ? '+' : ''}${diffQty}) [${adj.notes || 'Penyesuaian Fisik'}]`
+        });
+      }
+
+      sessionItems.push({
+        productId: prod.id,
+        productName: prod.name,
+        sku: prod.id,
+        category: prod.category,
+        systemStock,
+        physicalStock,
+        differenceQty: diffQty,
+        costPrice,
+        differenceValue: diffVal,
+        notes: adj.notes || (diffQty === 0 ? 'Sesuai Fisik' : 'Penyesuaian Fisik')
+      });
+
+      return {
+        ...prod,
+        stock: physicalStock
+      };
+    });
+
+    // Update product list state (which also auto-saves to sn_products_v3 via existing useEffect)
+    setProducts(updatedProducts);
+
+    // Append new audit movements
+    if (newMovements.length > 0) {
+      setStockMovements((prev) => [...newMovements, ...prev]);
+    }
+
+    const session: StockOpnameSession = {
+      id: `so-sess-${timestamp}`,
+      sessionCode,
+      date: dateStr,
+      officerName,
+      totalItemsChecked: sessionItems.length,
+      itemsWithDiscrepancy,
+      totalDiscrepancyQty,
+      totalDiscrepancyValue,
+      status: 'Selesai',
+      notes: sessionNotes,
+      items: sessionItems
+    };
+
+    // Save session to audit history
+    try {
+      const savedHistory = JSON.parse(localStorage.getItem('sn_stock_opname_history_v1') || '[]');
+      const updatedHistory = [session, ...savedHistory];
+      localStorage.setItem('sn_stock_opname_history_v1', JSON.stringify(updatedHistory));
+    } catch (e) {}
+
+    return session;
+  };
+
   return (
     <AdminContext.Provider
       value={{
@@ -684,6 +1142,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         purchaseOrders,
         directPurchases,
         addDirectPurchase,
+        updateDirectPurchase,
+        deleteDirectPurchase,
         stockMovements,
         posTransactions,
         orders,
@@ -696,17 +1156,36 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addPOSTransaction,
         createPurchaseOrder,
         receivePurchaseOrder,
+        updatePurchaseOrder,
+        deletePurchaseOrder,
         addOrder,
         updateOrderStatus,
+        cancelOrder,
         addSupplier,
+        updateSupplier,
+        deleteSupplier,
         addCustomer,
         addVoucher,
         toggleVoucher,
+        deleteVoucher,
         applyVoucher,
+        itemDiscounts,
+        addItemDiscount,
+        toggleItemDiscount,
+        deleteItemDiscount,
+        productPromos,
+        addProductPromo,
+        toggleProductPromo,
+        deleteProductPromo,
+        wholesalePrices,
+        addWholesalePrice,
+        toggleWholesalePrice,
+        deleteWholesalePrice,
         addNewProduct,
         updateProduct,
         deleteProduct,
-        clearAllTransactions
+        clearAllTransactions,
+        batchApplyStockOpname
       }}
     >
       {children}

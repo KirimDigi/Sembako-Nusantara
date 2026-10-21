@@ -1,23 +1,156 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAdmin } from '../../context/AdminContext';
+import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 
 export const CustomerLiveOrderStatusBanner: React.FC = () => {
   const { orders } = useAdmin();
+  const { isAuthenticated, currentUser } = useAuth();
   const { language } = useLanguage();
   const isJp = language === 'JP';
 
   const [isMinimized, setIsMinimized] = useState(false);
   const [isClosed, setIsClosed] = useState(false);
+  const [countdown, setCountdown] = useState<number>(10);
 
-  // Get the most recent active order or latest order
-  const activeOrder = orders && orders.length > 0 ? orders[0] : null;
+  // Check if this cancelled order was already auto-dismissed in this session
+  const [dismissedCancelledId, setDismissedCancelledId] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem('sn_cancelled_banner_dismissed_id');
+    } catch (e) {
+      return null;
+    }
+  });
+
+  // Filter orders khusus untuk akun yang bersangkutan
+  const relevantOrders = useMemo(() => {
+    let localUserOrders: any[] = [];
+    try {
+      const saved = localStorage.getItem('sn_user_orders');
+      if (saved) localUserOrders = JSON.parse(saved);
+    } catch (e) {}
+
+    const pool = [...localUserOrders];
+    orders.forEach((admOrd) => {
+      if (!pool.some((po) => po.id === admOrd.id || po.orderId === admOrd.id)) {
+        pool.push(admOrd);
+      }
+    });
+
+    if (isAuthenticated && currentUser) {
+      const cId = currentUser.id?.toLowerCase().trim();
+      const cEmail = currentUser.email?.toLowerCase().trim();
+      const cName = currentUser.name?.toLowerCase().trim();
+      const cPhone = currentUser.phone ? currentUser.phone.replace(/[^0-9]/g, '') : '';
+
+      return pool.filter((ord: any) => {
+        if (ord.userId && String(ord.userId).toLowerCase().trim() === cId) return true;
+        const ordEmail = (ord.userEmail || ord.email || '')?.toLowerCase().trim();
+        if (ordEmail && cEmail && ordEmail === cEmail) return true;
+        const ordName = (ord.customerName || '')?.toLowerCase().trim();
+        if (ordName && cName && (ordName === cName || ordName.includes(cName) || cName.includes(ordName))) return true;
+        if (ord.phone && cPhone) {
+          const ordPhoneClean = String(ord.phone).replace(/[^0-9]/g, '');
+          if (ordPhoneClean && ordPhoneClean.length >= 8 && (ordPhoneClean.includes(cPhone) || cPhone.includes(ordPhoneClean))) return true;
+        }
+        return false;
+      });
+    }
+
+    // Jika belum login, hanya tampilkan pesanan yang dibuat di sesi browser saat ini
+    return localUserOrders;
+  }, [isAuthenticated, currentUser, orders]);
+
+  // Check latest order from relevantOrders
+  const latestOrder = relevantOrders && relevantOrders.length > 0 ? relevantOrders[0] : null;
+  const isLatestCancelled = Boolean(
+    latestOrder && (
+      latestOrder.status === 'Dibatalkan' ||
+      latestOrder.status?.toLowerCase().includes('batal') ||
+      latestOrder.status?.toLowerCase().includes('cancel')
+    )
+  );
+
+  const isLatestCancelledDismissed = Boolean(
+    latestOrder && isLatestCancelled && dismissedCancelledId === latestOrder.id
+  );
+
+  // Determine active order to display:
+  // If the latest order is cancelled and hasn't finished its 10-second display, show it.
+  // Once finished or dismissed, show other ongoing active orders (e.g. 'Dikemas', 'Dikirim')
+  const activeOrder = (isLatestCancelled && !isLatestCancelledDismissed)
+    ? latestOrder
+    : relevantOrders.find(
+        (o) =>
+          o.status !== 'Dibatalkan' &&
+          !o.status?.toLowerCase().includes('batal') &&
+          !o.status?.toLowerCase().includes('cancel')
+      ) || (latestOrder?.status !== 'Dibatalkan' ? latestOrder : null);
+
+  const isCurrentOrderCancelled = Boolean(
+    activeOrder && (
+      activeOrder.status === 'Dibatalkan' ||
+      activeOrder.status?.toLowerCase().includes('batal') ||
+      activeOrder.status?.toLowerCase().includes('cancel')
+    )
+  );
+
+  // Auto-hide cancelled order banner after exactly 10 seconds
+  useEffect(() => {
+    if (!activeOrder || !isCurrentOrderCancelled) return;
+
+    setCountdown(10);
+
+    const intervalTimer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalTimer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    const closeTimer = setTimeout(() => {
+      setIsClosed(true);
+      try {
+        sessionStorage.setItem('sn_cancelled_banner_dismissed_id', activeOrder.id);
+        setDismissedCancelledId(activeOrder.id);
+      } catch (e) {}
+    }, 10000);
+
+    return () => {
+      clearTimeout(closeTimer);
+      clearInterval(intervalTimer);
+    };
+  }, [activeOrder?.id, isCurrentOrderCancelled]);
+
+  const handleManualClose = () => {
+    setIsClosed(true);
+    if (activeOrder && isCurrentOrderCancelled) {
+      try {
+        sessionStorage.setItem('sn_cancelled_banner_dismissed_id', activeOrder.id);
+        setDismissedCancelledId(activeOrder.id);
+      } catch (e) {}
+    }
+  };
 
   if (!activeOrder || isClosed) return null;
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'Dibatalkan':
+      case 'Batal':
+        return {
+          bg: 'bg-stone-50 border-stone-300 text-stone-900',
+          badgeBg: 'bg-stone-800 text-white',
+          dot: 'bg-stone-400',
+          icon: 'cancel',
+          labelId: 'Dibatalkan',
+          labelJp: 'キャンセル済み',
+          descId: 'Pesanan telah dibatalkan'
+        };
       case 'Dikirim':
         return {
           bg: 'bg-blue-50 border-blue-200 text-blue-900',
@@ -92,6 +225,7 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
           </span>
           <span>
             {isJp ? '配送ステータス' : 'Status Pesanan Live'}: <strong>#{activeOrder.id}</strong> ({isJp ? statusConfig.labelJp : statusConfig.labelId})
+            {isCurrentOrderCancelled && ` (${countdown}s)`}
           </span>
           <span className="material-symbols-outlined text-sm text-stone-400 group-hover:text-white transition-colors">
             expand_less
@@ -103,8 +237,18 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
 
   // Expanded Full Live Banner Mode
   return (
-    <div className="fixed bottom-5 left-4 right-4 sm:right-auto sm:left-6 z-40 max-w-md w-[calc(100vw-2rem)] sm:w-[420px] transition-all duration-300">
+    <div className="fixed bottom-5 left-4 right-4 sm:right-auto sm:left-6 z-40 max-w-md w-[calc(100vw-2rem)] sm:w-[420px] transition-all duration-300 animate-in fade-in slide-in-from-bottom-4">
       <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-stone-200 border-l-4 border-l-[#c41230] p-4 text-stone-800 space-y-3 relative overflow-hidden">
+        {/* Progress Bar Timer (Hanya tampil 10 detik jika status dibatalkan) */}
+        {isCurrentOrderCancelled && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-stone-100 overflow-hidden">
+            <div
+              className="h-full bg-stone-600 transition-all duration-1000 ease-linear"
+              style={{ width: `${(countdown / 10) * 100}%` }}
+            />
+          </div>
+        )}
+
         {/* Top Header */}
         <div className="flex items-center justify-between gap-2 border-b border-stone-100 pb-2.5">
           <div className="flex items-center gap-2">
@@ -112,8 +256,8 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusConfig.dot} opacity-75`}></span>
               <span className={`relative inline-flex rounded-full h-3 w-3 ${statusConfig.dot}`}></span>
             </span>
-            <span className="text-xs font-black text-stone-900 uppercase tracking-wider flex items-center gap-1">
-              <span>{isJp ? 'ご注文の配送状況' : 'Status Pesanan Anda'}</span>
+            <span className="text-xs font-black text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
+              <span>{isJp ? 'ご注文の配送状況' : 'STATUS PESANAN ANDA'}</span>
               <span className="px-2 py-0.5 bg-red-100 text-[#c41230] rounded-full text-[10px] font-black">
                 LIVE
               </span>
@@ -121,6 +265,11 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-1">
+            {isCurrentOrderCancelled && (
+              <span className="text-[10px] font-mono text-stone-400 mr-1" title="Hilang otomatis dalam 10 detik">
+                {countdown}s
+              </span>
+            )}
             <button
               type="button"
               onClick={() => setIsMinimized(true)}
@@ -131,7 +280,7 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => setIsClosed(true)}
+              onClick={handleManualClose}
               className="p-1 rounded-lg text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
               title="Tutup Banner"
             >
@@ -142,7 +291,11 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
 
         {/* Order Info Body */}
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-50 text-[#c41230] flex items-center justify-center shrink-0 border border-red-100 shadow-xs">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-xs ${
+            isCurrentOrderCancelled
+              ? 'bg-stone-100 text-stone-600 border-stone-200'
+              : 'bg-red-50 text-[#c41230] border-red-100'
+          }`}>
             <span className="material-symbols-outlined text-2xl">
               {statusConfig.icon}
             </span>
@@ -170,14 +323,25 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
           </div>
         </div>
 
+        {/* Keterangan Pesanan Dibatalkan Otomatis Hilang */}
+        {isCurrentOrderCancelled && (
+          <div className="text-[10px] text-stone-500 bg-stone-50 px-2.5 py-1.5 rounded-lg border border-stone-200 flex items-center justify-between">
+            <span className="flex items-center gap-1 text-stone-600 font-medium">
+              <span className="material-symbols-outlined text-xs text-stone-400">timer</span>
+              <span>{isJp ? '10秒後に自動的に閉じます' : 'Pesanan dibatalkan (notifikasi hilang otomatis)'}</span>
+            </span>
+            <span className="font-bold text-stone-700 font-mono">{countdown}s</span>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex items-center gap-2 pt-1 border-t border-stone-100">
           <Link
-            to={`/tracking?no=${encodeURIComponent(activeOrder.trackingNumber || activeOrder.id)}`}
+            to="/orders"
             className="flex-1 py-2 px-3 bg-[#c41230] hover:bg-[#9a0021] text-white rounded-xl text-xs font-bold text-center transition-all flex items-center justify-center gap-1.5 shadow-xs"
           >
-            <span className="material-symbols-outlined text-sm">local_shipping</span>
-            <span>{isJp ? '配送追跡' : 'Lacak Pengiriman'}</span>
+            <span className="material-symbols-outlined text-sm">receipt_long</span>
+            <span>{isJp ? '注文履歴・追跡' : 'Pesanan Saya (Lacak)'}</span>
           </Link>
 
           <Link

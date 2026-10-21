@@ -6,6 +6,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { checkSupabaseConnection } from '../../lib/supabase';
 import { Language, UserRole } from '../../types';
 import { assetUrl } from '../../utils/assets';
+import { LiveYenExchangeRateBadge } from './LiveYenExchangeRateBadge';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -16,7 +17,21 @@ interface AdminLayoutProps {
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subtitle }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { products, orders, posTransactions, suppliers, purchaseOrders, directPurchases, customers, vouchers, activeRole, setActiveRole } = useAdmin();
+  const {
+    products,
+    orders,
+    posTransactions,
+    suppliers,
+    purchaseOrders,
+    directPurchases,
+    customers,
+    vouchers,
+    itemDiscounts,
+    productPromos,
+    wholesalePrices,
+    activeRole,
+    setActiveRole
+  } = useAdmin();
   const { currentUser, logout } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -26,6 +41,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
   const [isAccountingOpen, setIsAccountingOpen] = useState(false);
   const [isLaporanOpen, setIsLaporanOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const isPOSPage = location.pathname === '/admin/pos';
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const [isSidebarPinned, setIsSidebarPinned] = useState(true);
   const [supabaseStatus, setSupabaseStatus] = useState<{ connected: boolean; latencyMs?: number }>({
     connected: true,
     latencyMs: 45
@@ -116,14 +134,19 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
       allowedRoles: ['Super Admin (Owner)', 'Kasir (POS)']
     },
     {
-      id: 'vouchers',
-      label: language === 'JP' ? '割引・クーポンプロモ' : language === 'EN' ? 'Discounts & Promos' : 'Diskon & Promo',
-      path: '/admin/crm?tab=vouchers',
-      icon: 'confirmation_number',
-      badge: `${vouchers.length}`,
-      badgeColor: 'bg-amber-600 text-white',
-      isActive: location.pathname === '/admin/crm' && location.search.includes('tab=vouchers'),
-      allowedRoles: ['Super Admin (Owner)', 'Kasir (POS)']
+      id: 'promotions',
+      label: language === 'JP' ? '割引・プロモ・卸売' : language === 'EN' ? 'Discounts, Promos & Wholesale' : 'Diskon, Promo, Voucher & Grosir',
+      path: '/admin/promotions',
+      icon: 'local_offer',
+      badge: `${itemDiscounts.length + productPromos.length + vouchers.length + wholesalePrices.length}`,
+      badgeColor: 'bg-rose-600 text-white',
+      isActive:
+        location.pathname === '/admin/promotions' ||
+        location.pathname === '/admin/diskon' ||
+        location.pathname === '/admin/promo' ||
+        location.pathname === '/admin/voucher' ||
+        location.pathname === '/admin/harga-grosir',
+      allowedRoles: ['Super Admin (Owner)', 'Kasir (POS)', 'Admin Gudang']
     },
     {
       id: 'banners',
@@ -140,7 +163,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
   const isAnyMasterDataActive =
     location.pathname === '/admin/products' ||
     (location.pathname === '/admin/purchasing' && location.search.includes('tab=suppliers')) ||
-    (location.pathname === '/admin/crm' && (location.search.includes('tab=members') || location.search.includes('tab=vouchers') || location.search.includes('tab=banners')));
+    location.pathname === '/admin/promotions' ||
+    location.pathname === '/admin/diskon' ||
+    location.pathname === '/admin/promo' ||
+    location.pathname === '/admin/voucher' ||
+    location.pathname === '/admin/harga-grosir' ||
+    (location.pathname === '/admin/crm' && (location.search.includes('tab=members') || location.search.includes('tab=banners')));
 
   // Sub-menu for POS Kasir Toko
   const posSubItems = [
@@ -414,17 +442,37 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
     }
   ];
 
-  // Sub-menu for Pengaturan (Settings & Kasir Management)
+  // Sub-menu for Pengaturan (Settings: Akun POS, Atur Printer Thermal, Stok Opname)
   const settingsSubItems = [
     {
-      id: 'cashier_mgmt',
-      label: language === 'JP' ? 'レジ担当・権限管理' : language === 'EN' ? 'Cashier & Permissions' : 'Kelola Kasir & Hak Akses',
-      path: '/admin/settings?tab=cashier',
+      id: 'pos_accounts',
+      label: language === 'JP' ? 'POSアカウント・権限管理' : language === 'EN' ? 'POS Accounts & Permissions' : 'Kelola Akun POS & Hak Akses',
+      path: '/admin/settings?tab=accounts',
       icon: 'badge',
-      badge: '12 Izin',
+      badge: 'Akun',
       badgeColor: 'bg-purple-600 text-white',
-      isActive: location.pathname === '/admin/settings',
+      isActive: location.pathname === '/admin/settings' && !location.search.includes('tab=printer') && !location.search.includes('tab=stock_opname'),
       allowedRoles: ['Super Admin (Owner)']
+    },
+    {
+      id: 'printer_settings',
+      label: language === 'JP' ? 'サーマルプリンター設定' : language === 'EN' ? 'Thermal Printer Setup' : 'Atur Printer Thermal',
+      path: '/admin/settings?tab=printer',
+      icon: 'print',
+      badge: '57x47mm',
+      badgeColor: 'bg-emerald-600 text-white',
+      isActive: location.pathname === '/admin/settings' && location.search.includes('tab=printer'),
+      allowedRoles: ['Super Admin (Owner)', 'Kasir (POS)']
+    },
+    {
+      id: 'stock_opname',
+      label: language === 'JP' ? '棚卸し・実地在庫調整 (SO)' : language === 'EN' ? 'Stock Opname & Audit' : 'Stok Opname (Audit Fisik)',
+      path: '/admin/settings?tab=stock_opname',
+      icon: 'fact_check',
+      badge: 'SO Fisik',
+      badgeColor: 'bg-blue-600 text-white',
+      isActive: location.pathname === '/admin/settings' && location.search.includes('tab=stock_opname'),
+      allowedRoles: ['Super Admin (Owner)', 'Admin Gudang', 'Finance / Akuntan']
     }
   ];
 
@@ -444,7 +492,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
   ];
 
   return (
-    <div className="min-h-screen bg-stone-100 flex flex-col md:flex-row text-stone-900 font-sans">
+    <div className="h-screen overflow-hidden bg-stone-100 flex flex-col md:flex-row text-stone-900 font-sans">
       {/* Mobile Top Bar */}
       <div className="md:hidden bg-[#1a1a1a] text-white px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-md">
         <div className="flex items-center gap-2.5">
@@ -485,13 +533,45 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
         />
       )}
 
+      {/* Floating Hover Panah Trigger for Auto-Hide Sidebar on POS Fullscreen */}
+      {isPOSPage && !isSidebarHovered && !isSidebarPinned && (
+        <div
+          onMouseEnter={() => setIsSidebarHovered(true)}
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-[99] flex items-center group cursor-pointer"
+          title="Arahkan kursor ke sini untuk menampilkan Menu Sidebar"
+        >
+          <button
+            onClick={() => setIsSidebarPinned(true)}
+            className="bg-[#141414]/95 hover:bg-[#c41230] text-white py-3 px-1.5 rounded-r-2xl shadow-2xl border-y border-r border-stone-700/80 flex flex-col items-center gap-1.5 transition-all group-hover:scale-105 group-hover:pl-2.5 backdrop-blur-xs cursor-pointer"
+            aria-label="Tampilkan Sidebar Admin"
+          >
+            <span className="material-symbols-outlined text-base animate-pulse">chevron_right</span>
+            <span className="text-[8px] font-black uppercase [writing-mode:vertical-lr] tracking-widest text-stone-300 group-hover:text-white">
+              MENU
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* Sidebar Navigation (z-[100] ensures it is always on top of all page headers/hero sections) */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-[100] md:z-auto w-72 max-w-[85vw] md:w-64 bg-[#141414] text-stone-200 flex flex-col justify-between transition-transform duration-300 overflow-y-auto shadow-2xl md:shadow-none h-screen md:h-auto ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        onMouseEnter={() => {
+          if (isPOSPage) setIsSidebarHovered(true);
+        }}
+        onMouseLeave={() => {
+          if (isPOSPage) setIsSidebarHovered(false);
+        }}
+        className={`fixed inset-y-0 left-0 z-[100] w-72 max-w-[85vw] md:w-64 bg-[#141414] text-stone-200 flex flex-col transition-all duration-300 ease-in-out overflow-y-auto shadow-2xl h-screen shrink-0 ${
+          isPOSPage
+            ? isSidebarHovered || isSidebarPinned || mobileMenuOpen
+              ? 'translate-x-0 md:static md:shadow-none'
+              : '-translate-x-full md:-ml-64'
+            : mobileMenuOpen
+            ? 'translate-x-0'
+            : '-translate-x-full md:translate-x-0 md:static md:shadow-none'
         }`}
       >
-        <div className="p-5">
+        <div className="px-5 pt-5 pb-2">
           {/* Logo & Header */}
           <div className="flex items-center justify-between pb-5 border-b border-stone-800">
             <div className="flex items-center gap-2.5">
@@ -508,6 +588,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
                 <p className="text-[10px] text-stone-400">Integrated ERP & POS Hub</p>
               </div>
             </div>
+            {isPOSPage && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSidebarPinned(false);
+                  setIsSidebarHovered(false);
+                }}
+                className="hidden md:flex text-stone-400 hover:text-white p-1 rounded-lg bg-stone-800 hover:bg-stone-700 transition-colors cursor-pointer text-[10px] items-center gap-1"
+                title="Sembunyikan Sidebar (Full Layar POS)"
+              >
+                <span className="material-symbols-outlined text-sm">fullscreen</span>
+                <span>Auto-Hide</span>
+              </button>
+            )}
             <button
               onClick={() => setMobileMenuOpen(false)}
               className="md:hidden text-stone-400 hover:text-white p-1 rounded-lg bg-stone-800 hover:bg-stone-700 transition-colors cursor-pointer"
@@ -584,7 +678,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    5
+                    {masterSubItems.length}
                   </span>
                   <span
                     className={`material-symbols-outlined text-base text-stone-400 transition-transform duration-200 ${
@@ -1028,7 +1122,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
         </div>
 
         {/* Bottom Sidebar Action */}
-        <div className="p-5 border-t border-stone-800 space-y-3">
+        <div className="px-5 pt-3 pb-6 border-t border-stone-800 space-y-2.5">
           {/* Sidebar Language Switcher */}
           <div className="bg-stone-900 p-2.5 rounded-xl border border-stone-800">
             <span className="text-[10px] font-bold text-stone-400 block mb-1.5 uppercase">
@@ -1099,7 +1193,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         {/* Top Header */}
         <header className="bg-white border-b border-stone-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-30 shadow-xs">
           <div>
@@ -1128,22 +1222,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
               ))}
             </div>
 
-            {/* Quick Stats Badges & Supabase Live Monitor */}
-            <div className="hidden lg:flex items-center gap-2 text-xs">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200 font-medium" title={`Supabase Project: kfpwhdewopvnowxylcor (${supabaseStatus.latencyMs || 45}ms)`}>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Supabase Live ({supabaseStatus.latencyMs || 45}ms)</span>
-              </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 text-stone-700 rounded-lg border border-stone-200 font-medium">
-                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                <span>{t('admin_pos_online_connected')}</span>
-              </div>
-              {lowStockCount > 0 && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-800 rounded-lg border border-amber-200 font-medium">
-                  <span className="material-symbols-outlined text-sm text-amber-600">warning</span>
-                  <span>{lowStockCount} {t('prod_low_stock')}</span>
-                </div>
-              )}
+            {/* Realtime Live Yen Kurs Hari Ini Badge (Replaces Supabase Live, POS Connected & Stok Krisis) */}
+            <div className="hidden md:flex items-center">
+              <LiveYenExchangeRateBadge />
             </div>
 
             <Link
@@ -1167,7 +1248,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
         </header>
 
         {/* Dynamic Page Body */}
-        <div className="p-4 sm:p-6 lg:p-8 flex-1">{children}</div>
+        <div className={`flex-1 ${isPOSPage ? 'p-2 sm:p-3 lg:p-4 max-w-full' : 'p-4 sm:p-6 lg:p-8'}`}>
+          {children}
+        </div>
       </main>
     </div>
   );

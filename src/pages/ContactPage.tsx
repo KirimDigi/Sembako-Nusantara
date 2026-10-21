@@ -8,67 +8,37 @@ export const ContactPage: React.FC = () => {
     name: '',
     phoneOrEmail: '',
     prefecture: 'Tokyo',
-    subject: 'Pertanyaan Produk / Stok',
+    subject: 'Stok makanan',
     message: ''
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [waLink, setWaLink] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Auto-caption format sesuai permintaan:
+    // - Nama : Willy Aryana
+    // - No hp : 0812345678910
+    // - Tempat Tinggal : Tokyo
+    // - Kategori Pertanyaan : Stok makanan
+    // - Isi Pesan : Bismillah
+    const caption = [
+      `- Nama : ${formData.name.trim()}`,
+      `- No hp : ${formData.phoneOrEmail.trim()}`,
+      `- Tempat Tinggal : ${formData.prefecture.trim() || 'Tokyo'}`,
+      `- Kategori Pertanyaan : ${formData.subject.trim()}`,
+      `- Isi Pesan : ${formData.message.trim()}`
+    ].join('\n');
+
+    const waUrl = `https://wa.me/6285773875762?text=${encodeURIComponent(caption)}`;
+    setWaLink(waUrl);
     setIsSubmitted(true);
-    setTimeout(() => {
-      setFormData({
-        name: '',
-        phoneOrEmail: '',
-        prefecture: 'Tokyo',
-        subject: 'Pertanyaan Produk / Stok',
-        message: ''
-      });
-    }, 2500);
+
+    // Redirect / open WhatsApp
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
   };
 
-  const contactChannels = [
-    {
-      title: 'Customer Service WhatsApp',
-      desc: 'Layanan konsultasi pesanan, request produk bumbu, & konfirmasi transfer JPQR/PayPay.',
-      contact: '+62 857-7387-5762',
-      actionUrl: 'https://wa.me/6285773875762?text=Halo%20Sembako%20Nusantara,%20saya%20ingin%20bertanya',
-      actionText: 'Chat WhatsApp (24 Jam)',
-      icon: 'chat',
-      badge: '24 Jam Nonstop',
-      badgeColor: 'bg-emerald-100 text-[#15803D]'
-    },
-    {
-      title: 'LINE Official Account',
-      desc: 'Tambahkan teman di LINE untuk klaim voucher diskon ¥500 & notifikasi stok baru.',
-      contact: '@sembakonusantara',
-      actionUrl: 'https://line.me',
-      actionText: 'Buka LINE Official',
-      icon: 'mark_chat_unread',
-      badge: 'Voucher ¥500',
-      badgeColor: 'bg-green-100 text-green-800'
-    },
-    {
-      title: 'Email Resmi Support',
-      desc: 'Bantuan invoice, faktur pajak konsumsi Jepang (領収書), dan pertanyaan kemitraan diaspora.',
-      contact: 'support@sembako-nusantara.jp',
-      actionUrl: 'mailto:support@sembako-nusantara.jp',
-      actionText: 'Kirim Email',
-      icon: 'mail',
-      badge: 'Resmi',
-      badgeColor: 'bg-blue-100 text-blue-800'
-    },
-    {
-      title: 'Toko Resmi & Hub Kanto',
-      desc: 'Lokasi toko fisik & pusat pengiriman kilat ke seluruh 47 prefektur Jepang.',
-      contact: '〒144-0051 Tokyo, Ota-ku, Nishikamata 5-9-16',
-      actionUrl: 'https://www.google.com/maps/search/?api=1&query=〒144-0051+東京都大田区西蒲田5丁目9-16',
-      actionText: 'Lihat Peta Google Maps',
-      icon: 'storefront',
-      badge: 'Alamat Toko Resmi',
-      badgeColor: 'bg-red-100 text-[#c41230]'
-    }
-  ];
 
   const socialMediaList = [
     {
@@ -199,53 +169,26 @@ export const ContactPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Contact Channels Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {contactChannels.map((c, i) => (
-          <div
-            key={i}
-            className="bg-white rounded-3xl p-6 border border-[#EBE5DF] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group"
-          >
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-100 text-[#c41230] flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <span className="material-symbols-outlined text-2xl">{c.icon}</span>
-                </div>
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${c.badgeColor}`}>
-                  {c.badge}
-                </span>
-              </div>
-              <h3 className="font-heading font-bold text-base text-stone-900">{c.title}</h3>
-              <p className="text-xs text-stone-500 leading-relaxed">{c.desc}</p>
-              <div className="font-mono font-bold text-xs text-stone-900 pt-1">{c.contact}</div>
-            </div>
-
-            <div className="pt-5 border-t border-stone-100 mt-5">
-              <a
-                href={c.actionUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-2.5 px-4 rounded-xl bg-stone-900 hover:bg-[#c41230] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <span>{c.actionText}</span>
-                <span className="material-symbols-outlined text-xs">arrow_outward</span>
-              </a>
-            </div>
-          </div>
-        ))}
-      </div>
 
       {/* Social Media Channels Section */}
       <div className="bg-white rounded-3xl border border-[#EBE5DF] p-6 sm:p-10 shadow-sm space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <span className="text-xs font-extrabold uppercase tracking-widest text-[#c41230]">
-            Official Social Media
+            {language === 'JP' ? '公式ソーシャルメディア' : language === 'EN' ? 'Official Social Media' : 'Official Social Media'}
           </span>
           <h2 className="font-heading font-bold text-xl sm:text-2xl text-stone-900">
-            Terhubung Bersama Komunitas Kami di Media Sosial
+            {language === 'JP'
+              ? '公式SNSでコミュニティとつながる'
+              : language === 'EN'
+              ? 'Connect with Our Community on Social Media'
+              : 'Terhubung Bersama Komunitas Kami di Media Sosial'}
           </h2>
           <p className="text-xs text-stone-500">
-            Ikuti media sosial resmi Sembako Nusantara Jepang untuk video resep kuliner, unboxing paket sembako, info restok sambal & frozen food, serta giveaway berkala!
+            {language === 'JP'
+              ? '公式SNSをフォローして、レシピ動画、開封レビュー、最新の入荷情報や限定クーポンをチェックしてください！'
+              : language === 'EN'
+              ? 'Follow our official social media channels for recipes, product unboxing, restock announcements, and giveaways!'
+              : 'Ikuti media sosial resmi Sembako Nusantara Jepang untuk video resep kuliner, unboxing paket sembako, info restok sambal & frozen food, serta giveaway berkala!'}
           </p>
         </div>
 
@@ -285,47 +228,88 @@ export const ContactPage: React.FC = () => {
           <div className="space-y-1">
             <h3 className="font-heading font-bold text-xl text-stone-900 flex items-center gap-2">
               <span className="material-symbols-outlined text-[#c41230]">send</span>
-              <span>Kirim Pesan Langsung ke Manajemen</span>
+              <span>
+                {language === 'JP'
+                  ? '運営窓口へメッセージを送信'
+                  : language === 'EN'
+                  ? 'Send Direct Message to Management'
+                  : 'Kirim Pesan Langsung ke Manajemen'}
+              </span>
             </h3>
             <p className="text-xs text-stone-500">
-              Isi formulir berikut dan tim kami akan merespons dalam waktu maksimal 15-30 menit.
+              {language === 'JP'
+                ? '以下のフォームにご記入ください。15〜30分以内に担当者よりご返信いたします。'
+                : language === 'EN'
+                ? 'Fill out the form below and our team will respond within 15–30 minutes.'
+                : 'Isi formulir berikut dan tim kami akan merespons dalam waktu maksimal 15–30 menit.'}
             </p>
           </div>
 
           {isSubmitted ? (
-            <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-2 animate-fade-in">
+            <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-3 animate-fade-in">
               <span className="material-symbols-outlined text-4xl text-[#15803D]">check_circle</span>
-              <h4 className="font-bold text-stone-900 text-base">Pesan Anda Berhasil Terkirim!</h4>
-              <p className="text-xs text-stone-600">
-                Terima kasih. Tim Customer Support Sembako Nusantara Jepang akan segera menghubungi Anda.
+              <h4 className="font-bold text-stone-900 text-base">
+                {language === 'JP'
+                  ? 'WhatsAppサポート窓口を開いています...'
+                  : language === 'EN'
+                  ? 'Opening Customer Service WhatsApp...'
+                  : 'Membuka WhatsApp Customer Service...'}
+              </h4>
+              <p className="text-xs text-stone-600 max-w-md mx-auto">
+                {language === 'JP'
+                  ? 'メッセージ内容が自動生成されました。アプリが開かない場合は以下のボタンを押してください。'
+                  : language === 'EN'
+                  ? 'Your message has been formatted. If WhatsApp does not open automatically, please click below:'
+                  : 'Pesan Anda telah disiapkan otomatis dengan format auto-caption. Jika aplikasi atau web WhatsApp tidak terbuka otomatis, silakan klik tombol di bawah:'}
               </p>
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#25D366] hover:bg-[#1ebc57] text-white rounded-xl font-bold text-xs shadow-md transition-colors"
+                >
+                  <span className="material-symbols-outlined text-sm">chat</span>
+                  <span>
+                    {language === 'JP' ? '今すぐWhatsAppを開く' : language === 'EN' ? 'Open WhatsApp Now' : 'Buka WhatsApp Sekarang'}
+                  </span>
+                  <span className="material-symbols-outlined text-xs">arrow_outward</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setIsSubmitted(false)}
+                  className="px-4 py-2.5 bg-stone-200 hover:bg-stone-300 text-stone-800 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+                >
+                  {language === 'JP' ? '別のメッセージを書く' : language === 'EN' ? 'Write New Message' : 'Tulis Pesan Baru'}
+                </button>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4 text-xs sm:text-sm">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-bold text-stone-700 mb-1.5 uppercase text-[11px]">
-                    Nama Anda / お名前:
+                    {language === 'JP' ? 'お名前 / Nama Anda:' : language === 'EN' ? 'Full Name:' : 'Nama Anda / お名前:'}
                   </label>
                   <input
                     type="text"
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Contoh: Willy Pratama"
+                    placeholder={language === 'JP' ? 'れい: やまだ たろう' : language === 'EN' ? 'e.g. Willy Aryana' : 'Contoh: Willy Aryana'}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#c41230]"
                   />
                 </div>
                 <div>
                   <label className="block font-bold text-stone-700 mb-1.5 uppercase text-[11px]">
-                    No. WhatsApp / Email / LINE:
+                    {language === 'JP' ? '電話番号 / WhatsApp:' : language === 'EN' ? 'WhatsApp / Phone:' : 'No. WhatsApp / HP:'}
                   </label>
                   <input
                     type="text"
                     required
                     value={formData.phoneOrEmail}
                     onChange={(e) => setFormData({ ...formData, phoneOrEmail: e.target.value })}
-                    placeholder="+81 80-XXXX-XXXX atau email"
+                    placeholder={language === 'JP' ? 'れい: 080-1234-5678' : language === 'EN' ? 'e.g. +81 80-1234-5678' : 'Contoh: 0812345678910'}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#c41230]"
                   />
                 </div>
@@ -334,44 +318,63 @@ export const ContactPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-bold text-stone-700 mb-1.5 uppercase text-[11px]">
-                    Prefektur Tempat Tinggal di Jepang:
+                    {language === 'JP' ? '日本国内の居住都道府県:' : language === 'EN' ? 'Prefecture of Residence:' : 'Prefektur Tempat Tinggal di Jepang:'}
                   </label>
                   <input
                     type="text"
                     value={formData.prefecture}
                     onChange={(e) => setFormData({ ...formData, prefecture: e.target.value })}
-                    placeholder="Contoh: Tokyo, Okayama, Osaka, dll."
+                    placeholder={language === 'JP' ? 'れい: とうきょうと (東京)' : language === 'EN' ? 'e.g. Tokyo' : 'Contoh: Tokyo'}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#c41230]"
                   />
                 </div>
                 <div>
                   <label className="block font-bold text-stone-700 mb-1.5 uppercase text-[11px]">
-                    Kategori Pertanyaan:
+                    {language === 'JP' ? 'お問い合わせカテゴリー:' : language === 'EN' ? 'Question Category:' : 'Kategori Pertanyaan:'}
                   </label>
                   <select
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#c41230]"
                   >
-                    <option value="Pertanyaan Produk / Stok">Pertanyaan Produk / Stok Makanan</option>
-                    <option value="Pelacakan Pengiriman Yamato/Sagawa">Pelacakan Pengiriman Paket</option>
-                    <option value="Bantuan Pembayaran JPQR / PayPay">Bantuan Pembayaran JPQR / Konbini</option>
-                    <option value="Pendaftaran Mitra Afiliasi Diaspora">Pendaftaran Mitra Komunitas</option>
-                    <option value="Kritik, Saran & Request Barang">Request Barang / Komentar</option>
+                    <option value="Stok makanan">
+                      {language === 'JP' ? '食品・スパイスの在庫状況' : language === 'EN' ? 'Food & Spices Stock' : 'Stok makanan'}
+                    </option>
+                    <option value="Pertanyaan Produk Halal">
+                      {language === 'JP' ? 'ハラール認証・原材料のお問い合わせ' : language === 'EN' ? 'Halal Certification Inquiry' : 'Pertanyaan Produk Halal'}
+                    </option>
+                    <option value="Pelacakan Pengiriman Paket">
+                      {language === 'JP' ? 'クール宅急便・配送状況の確認' : language === 'EN' ? 'Package Delivery Tracking' : 'Pelacakan Pengiriman Paket'}
+                    </option>
+                    <option value="Bantuan Pembayaran JPQR / PayPay">
+                      {language === 'JP' ? 'JPQR / PayPay / コンビニ決済の質問' : language === 'EN' ? 'Payment Assistance' : 'Bantuan Pembayaran JPQR / PayPay'}
+                    </option>
+                    <option value="Pendaftaran Mitra Komunitas">
+                      {language === 'JP' ? 'パートナー提携・コミュニティ参加' : language === 'EN' ? 'Community Partner Program' : 'Pendaftaran Mitra Komunitas'}
+                    </option>
+                    <option value="Request Barang / Komentar">
+                      {language === 'JP' ? '商品リクエスト・ご意見' : language === 'EN' ? 'Item Request & Feedback' : 'Request Barang / Komentar'}
+                    </option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <label className="block font-bold text-stone-700 mb-1.5 uppercase text-[11px]">
-                  Isi Pesan Anda:
+                  {language === 'JP' ? 'メッセージ内容:' : language === 'EN' ? 'Your Message:' : 'Isi Pesan Anda:'}
                 </label>
                 <textarea
                   rows={4}
                   required
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  placeholder="Tuliskan pertanyaan atau kebutuhan sembako halal Anda di sini..."
+                  placeholder={
+                    language === 'JP'
+                      ? 'ごしつもん や メッセージ を にゅうりょく してください (れい: おねがいします)...'
+                      : language === 'EN'
+                      ? 'Type your message here...'
+                      : 'Tuliskan pesan Anda (Contoh: Bismillah)...'
+                  }
                   className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#c41230]"
                 ></textarea>
               </div>
@@ -381,7 +384,13 @@ export const ContactPage: React.FC = () => {
                 className="w-full py-3.5 px-6 rounded-xl bg-[#c41230] hover:bg-[#9a0021] text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-lg">send</span>
-                <span>Kirimkan Pesan Sekarang</span>
+                <span>
+                  {language === 'JP'
+                    ? 'メッセージを送信する'
+                    : language === 'EN'
+                    ? 'Send Message Now'
+                    : 'Kirimkan Pesan Sekarang'}
+                </span>
               </button>
             </form>
           )}
@@ -392,13 +401,17 @@ export const ContactPage: React.FC = () => {
           <div className="bg-[#141414] text-white rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 border border-stone-800">
             <div>
               <span className="text-[10px] font-bold text-[#c41230] uppercase tracking-widest bg-red-950/60 px-2.5 py-1 rounded-full border border-red-900/50">
-                Informasi Kantor & Logistik
+                {language === 'JP' ? 'オフィス・物流拠点情報' : language === 'EN' ? 'Office & Logistics Info' : 'Informasi Kantor & Logistik'}
               </span>
               <h3 className="font-heading font-bold text-lg text-white mt-2">
                 Sembako Nusantara Jepang
               </h3>
               <p className="text-xs text-stone-400 mt-1">
-                Penyedia sembako & frozen food halal terlengkap se-Jepang.
+                {language === 'JP'
+                  ? '日本最大級のハラール食品・インドネシア食材専門店。'
+                  : language === 'EN'
+                  ? 'Japan’s most complete halal food & Indonesian grocery provider.'
+                  : 'Penyedia sembako & frozen food halal terlengkap se-Jepang.'}
               </p>
             </div>
 
@@ -408,9 +421,19 @@ export const ContactPage: React.FC = () => {
                   schedule
                 </span>
                 <div>
-                  <p className="font-bold text-stone-200">Jam Operasional & Pelayanan:</p>
-                  <p className="text-emerald-400 font-semibold mt-0.5">Buka Setiap Hari 24 Jam</p>
-                  <p className="text-stone-400 text-[11px]">Pengiriman ekspedisi dilakukan setiap hari pukul 09.00 - 18.00 JST.</p>
+                  <p className="font-bold text-stone-200">
+                    {language === 'JP' ? '営業時間・受付時間:' : language === 'EN' ? 'Operating Hours:' : 'Jam Operasional & Pelayanan:'}
+                  </p>
+                  <p className="text-emerald-400 font-semibold mt-0.5">
+                    {language === 'JP' ? '年中無休・24時間営業' : language === 'EN' ? 'Open 24/7 Daily' : 'Buka Setiap Hari 24 Jam'}
+                  </p>
+                  <p className="text-stone-400 text-[11px]">
+                    {language === 'JP'
+                      ? '宅配便の発送業務は毎日 09:00 - 18:00 (JST) に実施。'
+                      : language === 'EN'
+                      ? 'Courier shipping is dispatched daily from 09:00 - 18:00 JST.'
+                      : 'Pengiriman ekspedisi dilakukan setiap hari pukul 09.00 - 18.00 JST.'}
+                  </p>
                 </div>
               </div>
 
@@ -419,7 +442,9 @@ export const ContactPage: React.FC = () => {
                   storefront
                 </span>
                 <div>
-                  <p className="font-bold text-stone-200">Alamat Lengkap Toko (Tokyo):</p>
+                  <p className="font-bold text-stone-200">
+                    {language === 'JP' ? '店舗所在地 (東京):' : language === 'EN' ? 'Store Address (Tokyo):' : 'Alamat Lengkap Toko (Tokyo):'}
+                  </p>
                   <p className="text-stone-200 text-xs font-semibold mt-0.5">〒144-0051 東京都大田区西蒲田5丁目9-16</p>
                   <p className="text-stone-400 text-[11px]">Tokyo, Ota-ku, Nishikamata 5-9-16</p>
                   <a
@@ -428,7 +453,9 @@ export const ContactPage: React.FC = () => {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-[#ff8093] hover:underline text-[11px] font-bold mt-1"
                   >
-                    <span>Buka Petunjuk Arah Google Maps</span>
+                    <span>
+                      {language === 'JP' ? 'Googleマップでルートを見る' : language === 'EN' ? 'Open in Google Maps' : 'Buka Petunjuk Arah Google Maps'}
+                    </span>
                     <span className="material-symbols-outlined text-[12px]">arrow_outward</span>
                   </a>
                 </div>
@@ -439,15 +466,17 @@ export const ContactPage: React.FC = () => {
                   local_shipping
                 </span>
                 <div>
-                  <p className="font-bold text-stone-200">Layanan Pengiriman:</p>
+                  <p className="font-bold text-stone-200">
+                    {language === 'JP' ? '配送サービス:' : language === 'EN' ? 'Delivery Services:' : 'Layanan Pengiriman:'}
+                  </p>
                   <p className="text-stone-300 text-[11px] mt-0.5">
-                    • <strong>Delivery Service:</strong> Max jarak 3 station dari toko
+                    • <strong>{language === 'JP' ? 'デリバリー便:' : 'Delivery Service:'}</strong> {language === 'JP' ? '店舗から最大3駅以内' : language === 'EN' ? 'Max 3 stations from store' : 'Max jarak 3 station dari toko'}
                   </p>
                   <p className="text-stone-300 text-[11px]">
-                    • <strong>Ekspedisi:</strong> Seluruh 47 Prefektur Jepang (Yamato & Sagawa)
+                    • <strong>{language === 'JP' ? '宅急便・宅配:' : language === 'EN' ? 'Express Courier:' : 'Ekspedisi:'}</strong> {language === 'JP' ? '全国47都道府県 (ヤマト運輸・佐川急便)' : language === 'EN' ? 'All 47 Prefectures (Yamato & Sagawa)' : 'Seluruh 47 Prefektur Jepang (Yamato & Sagawa)'}
                   </p>
                   <p className="text-stone-300 text-[11px]">
-                    • <strong>COD:</strong> Cash on Delivery (Bayar di Tempat)
+                    • <strong>COD:</strong> {language === 'JP' ? '代金引換 (着払い対応)' : language === 'EN' ? 'Cash on Delivery' : 'Cash on Delivery (Bayar di Tempat)'}
                   </p>
                 </div>
               </div>
@@ -457,8 +486,16 @@ export const ContactPage: React.FC = () => {
                   verified_user
                 </span>
                 <div>
-                  <p className="font-bold text-stone-200">Jaminan Mutu & Halal:</p>
-                  <p className="text-stone-400 text-[11px]">Semua produk 100% halal resmi & berizin edar di Jepang.</p>
+                  <p className="font-bold text-stone-200">
+                    {language === 'JP' ? 'ハラール＆品質保証:' : language === 'EN' ? 'Halal Quality Guarantee:' : 'Jaminan Mutu & Halal:'}
+                  </p>
+                  <p className="text-stone-400 text-[11px]">
+                    {language === 'JP'
+                      ? '全商品100%公式ハラール認証取得済・安心の日本国内正規流通。'
+                      : language === 'EN'
+                      ? 'All products are 100% officially Halal certified and licensed for distribution in Japan.'
+                      : 'Semua produk 100% halal resmi & berizin edar di Jepang.'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -470,13 +507,21 @@ export const ContactPage: React.FC = () => {
       <div id="visi-misi" className="bg-gradient-to-br from-[#FDF8F0] via-white to-red-50/40 rounded-3xl border border-[#EBE5DF] p-6 sm:p-10 shadow-sm space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <span className="text-xs font-extrabold uppercase tracking-widest text-[#c41230]">
-            Visi & Misi / Tentang Perusahaan
+            {language === 'JP' ? '企業理念・ビジョン' : language === 'EN' ? 'Vision & Mission / About Us' : 'Visi & Misi / Tentang Perusahaan'}
           </span>
           <h2 className="font-heading font-black text-2xl sm:text-3xl text-stone-900">
-            Komitmen Kami untuk Masyarakat Nusantara di Jepang
+            {language === 'JP'
+              ? '在日コミュニティに向けた私たちの誓い'
+              : language === 'EN'
+              ? 'Our Commitment to the Community in Japan'
+              : 'Komitmen Kami untuk Masyarakat Nusantara di Jepang'}
           </h2>
           <p className="text-xs sm:text-sm text-stone-600">
-            Sembako Nusantara hadir sebagai jembatan cita rasa dan kebutuhan sehari-hari warga Indonesia di perantauan Jepang.
+            {language === 'JP'
+              ? 'センバコ・ヌサンタラは、日本に暮らすインドネシアの皆様と故郷の味を繋ぐ架け橋です。'
+              : language === 'EN'
+              ? 'Sembako Nusantara bridges the taste of home and daily needs for Indonesians across Japan.'
+              : 'Sembako Nusantara hadir sebagai jembatan cita rasa dan kebutuhan sehari-hari warga Indonesia di perantauan Jepang.'}
           </p>
         </div>
 
@@ -486,12 +531,18 @@ export const ContactPage: React.FC = () => {
             <div className="w-12 h-12 rounded-2xl bg-red-50 text-[#c41230] flex items-center justify-center font-bold text-xl mb-2">
               <span className="material-symbols-outlined text-2xl">visibility</span>
             </div>
-            <span className="text-[11px] font-black uppercase tracking-wider text-[#c41230]">Visi Kami</span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-[#c41230]">
+              {language === 'JP' ? '私たちのビジョン' : language === 'EN' ? 'Our Vision' : 'Visi Kami'}
+            </span>
             <h3 className="font-heading font-bold text-lg sm:text-xl text-stone-900">
-              Visi
+              {language === 'JP' ? 'ビジョン' : language === 'EN' ? 'Vision' : 'Visi'}
             </h3>
             <p className="text-stone-700 text-sm sm:text-base leading-relaxed font-medium">
-              Menjadi toko produk Indonesia terpercaya dan pilihan utama masyarakat Indonesia di Jepang.
+              {language === 'JP'
+                ? '日本国内におけるインドネシア食品の最も信頼される第一選択ストアとなること。'
+                : language === 'EN'
+                ? 'To become the most trusted Indonesian grocery store and the primary choice in Japan.'
+                : 'Menjadi toko produk Indonesia terpercaya dan pilihan utama masyarakat Indonesia di Jepang.'}
             </p>
             <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-red-50 rounded-full opacity-50 group-hover:scale-125 transition-transform -z-0 pointer-events-none" />
           </div>
@@ -501,12 +552,18 @@ export const ContactPage: React.FC = () => {
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xl mb-2">
               <span className="material-symbols-outlined text-2xl">flag</span>
             </div>
-            <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700">Misi Kami</span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700">
+              {language === 'JP' ? '私たちのミッション' : language === 'EN' ? 'Our Mission' : 'Misi Kami'}
+            </span>
             <h3 className="font-heading font-bold text-lg sm:text-xl text-stone-900">
-              Misi
+              {language === 'JP' ? 'ミッション' : language === 'EN' ? 'Mission' : 'Misi'}
             </h3>
             <p className="text-stone-700 text-sm sm:text-base leading-relaxed font-medium">
-              Menyediakan produk Nusantara yang berkualitas dengan pelayanan yang mudah, cepat, dan terpercaya.
+              {language === 'JP'
+                ? '簡単・迅速・安心のサービスで、高品質なインドネシア特産品をお届けすること。'
+                : language === 'EN'
+                ? 'Providing premium Indonesian products with seamless, fast, and trustworthy services.'
+                : 'Menyediakan produk Nusantara yang berkualitas dengan pelayanan yang mudah, cepat, dan terpercaya.'}
             </p>
             <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-emerald-50 rounded-full opacity-50 group-hover:scale-125 transition-transform -z-0 pointer-events-none" />
           </div>
@@ -518,13 +575,23 @@ export const ContactPage: React.FC = () => {
         <div className="max-w-3xl space-y-2">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 text-[#c41230] text-xs font-bold uppercase tracking-wider">
             <span className="material-symbols-outlined text-sm">policy</span>
-            <span>Ketentuan & Transparansi Layanan</span>
+            <span>
+              {language === 'JP' ? 'サービス規定・透明性の保証' : language === 'EN' ? 'Service Terms & Transparency' : 'Ketentuan & Transparansi Layanan'}
+            </span>
           </div>
           <h2 className="font-heading font-bold text-xl sm:text-2xl text-stone-900">
-            Kebijakan Toko Sembako Nusantara Jepang
+            {language === 'JP'
+              ? 'センバコ・ヌサンタラ日本 店舗利用規約'
+              : language === 'EN'
+              ? 'Sembako Nusantara Store Policies (Japan)'
+              : 'Kebijakan Toko Sembako Nusantara Jepang'}
           </h2>
           <p className="text-stone-700 text-xs sm:text-sm font-medium leading-relaxed bg-[#FDF8F0] p-4 rounded-xl border border-amber-200/70">
-            "Kami berkomitmen menyediakan produk Indonesia berkualitas dengan pelayanan yang aman dan terpercaya."
+            {language === 'JP'
+              ? '「安心・安全で信頼できるサービスとともに、高品質なインドネシア食品をお届けすることをお約束します。」'
+              : language === 'EN'
+              ? '"We are committed to delivering premium quality Indonesian products with secure and reliable service."'
+              : '"Kami berkomitmen menyediakan produk Indonesia berkualitas dengan pelayanan yang aman dan terpercaya."'}
           </p>
         </div>
 
@@ -535,10 +602,16 @@ export const ContactPage: React.FC = () => {
               <span className="w-8 h-8 rounded-xl bg-red-100 text-[#c41230] flex items-center justify-center font-bold text-sm shrink-0">
                 <span className="material-symbols-outlined text-base">assignment_return</span>
               </span>
-              <h4 className="font-bold text-sm text-stone-900">Pengembalian Produk</h4>
+              <h4 className="font-bold text-sm text-stone-900">
+                {language === 'JP' ? '商品の返品について' : language === 'EN' ? 'Product Returns' : 'Pengembalian Produk'}
+              </h4>
             </div>
             <p className="text-xs text-stone-600 leading-relaxed pl-10">
-              Produk makanan dan minuman yang telah dibeli tidak dapat dikembalikan setelah kemasan dibuka, kecuali terdapat kesalahan pesanan, kerusakan, atau kondisi produk yang tidak sesuai saat diterima.
+              {language === 'JP'
+                ? '開封後の食品および飲料は衛生管理上返品できません。ただし、誤配送、破損、または到着時の品質不良があった場合は速やかに代替対応いたします。'
+                : language === 'EN'
+                ? 'Food and beverage items cannot be returned once opened, except in cases of shipping error, damage, or defective condition upon arrival.'
+                : 'Produk makanan dan minuman yang telah dibeli tidak dapat dikembalikan setelah kemasan dibuka, kecuali terdapat kesalahan pesanan, kerusakan, atau kondisi produk yang tidak sesuai saat diterima.'}
             </p>
           </div>
 
@@ -548,10 +621,16 @@ export const ContactPage: React.FC = () => {
               <span className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm shrink-0">
                 <span className="material-symbols-outlined text-base">timer</span>
               </span>
-              <h4 className="font-bold text-sm text-stone-900">Komplain (Maksimal 24 Jam)</h4>
+              <h4 className="font-bold text-sm text-stone-900">
+                {language === 'JP' ? 'クレーム受付 (到着後24時間以内)' : language === 'EN' ? 'Complaints (Max 24 Hours)' : 'Komplain (Maksimal 24 Jam)'}
+              </h4>
             </div>
             <p className="text-xs text-stone-600 leading-relaxed pl-10">
-              Keluhan terkait pesanan wajib disampaikan kepada Customer Service maksimal 24 jam setelah barang diterima dengan menyertakan bukti foto/video.
+              {language === 'JP'
+                ? 'ご注文に関する問題は、商品到着後24時間以内に写真または動画の証拠を添えてカスタマーサポートへご連絡ください。'
+                : language === 'EN'
+                ? 'Order complaints must be submitted to Customer Service within 24 hours of receipt with photo/video evidence.'
+                : 'Keluhan terkait pesanan wajib disampaikan kepada Customer Service maksimal 24 jam setelah barang diterima dengan menyertakan bukti foto/video.'}
             </p>
           </div>
 
@@ -561,10 +640,16 @@ export const ContactPage: React.FC = () => {
               <span className="w-8 h-8 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-sm shrink-0">
                 <span className="material-symbols-outlined text-base">edit_note</span>
               </span>
-              <h4 className="font-bold text-sm text-stone-900">Ketentuan Pesanan</h4>
+              <h4 className="font-bold text-sm text-stone-900">
+                {language === 'JP' ? 'ご注文に関する注意事項' : language === 'EN' ? 'Order Terms' : 'Ketentuan Pesanan'}
+              </h4>
             </div>
             <p className="text-xs text-stone-600 leading-relaxed pl-10">
-              Pastikan data penerima dan alamat pengiriman sudah benar sebelum melakukan pembayaran. Pesanan yang telah diproses atau dikirim mengikuti ketentuan pembatalan yang berlaku.
+              {language === 'JP'
+                ? '決済前にお届け先住所とお受取人情報を必ずご確認ください。出荷準備中または発送完了後のキャンセルは所定の規定に従います。'
+                : language === 'EN'
+                ? 'Please ensure recipient details and shipping address are correct before payment. Processed orders follow applicable cancellation rules.'
+                : 'Pastikan data penerima dan alamat pengiriman sudah benar sebelum melakukan pembayaran. Pesanan yang telah diproses atau dikirim mengikuti ketentuan pembatalan yang berlaku.'}
             </p>
           </div>
 
@@ -574,10 +659,16 @@ export const ContactPage: React.FC = () => {
               <span className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm shrink-0">
                 <span className="material-symbols-outlined text-base">verified</span>
               </span>
-              <h4 className="font-bold text-sm text-stone-900">Kompensasi / Retur</h4>
+              <h4 className="font-bold text-sm text-stone-900">
+                {language === 'JP' ? '補償・代替品の再発送' : language === 'EN' ? 'Compensation / Replacement' : 'Kompensasi / Retur'}
+              </h4>
             </div>
             <p className="text-xs text-stone-600 leading-relaxed pl-10">
-              Setiap pengajuan akan diperiksa berdasarkan kondisi produk dan bukti transaksi sebelum keputusan retur, penggantian produk, atau kompensasi diberikan.
+              {language === 'JP'
+                ? 'ご申請いただいた内容は商品状態および取引記録を確認の上、返品・交換または補償の可否を迅速に判断いたします。'
+                : language === 'EN'
+                ? 'Every claim will be verified based on product condition and transaction records before refund, replacement, or compensation is approved.'
+                : 'Setiap pengajuan akan diperiksa berdasarkan kondisi produk dan bukti transaksi sebelum keputusan retur, penggantian produk, atau kompensasi diberikan.'}
             </p>
           </div>
         </div>
@@ -587,13 +678,17 @@ export const ContactPage: React.FC = () => {
       <div className="bg-[#111111] text-white rounded-3xl p-6 sm:p-10 shadow-lg space-y-6 border border-white/10">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <span className="text-[11px] font-black uppercase tracking-widest text-[#ff8093]">
-            Metode Pembayaran & Pengiriman Resmi
+            {language === 'JP' ? '公式 決済＆配送方法' : language === 'EN' ? 'Official Payment & Delivery Methods' : 'Metode Pembayaran & Pengiriman Resmi'}
           </span>
           <h2 className="font-heading font-black text-xl sm:text-2xl text-white">
-            Fleksibel, Nyaman, dan Terpercaya
+            {language === 'JP' ? '柔軟・便利・安心のサービス' : language === 'EN' ? 'Flexible, Convenient, and Trusted' : 'Fleksibel, Nyaman, dan Terpercaya'}
           </h2>
           <p className="text-xs text-stone-400">
-            Disesuaikan khusus untuk memudahkan kawan-kawan PMI, Kenshusei, Pelajar, dan Keluarga Indonesia di seluruh wilayah Jepang.
+            {language === 'JP'
+              ? '在日技能実習生、特定技能外国人、留学生、そして在日ご家族の皆様が日本全国どこからでも快適にご利用いただけるよう設計されています。'
+              : language === 'EN'
+              ? 'Specially tailored to assist Indonesian trainees, skilled workers, students, and families across Japan.'
+              : 'Disesuaikan khusus untuk memudahkan kawan-kawan PMI, Kenshusei, Pelajar, dan Keluarga Indonesia di seluruh wilayah Jepang.'}
           </p>
         </div>
 
@@ -602,19 +697,39 @@ export const ContactPage: React.FC = () => {
           <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-3">
             <div className="flex items-center gap-2 text-amber-400">
               <span className="material-symbols-outlined text-xl">payments</span>
-              <h4 className="font-bold text-sm text-white">Metode Pembayaran Lengkap</h4>
+              <h4 className="font-bold text-sm text-white">
+                {language === 'JP' ? '多彩な決済方法に対応' : language === 'EN' ? 'Comprehensive Payment Methods' : 'Metode Pembayaran Lengkap'}
+              </h4>
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
-              <span className="px-2.5 py-1 rounded-lg bg-emerald-700/80 text-white font-bold">💵 Cash (Tunai)</span>
-              <span className="px-2.5 py-1 rounded-lg bg-blue-600/80 text-white font-bold">🏦 Transfer IDR / Yen</span>
-              <span className="px-2.5 py-1 rounded-lg bg-[#c41230] text-white font-black">📱 QRIS / JPQR</span>
-              <span className="px-2.5 py-1 rounded-lg bg-stone-700 text-white font-bold">💳 Debit / CC</span>
-              <span className="px-2.5 py-1 rounded-lg bg-purple-700/80 text-white font-bold">📲 E-wallet</span>
-              <span className="px-2.5 py-1 rounded-lg bg-[#FF0033] text-white font-bold">⚡ Pay-pay</span>
-              <span className="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-bold">🤝 COD (Bayar di Tempat)</span>
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-700/80 text-white font-bold">
+                {language === 'JP' ? '💵 現金払い (店頭/COD)' : language === 'EN' ? '💵 Cash (In-Store/COD)' : '💵 Cash (Tunai)'}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-blue-600/80 text-white font-bold">
+                {language === 'JP' ? '🏦 ルピア/日本円振込' : language === 'EN' ? '🏦 IDR / JPY Transfer' : '🏦 Transfer IDR / Yen'}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-[#c41230] text-white font-black">
+                📱 QRIS / JPQR
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-stone-700 text-white font-bold">
+                {language === 'JP' ? '💳 デビット / クレジットカード' : language === 'EN' ? '💳 Debit / CC' : '💳 Debit / CC'}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-purple-700/80 text-white font-bold">
+                {language === 'JP' ? '📲 電子マネー' : language === 'EN' ? '📲 E-wallet' : '📲 E-wallet'}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-[#FF0033] text-white font-bold">
+                ⚡ PayPay
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-bold">
+                {language === 'JP' ? '🤝 代金引換 (着払い)' : language === 'EN' ? '🤝 Cash on Delivery' : '🤝 COD (Bayar di Tempat)'}
+              </span>
             </div>
             <p className="text-[11px] text-stone-400 leading-relaxed">
-              Dapat bayar dengan Rupiah (rekening bank Indonesia) atau Yen Jepang (PayPay, Yucho Bank, Konbini, Cash).
+              {language === 'JP'
+                ? 'インドネシアのルピア銀行口座振込、または日本円決済（PayPay、ゆうちょ銀行、コンビニ払い、現金）がご利用いただけます。'
+                : language === 'EN'
+                ? 'Pay with Indonesian Rupiah (Indonesian bank accounts) or Japanese Yen (PayPay, Yucho Bank, Konbini, Cash).'
+                : 'Dapat bayar dengan Rupiah (rekening bank Indonesia) atau Yen Jepang (PayPay, Yucho Bank, Konbini, Cash).'}
             </p>
           </div>
 
@@ -622,21 +737,27 @@ export const ContactPage: React.FC = () => {
           <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-3">
             <div className="flex items-center gap-2 text-emerald-400">
               <span className="material-symbols-outlined text-xl">local_shipping</span>
-              <h4 className="font-bold text-sm text-white">Layanan Pengiriman Cepat</h4>
+              <h4 className="font-bold text-sm text-white">
+                {language === 'JP' ? 'スピーディな日本全国配送' : language === 'EN' ? 'Fast Delivery Services' : 'Layanan Pengiriman Cepat'}
+              </h4>
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               <span className="px-2.5 py-1 rounded-lg bg-[#c41230]/40 border border-[#c41230] text-white font-bold">
-                🛵 Delivery Service (Max Jarak 3 Station)
+                {language === 'JP' ? '🛵 デリバリー便 (最寄3駅以内)' : language === 'EN' ? '🛵 Delivery Service (Max 3 Stations)' : '🛵 Delivery Service (Max Jarak 3 Station)'}
               </span>
               <span className="px-2.5 py-1 rounded-lg bg-stone-700 text-white font-bold">
-                📦 Ekspedisi (Yamato & Sagawa)
+                {language === 'JP' ? '📦 宅急便 (ヤマト運輸・佐川急便)' : language === 'EN' ? '📦 Express (Yamato & Sagawa)' : '📦 Ekspedisi (Yamato & Sagawa)'}
               </span>
               <span className="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-bold">
-                🤝 COD (Cash on Delivery)
+                {language === 'JP' ? '🤝 代金引換 (COD)' : language === 'EN' ? '🤝 Cash on Delivery' : '🤝 COD (Cash on Delivery)'}
               </span>
             </div>
             <p className="text-[11px] text-stone-400 leading-relaxed">
-              Pengiriman instan untuk area dekat toko (max 3 stasiun), serta pengiriman ekspedisi Cool Takkyubin bersuhu minus ke seluruh Jepang.
+              {language === 'JP'
+                ? '店舗近隣エリア（最寄3駅以内）への即時デリバリー便や、全国47都道府県へのクール宅急便（冷凍・冷蔵便）に対応しています。'
+                : language === 'EN'
+                ? 'Instant local delivery for nearby areas (up to 3 stations), plus nationwide Cool Takkyubin minus-temperature courier across Japan.'
+                : 'Pengiriman instan untuk area dekat toko (max 3 stasiun), serta pengiriman ekspedisi Cool Takkyubin bersuhu minus ke seluruh Jepang.'}
             </p>
           </div>
         </div>

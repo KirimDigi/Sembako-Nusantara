@@ -97,7 +97,18 @@ export const AdminDashboardPage: React.FC = () => {
         viewAll: 'すべて見る',
         openPos: 'レジを開く',
         paidStatus: '決済完了',
-        itemsUnit: '品'
+        itemsUnit: '品',
+        // Banner Promo
+        bannerPromoTitle: 'ホームページプロモバナー (3スライド)',
+        bannerPromoTag: 'トップページ公開中',
+        bannerPromoDesc: 'トップページの告知バナー画像（最大3枚）を編集・更新します。',
+        bannerPromoBtn: 'バナー3枚を管理',
+        // Order Status
+        statusCancelled: 'キャンセル',
+        statusCompleted: '完了',
+        statusShipped: '発送済み',
+        statusPacked: '梱包中',
+        statusProcessing: '処理中'
       };
     } else if (language === 'EN') {
       return {
@@ -152,7 +163,18 @@ export const AdminDashboardPage: React.FC = () => {
         viewAll: 'View All',
         openPos: 'Open POS',
         paidStatus: 'Paid',
-        itemsUnit: 'Items'
+        itemsUnit: 'Items',
+        // Banner Promo
+        bannerPromoTitle: 'Homepage Promo Banners (Hero Slider 3 Slides)',
+        bannerPromoTag: 'Live on Homepage',
+        bannerPromoDesc: 'Change or upload 3 homepage hero promo banners. Changes take effect immediately.',
+        bannerPromoBtn: 'Manage 3 Promo Slides',
+        // Order Status
+        statusCancelled: 'Cancelled',
+        statusCompleted: 'Completed',
+        statusShipped: 'Shipped',
+        statusPacked: 'Packed',
+        statusProcessing: 'Processing'
       };
     } else {
       // Indonesian (ID)
@@ -208,10 +230,38 @@ export const AdminDashboardPage: React.FC = () => {
         viewAll: 'Lihat Semua',
         openPos: 'Buka Kasir',
         paidStatus: 'Lunas',
-        itemsUnit: 'Barang'
+        itemsUnit: 'Barang',
+        // Banner Promo
+        bannerPromoTitle: 'Banner Promo Beranda (Hero Slider 3 Slide)',
+        bannerPromoTag: 'Live di Beranda',
+        bannerPromoDesc: 'Ganti atau upload 3 foto promo sampul beranda. Cukup klik Simpan untuk langsung tayang di website toko.',
+        bannerPromoBtn: 'Kelola 3 Slide Promo',
+        // Order Status
+        statusCancelled: 'Dibatalkan',
+        statusCompleted: 'Selesai',
+        statusShipped: 'Dikirim',
+        statusPacked: 'Dikemas',
+        statusProcessing: 'Diproses'
       };
     }
   }, [language]);
+
+  const getOrderStatusLabel = (status: string) => {
+    switch (status) {
+      case 'Selesai':
+        return txt.statusCompleted;
+      case 'Dikirim':
+        return txt.statusShipped;
+      case 'Dikemas':
+        return txt.statusPacked;
+      case 'Diproses':
+        return txt.statusProcessing;
+      case 'Dibatalkan':
+        return txt.statusCancelled;
+      default:
+        return status;
+    }
+  };
 
   return (
     <AdminLayout
@@ -418,13 +468,13 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h4 className="font-bold text-stone-900 text-sm">Banner Promo Beranda (Hero Slider 3 Slide)</h4>
+                <h4 className="font-bold text-stone-900 text-sm">{txt.bannerPromoTitle}</h4>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                  Live di Beranda
+                  {txt.bannerPromoTag}
                 </span>
               </div>
               <p className="text-xs text-stone-500 mt-0.5">
-                Ganti atau upload 3 foto promo sampul beranda. Cukup klik Simpan untuk langsung tayang di website toko.
+                {txt.bannerPromoDesc}
               </p>
             </div>
           </div>
@@ -433,7 +483,7 @@ export const AdminDashboardPage: React.FC = () => {
             className="px-4 py-2.5 bg-[#c41230] hover:bg-[#a50e28] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm shrink-0"
           >
             <span className="material-symbols-outlined text-sm">edit</span>
-            <span>Kelola 3 Slide Promo</span>
+            <span>{txt.bannerPromoBtn}</span>
           </Link>
         </div>
 
@@ -608,10 +658,12 @@ export const AdminDashboardPage: React.FC = () => {
                             ? 'bg-emerald-100 text-emerald-800'
                             : ord.status === 'Dikirim'
                             ? 'bg-blue-100 text-blue-800'
+                            : ord.status === 'Dibatalkan'
+                            ? 'bg-rose-100 text-rose-800'
                             : 'bg-amber-100 text-amber-800'
                         }`}
                       >
-                        {ord.status}
+                        {getOrderStatusLabel(ord.status)}
                       </span>
                     </div>
                     <div className="text-stone-500 text-[11px]">

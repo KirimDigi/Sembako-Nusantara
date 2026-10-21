@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useAdmin } from '../../context/AdminContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -247,37 +248,132 @@ export const InventoryPage: React.FC = () => {
       <div className="space-y-6 max-w-7xl mx-auto">
         {/* Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-            <span className="text-xs font-semibold text-stone-500 uppercase">{txt.cardTotalUnits}</span>
+          <button
+            type="button"
+            onClick={() => setFilterStatus('all')}
+            className={`p-5 rounded-2xl border text-left transition-all cursor-pointer ${
+              filterStatus === 'all'
+                ? 'bg-white border-stone-800 shadow-sm ring-2 ring-stone-800'
+                : 'bg-white border-stone-200 shadow-xs hover:border-stone-400'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-stone-500 uppercase">{txt.cardTotalUnits}</span>
+              <span className="material-symbols-outlined text-stone-400 text-sm">inventory_2</span>
+            </div>
             <div className="text-2xl font-bold text-stone-900 mt-1">
               {totalStockCount.toLocaleString()} <span className="text-xs font-normal text-stone-500">Pcs</span>
             </div>
             <div className="text-[11px] text-stone-400 mt-1">{txt.registeredSkus(products.length)}</div>
-          </div>
+          </button>
 
           <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-            <span className="text-xs font-semibold text-stone-500 uppercase">{txt.cardValuation}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-stone-500 uppercase">{txt.cardValuation}</span>
+              <span className="material-symbols-outlined text-emerald-500 text-sm">savings</span>
+            </div>
             <div className="text-2xl font-bold text-stone-900 mt-1">
               ¥{totalStockValue.toLocaleString()}
             </div>
             <div className="text-[11px] text-emerald-600 font-medium mt-1">{txt.incTax}</div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-            <span className="text-xs font-semibold text-stone-500 uppercase">{txt.cardLowStock}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setFilterStatus(filterStatus === 'low' ? 'all' : 'low');
+              document.getElementById('inventory-table-section')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className={`p-5 rounded-2xl border text-left transition-all cursor-pointer ${
+              filterStatus === 'low'
+                ? 'bg-amber-50/80 border-amber-500 shadow-md ring-2 ring-amber-500'
+                : 'bg-white border-stone-200 shadow-xs hover:border-amber-400 hover:shadow-sm'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-stone-500 uppercase flex items-center gap-1">
+                <span>{txt.cardLowStock}</span>
+                {filterStatus === 'low' && (
+                  <span className="px-1.5 py-0.2 bg-amber-500 text-white text-[9px] font-bold rounded">
+                    {language === 'JP' ? '適用中' : 'AKTIF'}
+                  </span>
+                )}
+              </span>
+              <span className="material-symbols-outlined text-amber-500 text-sm">warning</span>
+            </div>
             <div className="text-2xl font-bold text-amber-600 mt-1">{lowStockCount} SKU</div>
-            <div className="text-[11px] text-amber-700 font-medium mt-1">{txt.needRestock}</div>
-          </div>
+            <div className="text-[11px] text-amber-700 font-medium mt-1 flex items-center justify-between">
+              <span>{txt.needRestock}</span>
+              <span className="text-[10px] text-stone-400 font-normal underline">
+                {filterStatus === 'low' ? (language === 'JP' ? '解除' : 'Reset') : (language === 'JP' ? 'クリックして表示' : 'Klik untuk lihat')}
+              </span>
+            </div>
+          </button>
 
-          <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-            <span className="text-xs font-semibold text-stone-500 uppercase">{txt.cardOutOfStock}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setFilterStatus(filterStatus === 'out' ? 'all' : 'out');
+              document.getElementById('inventory-table-section')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className={`p-5 rounded-2xl border text-left transition-all cursor-pointer ${
+              filterStatus === 'out'
+                ? 'bg-red-50/80 border-red-500 shadow-md ring-2 ring-red-500'
+                : 'bg-white border-stone-200 shadow-xs hover:border-red-400 hover:shadow-sm'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-stone-500 uppercase flex items-center gap-1">
+                <span>{txt.cardOutOfStock}</span>
+                {filterStatus === 'out' && (
+                  <span className="px-1.5 py-0.2 bg-red-600 text-white text-[9px] font-bold rounded">
+                    {language === 'JP' ? '適用中' : 'AKTIF'}
+                  </span>
+                )}
+              </span>
+              <span className="material-symbols-outlined text-red-600 text-sm">error</span>
+            </div>
             <div className="text-2xl font-bold text-red-600 mt-1">{outOfStockCount} SKU</div>
-            <div className="text-[11px] text-red-700 font-medium mt-1">{txt.outOfStockSub}</div>
-          </div>
+            <div className="text-[11px] text-red-700 font-medium mt-1 flex items-center justify-between">
+              <span>{txt.outOfStockSub}</span>
+              <span className="text-[10px] text-stone-400 font-normal underline">
+                {filterStatus === 'out' ? (language === 'JP' ? '解除' : 'Reset') : (language === 'JP' ? 'クリックして表示' : 'Klik untuk lihat')}
+              </span>
+            </div>
+          </button>
         </div>
 
+        {/* Active Filter Notification Bar */}
+        {filterStatus !== 'all' && (
+          <div
+            className={`p-3.5 rounded-2xl border flex items-center justify-between text-xs font-bold shadow-xs ${
+              filterStatus === 'low'
+                ? 'bg-amber-50 border-amber-200 text-amber-900'
+                : 'bg-red-50 border-red-200 text-red-900'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-lg">
+                {filterStatus === 'low' ? 'warning' : 'error'}
+              </span>
+              <span>
+                {filterStatus === 'low'
+                  ? (language === 'JP' ? `品薄・要補充の ${filteredProducts.length} 商品を表示中 (現在庫 ≤ 5)` : `Menampilkan ${filteredProducts.length} Produk Stok Kritis (Stok ≤ 5)`)
+                  : (language === 'JP' ? `在庫切れ・販売停止中の ${filteredProducts.length} 商品を表示中 (現在庫 = 0)` : `Menampilkan ${filteredProducts.length} Produk Stok Habis (Stok = 0)`)}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFilterStatus('all')}
+              className="px-3 py-1 bg-white border border-stone-300 hover:bg-stone-100 rounded-lg text-stone-700 text-xs font-bold cursor-pointer transition-colors shadow-xs"
+            >
+              {language === 'JP' ? '✕ 全商品を表示' : '✕ Tampilkan Semua Produk'}
+            </button>
+          </div>
+        )}
+
         {/* Filters & Actions Bar */}
-        <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div id="inventory-table-section" className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {/* Search Box */}
             <div className="relative min-w-[240px]">
@@ -323,7 +419,7 @@ export const InventoryPage: React.FC = () => {
                   filterStatus === 'low' ? 'bg-white text-amber-700 shadow-xs' : 'text-stone-500'
                 }`}
               >
-                {txt.statusLow}
+                {txt.statusLow} ({lowStockCount})
               </button>
               <button
                 onClick={() => setFilterStatus('out')}
@@ -331,9 +427,19 @@ export const InventoryPage: React.FC = () => {
                   filterStatus === 'out' ? 'bg-white text-red-600 shadow-xs' : 'text-stone-500'
                 }`}
               >
-                {txt.statusOut}
+                {txt.statusOut} ({outOfStockCount})
               </button>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link
+              to="/admin/settings?tab=stock_opname"
+              className="px-3.5 py-2 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-md transition-all flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px]">fact_check</span>
+              {language === 'JP' ? '棚卸し (ストック・オプナーメ)' : 'Mulai Stok Opname'}
+            </Link>
           </div>
         </div>
 
@@ -483,9 +589,12 @@ export const InventoryPage: React.FC = () => {
 
             <div className="flex items-center gap-3 p-3 bg-stone-50 rounded-xl">
               <img
-                src={adjustingProduct.image}
+                src={adjustingProduct.image || '/placeholder-upload.svg'}
                 alt={adjustingProduct.name}
-                className="w-10 h-10 rounded-lg object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/placeholder-upload.svg';
+                }}
+                className="w-10 h-10 rounded-lg object-contain p-0.5 bg-white border border-stone-200"
               />
               <div>
                 <div className="font-bold text-xs text-stone-900">

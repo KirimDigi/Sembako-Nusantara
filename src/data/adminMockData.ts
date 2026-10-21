@@ -6,27 +6,21 @@ import {
   CustomerCRM,
   Voucher,
   StockMovement,
-  POSTransaction
+  POSTransaction,
+  ItemDiscount,
+  ProductPromo,
+  WholesalePriceTier
 } from '../types';
 
 export const INITIAL_WAREHOUSES: Warehouse[] = [
   {
     id: 'wh-tokyo',
-    name: 'Gudang Utama Tokyo (Kanto Hub)',
-    nameJp: '東京中央倉庫（関東拠点）',
+    name: 'Toko & Gudang Utama Tokyo (Nishikamata)',
+    nameJp: '東京本店・中央倉庫 (西蒲田)',
     code: 'TYO-01',
-    location: 'Edogawa-ku, Tokyo, Japan',
+    location: '〒144-0051 東京都大田区西蒲田5丁目9-16 (Tokyo, Ota-ku, Nishikamata 5-9-16)',
     isMain: true,
-    contactPerson: 'Kenji / Budi (+81-3-5678-9012)'
-  },
-  {
-    id: 'wh-osaka',
-    name: 'Gudang Hub Osaka (Kansai Hub)',
-    nameJp: '大阪配送センター（関西拠点）',
-    code: 'OSA-02',
-    location: 'Naniwa-ku, Osaka, Japan',
-    isMain: false,
-    contactPerson: 'Siti Rahma (+81-6-1234-5678)'
+    contactPerson: 'Willy Pratama (+81-80-1122-3344)'
   }
 ];
 
@@ -142,9 +136,67 @@ export const INITIAL_CUSTOMERS: CustomerCRM[] = [
   }
 ];
 
-export const INITIAL_VOUCHERS: Voucher[] = [];
+export const INITIAL_VOUCHERS: Voucher[] = [
+  {
+    code: 'NUSANTARA10',
+    title: 'Diskon 10% Sahabat Diaspora',
+    description: 'Diskon 10% untuk seluruh produk sembako halal (Min Belanja ¥3,000 / Rp 315.000)',
+    discountType: 'PERCENTAGE',
+    discountValue: 10,
+    currency: 'JPY',
+    minSpend: 3000,
+    maxDiscount: 1000,
+    validUntil: '2026-12-31',
+    usageCount: 14,
+    isActive: true
+  },
+  {
+    code: 'POTONGANYEN500',
+    title: 'Potongan Langsung ¥500 (Yen)',
+    description: 'Potongan langsung ¥500 untuk belanja apa saja di Sembako Nusantara Jepang',
+    discountType: 'NOMINAL_JPY',
+    discountValue: 500,
+    currency: 'JPY',
+    minSpend: 4500,
+    validUntil: '2026-11-30',
+    usageCount: 28,
+    isActive: true
+  },
+  {
+    code: 'DISKONIDR50K',
+    title: 'Potongan Rp 50.000 (Rupiah IDR)',
+    description: 'Kupon potongan nominal Rupiah IDR Rp 50.000 untuk pembayaran transfer QRIS/BCA',
+    discountType: 'NOMINAL_IDR',
+    discountValue: 50000,
+    currency: 'IDR',
+    minSpend: 300000,
+    validUntil: '2026-12-31',
+    usageCount: 19,
+    isActive: true
+  },
+  {
+    code: 'SUPERDIASPORA',
+    title: 'Voucher Gajian Hemat 15%',
+    description: 'Spesial tanggal gajian para kenshusei & pekerja migran di seluruh Jepang',
+    discountType: 'PERCENTAGE',
+    discountValue: 15,
+    currency: 'JPY',
+    minSpend: 6000,
+    maxDiscount: 1500,
+    validUntil: '2026-12-31',
+    usageCount: 42,
+    isActive: true
+  }
+];
+
+export const INITIAL_ITEM_DISCOUNTS: ItemDiscount[] = [];
+
+export const INITIAL_PRODUCT_PROMOS: ProductPromo[] = [];
+
+export const INITIAL_WHOLESALE_PRICES: WholesalePriceTier[] = [];
 
 export const INITIAL_STOCK_MOVEMENTS: StockMovement[] = [];
 
 export const INITIAL_POS_TRANSACTIONS: POSTransaction[] = [];
+
 

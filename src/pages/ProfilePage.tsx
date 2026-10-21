@@ -1,18 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { useAdmin } from '../context/AdminContext';
+import { useLanguage } from '../context/LanguageContext';
 import { assetUrl } from '../utils/assets';
+import { getMemberId, getCode39BarcodeBars, downloadMemberCardPng } from '../utils/memberCard';
 
 type ActiveTab = 'overview' | 'barcode' | 'orders' | 'wishlist' | 'cart' | 'security' | 'edit_profile';
 
 export const ProfilePage: React.FC = () => {
-  const { isAuthenticated, currentUser, login, loginWithGoogle, logout, updateProfile, changePassword, isAdmin } = useAuth();
+  const { isAuthenticated, currentUser, login, loginWithGoogle, logout, updateProfile, changePassword, deleteAccount, isAdmin } = useAuth();
   const { wishlist, removeFromWishlist, clearWishlist, totalWishlistItems } = useWishlist();
   const { cart, totalItems, subtotalTax: totalPrice, removeFromCart, updateQuantity } = useCart();
   const { orders } = useAdmin();
+  const { language } = useLanguage();
   const navigate = useNavigate();
 
   // Active Profile Tab State (Defaults to 'overview')
@@ -21,6 +25,7 @@ export const ProfilePage: React.FC = () => {
   // Form states for login when not authenticated
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -35,19 +40,28 @@ export const ProfilePage: React.FC = () => {
 
   // Change Password Form State
   const [currentPass, setCurrentPass] = useState('');
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [newPass, setNewPass] = useState('');
+  const [showNewPass, setShowNewPass] = useState(false);
   const [confirmPass, setConfirmPass] = useState('');
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [passSuccessMsg, setPassSuccessMsg] = useState('');
   const [passErrorMsg, setPassErrorMsg] = useState('');
   const [isPassLoading, setIsPassLoading] = useState(false);
 
+  // Delete Account State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
   const [orderFilter, setOrderFilter] = useState<'ALL' | 'DIPROSES' | 'DIKIRIM' | 'SELESAI'>('ALL');
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
 
-  // Computed Member ID
-  const memberId = currentUser?.id
-    ? `SN-JP-${currentUser.id.toUpperCase().replace(/[^A-Z0-9]/g, '')}-2026`
-    : 'SN-JP-MEMBER-2026';
+  // Card Download State
+  const [isDownloadingCard, setIsDownloadingCard] = useState(false);
+
+  // Computed Unique Member ID & 100% Scannable Code 39 Barcode Bars
+  const memberId = useMemo(() => getMemberId(currentUser), [currentUser]);
+  const barcodeBars = useMemo(() => getCode39BarcodeBars(memberId, 2, 4.8, 2), [memberId]);
 
   const handleGoogleLogin = async () => {
     setLoginError('');
@@ -58,7 +72,13 @@ export const ProfilePage: React.FC = () => {
         setLoginError(res.error);
       }
     } catch (err: any) {
-      setLoginError('Gagal menghubungkan ke akun Google.');
+      setLoginError(
+        language === 'JP'
+          ? 'Googleアカウントの連携に失敗しました。'
+          : language === 'EN'
+          ? 'Failed to connect to Google account.'
+          : 'Gagal menghubungkan ke akun Google.'
+      );
     } finally {
       setIsGoogleLoading(false);
     }
@@ -76,10 +96,23 @@ export const ProfilePage: React.FC = () => {
           navigate('/admin');
         }
       } else {
-        setLoginError(res.error || 'Gagal masuk akun.');
+        setLoginError(
+          res.error ||
+            (language === 'JP'
+              ? 'ログインに失敗しました。'
+              : language === 'EN'
+              ? 'Failed to log in.'
+              : 'Gagal masuk akun.')
+        );
       }
     } catch (err) {
-      setLoginError('Terjadi kesalahan saat masuk akun.');
+      setLoginError(
+        language === 'JP'
+          ? 'ログイン中にエラーが発生しました。'
+          : language === 'EN'
+          ? 'An error occurred during login.'
+          : 'Terjadi kesalahan saat masuk akun.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +124,13 @@ export const ProfilePage: React.FC = () => {
     setProfileErrorMsg('');
 
     if (!editName.trim()) {
-      setProfileErrorMsg('Nama lengkap tidak boleh kosong.');
+      setProfileErrorMsg(
+        language === 'JP'
+          ? '氏名を入力してください。'
+          : language === 'EN'
+          ? 'Full name cannot be empty.'
+          : 'Nama lengkap tidak boleh kosong.'
+      );
       return;
     }
 
@@ -103,10 +142,23 @@ export const ProfilePage: React.FC = () => {
     });
 
     if (res.success) {
-      setProfileSuccessMsg('Profil berhasil diperbarui dengan aman!');
+      setProfileSuccessMsg(
+        language === 'JP'
+          ? 'プロフィールが正常に更新されました！'
+          : language === 'EN'
+          ? 'Profile updated successfully!'
+          : 'Profil berhasil diperbarui dengan aman!'
+      );
       setTimeout(() => setProfileSuccessMsg(''), 4000);
     } else {
-      setProfileErrorMsg(res.error || 'Gagal menyimpan profil.');
+      setProfileErrorMsg(
+        res.error ||
+          (language === 'JP'
+            ? 'プロフィールの保存に失敗しました。'
+            : language === 'EN'
+            ? 'Failed to save profile.'
+            : 'Gagal menyimpan profil.')
+      );
     }
   };
 
@@ -116,17 +168,35 @@ export const ProfilePage: React.FC = () => {
     setPassErrorMsg('');
 
     if (!currentPass || !newPass || !confirmPass) {
-      setPassErrorMsg('Semua kolom password wajib diisi.');
+      setPassErrorMsg(
+        language === 'JP'
+          ? 'すべてのパスワード項目を入力してください。'
+          : language === 'EN'
+          ? 'All password fields are required.'
+          : 'Semua kolom password wajib diisi.'
+      );
       return;
     }
 
     if (newPass !== confirmPass) {
-      setPassErrorMsg('Konfirmasi password baru tidak cocok.');
+      setPassErrorMsg(
+        language === 'JP'
+          ? '確認用パスワードが一致しません。'
+          : language === 'EN'
+          ? 'New password confirmation does not match.'
+          : 'Konfirmasi password baru tidak cocok.'
+      );
       return;
     }
 
     if (newPass.length < 6) {
-      setPassErrorMsg('Password baru minimal harus 6 karakter.');
+      setPassErrorMsg(
+        language === 'JP'
+          ? '新しいパスワードは6文字以上で設定してください。'
+          : language === 'EN'
+          ? 'New password must be at least 6 characters.'
+          : 'Password baru minimal harus 6 karakter.'
+      );
       return;
     }
 
@@ -134,18 +204,74 @@ export const ProfilePage: React.FC = () => {
     try {
       const res = await changePassword(currentPass, newPass);
       if (res.success) {
-        setPassSuccessMsg('Password Anda berhasil diubah! Gunakan password baru untuk login berikutnya.');
+        setPassSuccessMsg(
+          language === 'JP'
+            ? 'パスワードが正常に変更されました！次回ログイン時から新しいパスワードをご使用ください。'
+            : language === 'EN'
+            ? 'Password changed successfully! Please use your new password next time.'
+            : 'Password Anda berhasil diubah! Gunakan password baru untuk login berikutnya.'
+        );
         setCurrentPass('');
         setNewPass('');
         setConfirmPass('');
         setTimeout(() => setPassSuccessMsg(''), 5000);
       } else {
-        setPassErrorMsg(res.error || 'Gagal mengubah password.');
+        setPassErrorMsg(
+          res.error ||
+            (language === 'JP'
+              ? 'パスワードの変更に失敗しました。'
+              : language === 'EN'
+              ? 'Failed to change password.'
+              : 'Gagal mengubah password.')
+        );
       }
     } catch (e) {
-      setPassErrorMsg('Terjadi kesalahan teknis.');
+      setPassErrorMsg(
+        language === 'JP'
+          ? '技術的な問題が発生しました。'
+          : language === 'EN'
+          ? 'A technical error occurred.'
+          : 'Terjadi kesalahan teknis.'
+      );
     } finally {
       setIsPassLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    try {
+      const res = await deleteAccount();
+      if (res.success) {
+        setShowDeleteModal(false);
+        alert(
+          language === 'JP'
+            ? 'アカウントが正常に完全削除されました。'
+            : language === 'EN'
+            ? 'Your account has been deleted permanently.'
+            : 'Akun Anda telah berhasil dihapus secara permanen. Semua data akun dan sesi telah dibersihkan.'
+        );
+        navigate('/');
+      } else {
+        alert(
+          res.error ||
+            (language === 'JP'
+              ? 'アカウントの削除に失敗しました。'
+              : language === 'EN'
+              ? 'Failed to delete account.'
+              : 'Gagal menghapus akun.')
+        );
+      }
+    } catch (e) {
+      alert(
+        language === 'JP'
+          ? 'アカウント削除中にエラーが発生しました。'
+          : language === 'EN'
+          ? 'An error occurred while deleting account.'
+          : 'Terjadi kesalahan saat menghapus akun.'
+      );
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -164,23 +290,77 @@ export const ProfilePage: React.FC = () => {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
         <div className="bg-white rounded-3xl border border-[#EBE5DF] shadow-xl p-8 sm:p-12 text-center space-y-6">
-          <div className="flex items-center justify-center mx-auto">
-            <img
-              src={assetUrl('logo-transparent.png')}
-              alt="Sembako Nusantara"
-              className="h-16 sm:h-20 w-auto object-contain drop-shadow-sm hover:scale-105 transition-transform"
-            />
+          {/* Logo & Animated Mascot Stepping into Door (Login Gateway Visual) */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 mx-auto pb-1">
+            {/* Brand Logo */}
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: 'spring', stiffness: 300 }}
+              className="flex items-center justify-center shrink-0"
+            >
+              <img
+                src={assetUrl('logo-transparent.png')}
+                alt="Sembako Nusantara"
+                className="h-16 sm:h-20 w-auto object-contain drop-shadow-sm"
+              />
+            </motion.div>
+
+            {/* Mascot Cat Stepping into the Door (Animated GIF) */}
+            <div
+              className="relative flex items-center justify-center group shrink-0 hover:scale-105 transition-transform duration-300"
+              title={
+                language === 'JP'
+                  ? 'いらっしゃいませ！ログインしてね'
+                  : language === 'EN'
+                  ? 'Welcome! Step inside and sign in'
+                  : 'Selamat Datang! Masuk ke akun Anda'
+              }
+            >
+              <div className="relative">
+                <img
+                  src={assetUrl('mascot-login-door.gif')}
+                  alt="Mascot Kucing Masuk ke Pintu Toko (Login)"
+                  className="h-24 sm:h-32 w-auto object-contain drop-shadow-md"
+                />
+              </div>
+
+              {/* Cute speech bubble above mascot */}
+              <div
+                className="absolute -top-3 -right-2 bg-gradient-to-r from-[#c41230] to-rose-600 text-white text-[10px] sm:text-[11px] font-extrabold px-2.5 py-1 rounded-full shadow-md whitespace-nowrap border-2 border-white flex items-center gap-1 pointer-events-none"
+              >
+                <span>🚪</span>
+                <span>
+                  {language === 'JP'
+                    ? 'ログインへ！'
+                    : language === 'EN'
+                    ? 'Step Inside!'
+                    : 'Yuk Masuk!'}
+                </span>
+              </div>
+            </div>
           </div>
 
           <div className="max-w-md mx-auto space-y-2">
             <span className="inline-block px-3 py-1 bg-amber-50 text-amber-800 text-xs font-bold rounded-full border border-amber-200 uppercase tracking-wider">
-              Status: Belum Masuk (Login Diperlukan)
+              {language === 'JP'
+                ? 'ステータス: 未ログイン (ログインがひつよう です)'
+                : language === 'EN'
+                ? 'Status: Not Logged In (Login Required)'
+                : 'Status: Belum Masuk (Login Diperlukan)'}
             </span>
             <h1 className="font-heading font-black text-2xl sm:text-3xl text-stone-900 tracking-tight">
-              Profil & Akun Pengguna
+              {language === 'JP'
+                ? 'ユーザー プロフィール & アカウント'
+                : language === 'EN'
+                ? 'User Profile & Account'
+                : 'Profil & Akun Pengguna'}
             </h1>
             <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
-              Silakan masuk untuk mengakses Kartu Member Barcode, Wishlist Favorit, Keranjang Belanja, Riwayat Pesanan, dan Pengaturan Password.
+              {language === 'JP'
+                ? 'デジタル会員バーコード、お気に入り、買い物かご、注文履歴、セキュリティ設定をご利用いただくにはログインしてください。'
+                : language === 'EN'
+                ? 'Please sign in to access your digital member barcode, wishlist, cart, order history, and security settings.'
+                : 'Silakan masuk untuk mengakses Kartu Member Barcode, Wishlist Favorit, Keranjang Belanja, Riwayat Pesanan, dan Pengaturan Password.'}
             </p>
           </div>
 
@@ -194,7 +374,11 @@ export const ProfilePage: React.FC = () => {
           <form onSubmit={handleFormLogin} className="max-w-md mx-auto space-y-4 text-left">
             <div>
               <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                ID Pelanggan / Nomor HP / Email
+                {language === 'JP'
+                  ? '会員ID / 電話番号 / メールアドレス'
+                  : language === 'EN'
+                  ? 'Member ID / Phone / Email'
+                  : 'ID Pelanggan / Nomor HP / Email'}
               </label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
@@ -204,7 +388,13 @@ export const ProfilePage: React.FC = () => {
                   type="text"
                   value={loginId}
                   onChange={(e) => setLoginId(e.target.value)}
-                  placeholder="Contoh: budi / customer01 / willy"
+                  placeholder={
+                    language === 'JP'
+                      ? 'ユーザー名、メールアドレス、または電話番号'
+                      : language === 'EN'
+                      ? 'Username, email, or phone number'
+                      : 'Username, email terdaftar, atau no HP'
+                  }
                   className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
                   required
                 />
@@ -213,20 +403,43 @@ export const ProfilePage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                Kata Sandi / Password
+                {language === 'JP'
+                  ? 'パスワード'
+                  : language === 'EN'
+                  ? 'Password'
+                  : 'Kata Sandi / Password'}
               </label>
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg pointer-events-none">
                   lock
                 </span>
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                  placeholder={
+                    language === 'JP'
+                      ? '•••••••• (パスワード を にゅうりょく)'
+                      : '••••••••'
+                  }
+                  className="w-full pl-10 pr-11 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+                  title={
+                    showPassword
+                      ? (language === 'JP' ? 'パスワードを隠す' : language === 'EN' ? 'Hide password' : 'Sembunyikan password')
+                      : (language === 'JP' ? 'パスワードを表示' : language === 'EN' ? 'Show password' : 'Lihat password')
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 transition-colors p-1 rounded-lg hover:bg-stone-200/50 flex items-center justify-center cursor-pointer"
+                >
+                  <span className={`material-symbols-outlined text-lg transition-transform duration-200 ${showPassword ? 'text-[#c41230]' : 'text-stone-400'}`}>
+                    {showPassword ? 'visibility' : 'visibility_off'}
+                  </span>
+                </button>
               </div>
             </div>
 
@@ -240,39 +453,23 @@ export const ProfilePage: React.FC = () => {
               ) : (
                 <span className="material-symbols-outlined text-base">login</span>
               )}
-              <span>Masuk ke Akun Profil</span>
+              <span>
+                {language === 'JP'
+                  ? 'アカウントにログイン'
+                  : language === 'EN'
+                  ? 'Sign In to Account'
+                  : 'Masuk ke Akun Profil'}
+              </span>
             </button>
-
-            {/* Quick Fill Buttons */}
-            <div className="pt-2 flex flex-col sm:flex-row gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setLoginId('budi');
-                  setPassword('customer123');
-                }}
-                className="flex-1 py-2 px-3 bg-stone-100 hover:bg-stone-200 text-stone-700 text-[11px] font-semibold rounded-lg flex items-center justify-center gap-1 transition-colors"
-              >
-                <span className="material-symbols-outlined text-xs">person</span>
-                <span>Akun Budi (customer01)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setLoginId('willy');
-                  setPassword('123456');
-                }}
-                className="flex-1 py-2 px-3 bg-stone-100 hover:bg-stone-200 text-stone-700 text-[11px] font-semibold rounded-lg flex items-center justify-center gap-1 transition-colors"
-              >
-                <span className="material-symbols-outlined text-xs">stars</span>
-                <span>Akun Willy (VIP Gold)</span>
-              </button>
-            </div>
 
             <div className="relative flex py-2 items-center">
               <div className="flex-grow border-t border-stone-200"></div>
               <span className="shrink mx-3 text-[11px] text-stone-400 font-medium uppercase tracking-wider">
-                atau masuk dengan
+                {language === 'JP'
+                  ? 'または 次のアカウントでログイン'
+                  : language === 'EN'
+                  ? 'or continue with'
+                  : 'atau masuk dengan'}
               </span>
               <div className="flex-grow border-t border-stone-200"></div>
             </div>
@@ -305,7 +502,19 @@ export const ProfilePage: React.FC = () => {
                   />
                 </svg>
               )}
-              <span>{isGoogleLoading ? 'Menghubungkan ke Google...' : 'Masuk dengan Google (Gmail)'}</span>
+              <span>
+                {isGoogleLoading
+                  ? language === 'JP'
+                    ? 'Googleに接続中...'
+                    : language === 'EN'
+                    ? 'Connecting to Google...'
+                    : 'Menghubungkan ke Google...'
+                  : language === 'JP'
+                  ? 'Google (Gmail) でログイン'
+                  : language === 'EN'
+                  ? 'Sign in with Google (Gmail)'
+                  : 'Masuk dengan Google (Gmail)'}
+              </span>
             </button>
           </form>
         </div>
@@ -327,15 +536,15 @@ export const ProfilePage: React.FC = () => {
         <div className="relative z-10 flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
             <div className="relative">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white/10 backdrop-blur-md border-2 border-amber-300 text-amber-300 font-black text-3xl flex items-center justify-center shadow-lg">
-                {currentUser?.name
-                  ? currentUser.name
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')
-                      .toUpperCase()
-                      .substring(0, 2)
-                  : 'WP'}
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white/10 backdrop-blur-md border-2 border-amber-300 overflow-hidden shadow-lg flex items-center justify-center">
+                <img
+                  src={currentUser?.avatar || assetUrl('avatar-jangsan.png')}
+                  alt={currentUser?.name || 'Avatar Profile'}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = assetUrl('avatar-jangsan.png');
+                  }}
+                />
               </div>
               <span className="absolute -bottom-2 -right-1 bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full border-2 border-stone-900 shadow-sm flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>
@@ -346,36 +555,34 @@ export const ProfilePage: React.FC = () => {
             <div className="space-y-1">
               <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
                 <h1 className="font-heading font-black text-2xl sm:text-3xl text-white">
-                  {currentUser?.name || 'Pelanggan Nusantara'}
+                  {currentUser?.name || (language === 'JP' ? 'ヌサンタラ 会員様' : language === 'EN' ? 'Nusantara Customer' : 'Pelanggan Nusantara')}
                 </h1>
                 <span className="px-2.5 py-0.5 bg-amber-400 text-stone-950 text-[11px] font-black rounded-full uppercase tracking-wider">
-                  {currentUser?.tier || (isAdmin ? 'Super Admin' : 'Gold Member')}
+                  {currentUser?.tier || (isAdmin ? (language === 'JP' ? 'スーパー管理者' : 'Super Admin') : (language === 'JP' ? 'ゴールド会員' : 'Gold Member'))}
                 </span>
               </div>
               <p className="text-xs text-stone-300 flex items-center justify-center sm:justify-start gap-2">
                 <span className="material-symbols-outlined text-sm text-amber-300">qr_code_2</span>
-                <span>ID Member: <strong>{memberId}</strong></span>
+                <span>
+                  {language === 'JP' ? '会員番号:' : language === 'EN' ? 'Member ID:' : 'ID Member:'}{' '}
+                  <strong>{memberId}</strong>
+                </span>
               </p>
               <p className="text-xs text-stone-300 flex items-center justify-center sm:justify-start gap-2">
                 <span className="material-symbols-outlined text-sm text-amber-300">location_on</span>
-                <span>{currentUser?.address || 'Tokyo-to, Jepang'}</span>
+                <span>{currentUser?.address || (language === 'JP' ? '東京都 (日本全国配送対応)' : 'Tokyo-to, Jepang')}</span>
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2.5 rounded-2xl text-center">
-              <span className="block text-[10px] text-stone-300 uppercase tracking-wider font-bold">Poin Reward Diaspora</span>
-              <span className="text-xl sm:text-2xl font-black text-amber-300">{currentUser?.loyaltyPoints ?? 500} <span className="text-xs font-bold text-white">JPY</span></span>
-            </div>
-
             <button
               type="button"
               onClick={logout}
               className="px-4 py-2.5 bg-white/15 hover:bg-red-600/80 border border-white/20 text-white text-xs font-bold rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <span className="material-symbols-outlined text-sm">logout</span>
-              <span>Keluar</span>
+              <span>{language === 'JP' ? 'ログアウト' : language === 'EN' ? 'Logout' : 'Keluar'}</span>
             </button>
           </div>
         </div>
@@ -391,8 +598,12 @@ export const ProfilePage: React.FC = () => {
           >
             <span className="material-symbols-outlined text-2xl">barcode_scanner</span>
             <div>
-              <div className="text-[10px] opacity-80 uppercase">Barcode Member</div>
-              <div className="text-xs sm:text-sm font-black">Lihat Barcode</div>
+              <div className="text-[10px] opacity-80 uppercase">
+                {language === 'JP' ? '会員バーコード' : language === 'EN' ? 'Member Barcode' : 'Barcode Member'}
+              </div>
+              <div className="text-xs sm:text-sm font-black">
+                {language === 'JP' ? 'バーコード表示' : language === 'EN' ? 'View Barcode' : 'Lihat Barcode'}
+              </div>
             </div>
           </button>
 
@@ -405,8 +616,12 @@ export const ProfilePage: React.FC = () => {
           >
             <span className="material-symbols-outlined text-2xl text-red-400">favorite</span>
             <div>
-              <div className="text-[10px] opacity-80 uppercase">Wishlist Favorit</div>
-              <div className="text-xs sm:text-sm font-black">{totalWishlistItems} Produk</div>
+              <div className="text-[10px] opacity-80 uppercase">
+                {language === 'JP' ? 'お気に入り' : language === 'EN' ? 'Wishlist' : 'Wishlist Favorit'}
+              </div>
+              <div className="text-xs sm:text-sm font-black">
+                {language === 'JP' ? `${totalWishlistItems} 点の品物` : language === 'EN' ? `${totalWishlistItems} Items` : `${totalWishlistItems} Produk`}
+              </div>
             </div>
           </button>
 
@@ -419,8 +634,12 @@ export const ProfilePage: React.FC = () => {
           >
             <span className="material-symbols-outlined text-2xl">receipt_long</span>
             <div>
-              <div className="text-[10px] opacity-80 uppercase">Pesanan Saya</div>
-              <div className="text-xs sm:text-sm font-black">{orders.length} Transaksi</div>
+              <div className="text-[10px] opacity-80 uppercase">
+                {language === 'JP' ? 'ご注文履歴' : language === 'EN' ? 'My Orders' : 'Pesanan Saya'}
+              </div>
+              <div className="text-xs sm:text-sm font-black">
+                {language === 'JP' ? `${orders.length} 件のお取引` : language === 'EN' ? `${orders.length} Orders` : `${orders.length} Transaksi`}
+              </div>
             </div>
           </button>
 
@@ -433,8 +652,12 @@ export const ProfilePage: React.FC = () => {
           >
             <span className="material-symbols-outlined text-2xl">shopping_cart</span>
             <div>
-              <div className="text-[10px] opacity-80 uppercase">Keranjang</div>
-              <div className="text-xs sm:text-sm font-black">{totalItems} Item</div>
+              <div className="text-[10px] opacity-80 uppercase">
+                {language === 'JP' ? '買い物かご' : language === 'EN' ? 'Shopping Cart' : 'Keranjang'}
+              </div>
+              <div className="text-xs sm:text-sm font-black">
+                {language === 'JP' ? `${totalItems} 点` : language === 'EN' ? `${totalItems} Items` : `${totalItems} Item`}
+              </div>
             </div>
           </button>
         </div>
@@ -446,7 +669,7 @@ export const ProfilePage: React.FC = () => {
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-white rounded-3xl border border-[#EBE5DF] p-4 shadow-sm space-y-1">
             <div className="px-3 py-2 text-xs font-bold text-stone-400 uppercase tracking-wider">
-              Menu Profil Khusus
+              {language === 'JP' ? '専用プロフィール メニュー' : language === 'EN' ? 'Profile Menu' : 'Menu Profil Khusus'}
             </div>
 
             <button
@@ -460,7 +683,13 @@ export const ProfilePage: React.FC = () => {
             >
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-lg">dashboard</span>
-                <span>Ringkasan Akun (Overview)</span>
+                <span>
+                  {language === 'JP'
+                    ? 'アカウント概要 (マイページ)'
+                    : language === 'EN'
+                    ? 'Account Overview'
+                    : 'Ringkasan Akun (Overview)'}
+                </span>
               </div>
               <span className="material-symbols-outlined text-sm">chevron_right</span>
             </button>
@@ -476,7 +705,13 @@ export const ProfilePage: React.FC = () => {
             >
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-lg text-amber-500">qr_code_2</span>
-                <span>Barcode Member Digital</span>
+                <span>
+                  {language === 'JP'
+                    ? 'デジタル会員バーコード'
+                    : language === 'EN'
+                    ? 'Digital Member Barcode'
+                    : 'Barcode Member Digital'}
+                </span>
               </div>
               <span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-black rounded-full">VIP</span>
             </button>
@@ -492,7 +727,13 @@ export const ProfilePage: React.FC = () => {
             >
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-lg text-red-500">favorite</span>
-                <span>Wishlist / Favorit Saya</span>
+                <span>
+                  {language === 'JP'
+                    ? 'お気に入り / ウィッシュリスト'
+                    : language === 'EN'
+                    ? 'My Wishlist / Favorites'
+                    : 'Wishlist / Favorit Saya'}
+                </span>
               </div>
               {totalWishlistItems > 0 && (
                 <span className="px-2 py-0.5 bg-red-100 text-[#c41230] text-[10px] font-black rounded-full">
@@ -512,7 +753,13 @@ export const ProfilePage: React.FC = () => {
             >
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-lg text-blue-500">receipt_long</span>
-                <span>Pesanan Saya (Order History)</span>
+                <span>
+                  {language === 'JP'
+                    ? '注文履歴 (配送状況)'
+                    : language === 'EN'
+                    ? 'My Orders (History)'
+                    : 'Pesanan Saya (Order History)'}
+                </span>
               </div>
               <span className="px-2 py-0.5 bg-stone-100 text-stone-600 text-[10px] font-black rounded-full">
                 {orders.length}
@@ -530,7 +777,13 @@ export const ProfilePage: React.FC = () => {
             >
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-lg text-emerald-600">shopping_cart</span>
-                <span>Keranjang Belanja</span>
+                <span>
+                  {language === 'JP'
+                    ? '買い物かご'
+                    : language === 'EN'
+                    ? 'Shopping Cart'
+                    : 'Keranjang Belanja'}
+                </span>
               </div>
               {totalItems > 0 && (
                 <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-black rounded-full">
@@ -550,7 +803,13 @@ export const ProfilePage: React.FC = () => {
             >
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-lg text-purple-500">lock_reset</span>
-                <span>Ganti Password & Keamanan</span>
+                <span>
+                  {language === 'JP'
+                    ? 'パスワード変更 & セキュリティ'
+                    : language === 'EN'
+                    ? 'Change Password & Security'
+                    : 'Ganti Password & Keamanan'}
+                </span>
               </div>
               <span className="material-symbols-outlined text-sm">chevron_right</span>
             </button>
@@ -566,7 +825,13 @@ export const ProfilePage: React.FC = () => {
             >
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-lg text-amber-600">edit</span>
-                <span>Ubah Data Alamat & HP</span>
+                <span>
+                  {language === 'JP'
+                    ? 'お届け先住所 & 電話番号の変更'
+                    : language === 'EN'
+                    ? 'Edit Address & Contact Info'
+                    : 'Ubah Data Alamat & HP'}
+                </span>
               </div>
               <span className="material-symbols-outlined text-sm">chevron_right</span>
             </button>
@@ -577,7 +842,9 @@ export const ProfilePage: React.FC = () => {
             <div className="bg-stone-900 text-white rounded-3xl p-5 shadow-sm space-y-3">
               <div className="flex items-center gap-2 text-red-400 font-bold text-xs uppercase tracking-wider">
                 <span className="material-symbols-outlined text-base">admin_panel_settings</span>
-                <span>Akses Pengelola Super Admin</span>
+                <span>
+                  {language === 'JP' ? 'スーパー管理者アクセス' : language === 'EN' ? 'Super Admin Access' : 'Akses Pengelola Super Admin'}
+                </span>
               </div>
               <div className="space-y-2">
                 <Link
@@ -585,14 +852,14 @@ export const ProfilePage: React.FC = () => {
                   className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition-all"
                 >
                   <span className="material-symbols-outlined text-sm">dashboard</span>
-                  <span>Dashboard Manajemen</span>
+                  <span>{language === 'JP' ? '管理ダッシュボード' : language === 'EN' ? 'Management Dashboard' : 'Dashboard Manajemen'}</span>
                 </Link>
                 <Link
                   to="/admin/pos"
                   className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-[#c41230] hover:bg-[#9a0021] text-white text-xs font-bold rounded-xl transition-all"
                 >
                   <span className="material-symbols-outlined text-sm">point_of_sale</span>
-                  <span>Mesin POS Kasir</span>
+                  <span>{language === 'JP' ? 'POSレジシステム' : language === 'EN' ? 'POS Cashier Register' : 'Mesin POS Kasir'}</span>
                 </Link>
               </div>
             </div>
@@ -611,10 +878,18 @@ export const ProfilePage: React.FC = () => {
                 <div className="flex items-center justify-between border-b border-stone-100 pb-4">
                   <div>
                     <h2 className="font-heading font-black text-xl text-stone-900">
-                      Selamat Datang, {currentUser?.name}! 👋
+                      {language === 'JP'
+                        ? `ようこそ、${currentUser?.name || '会員'} 様！👋`
+                        : language === 'EN'
+                        ? `Welcome, ${currentUser?.name || 'Customer'}! 👋`
+                        : `Selamat Datang, ${currentUser?.name}! 👋`}
                     </h2>
                     <p className="text-xs text-stone-500 mt-1">
-                      Kelola semua aktivitas belanja diaspora, pantau pengiriman Yamato/Sagawa, dan manfaatkan barcode member Anda.
+                      {language === 'JP'
+                        ? 'ご注文状況の確認、ヤマト・佐川の追跡、デジタル会員証バーコードのご利用がいつでも可能です。'
+                        : language === 'EN'
+                        ? 'Manage your diaspora shopping, track Yamato/Sagawa shipments, and utilize your member barcode.'
+                        : 'Kelola semua aktivitas belanja diaspora, pantau pengiriman Yamato/Sagawa, dan manfaatkan barcode member Anda.'}
                     </p>
                   </div>
                   <button
@@ -623,22 +898,28 @@ export const ProfilePage: React.FC = () => {
                     className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold rounded-xl transition-colors cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-sm">qr_code_2</span>
-                    <span>Tampilkan Barcode</span>
+                    <span>{language === 'JP' ? 'バーコードを表示' : language === 'EN' ? 'View Barcode' : 'Tampilkan Barcode'}</span>
                   </button>
                 </div>
 
                 {/* Profile Data Info */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div className="p-4 rounded-2xl bg-stone-50 border border-stone-100 space-y-1">
-                    <span className="text-stone-400 font-bold block uppercase text-[10px]">Nomor WhatsApp / HP</span>
+                    <span className="text-stone-400 font-bold block uppercase text-[10px]">
+                      {language === 'JP' ? 'WhatsApp / 日本の電話番号' : language === 'EN' ? 'WhatsApp / Phone Number' : 'Nomor WhatsApp / HP'}
+                    </span>
                     <span className="font-bold text-stone-800 text-sm">{currentUser?.phone || '+81 80-1122-3344'}</span>
                   </div>
                   <div className="p-4 rounded-2xl bg-stone-50 border border-stone-100 space-y-1">
-                    <span className="text-stone-400 font-bold block uppercase text-[10px]">Email Terdaftar</span>
+                    <span className="text-stone-400 font-bold block uppercase text-[10px]">
+                      {language === 'JP' ? '登録メールアドレス' : language === 'EN' ? 'Registered Email' : 'Email Terdaftar'}
+                    </span>
                     <span className="font-bold text-stone-800 text-sm truncate block">{currentUser?.email || `${currentUser?.id}@diaspora.jp`}</span>
                   </div>
                   <div className="sm:col-span-2 p-4 rounded-2xl bg-stone-50 border border-stone-100 space-y-1">
-                    <span className="text-stone-400 font-bold block uppercase text-[10px]">Alamat Pengiriman Utama di Jepang</span>
+                    <span className="text-stone-400 font-bold block uppercase text-[10px]">
+                      {language === 'JP' ? '日本国内の主なお届け先住所' : language === 'EN' ? 'Primary Shipping Address in Japan' : 'Alamat Pengiriman Utama di Jepang'}
+                    </span>
                     <span className="font-bold text-stone-800 text-sm">{currentUser?.address || 'Tokyo-to, Edogawa-ku, Nishi-Kasai 3-1-4'}</span>
                   </div>
                 </div>
@@ -650,7 +931,7 @@ export const ProfilePage: React.FC = () => {
                     className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-sm">edit</span>
-                    <span>Edit Profil & Alamat</span>
+                    <span>{language === 'JP' ? 'プロフィールと住所を変更' : language === 'EN' ? 'Edit Profile & Address' : 'Edit Profil & Alamat'}</span>
                   </button>
                   <button
                     type="button"
@@ -658,7 +939,7 @@ export const ProfilePage: React.FC = () => {
                     className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-sm">lock_reset</span>
-                    <span>Ganti Password</span>
+                    <span>{language === 'JP' ? 'パスワードを変更' : language === 'EN' ? 'Change Password' : 'Ganti Password'}</span>
                   </button>
                 </div>
               </div>
@@ -670,18 +951,28 @@ export const ProfilePage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-[#c41230] font-bold text-sm">
                       <span className="material-symbols-outlined">favorite</span>
-                      <span>Wishlist ({totalWishlistItems})</span>
+                      <span>
+                        {language === 'JP'
+                          ? `お気に入り (${totalWishlistItems})`
+                          : language === 'EN'
+                          ? `Wishlist (${totalWishlistItems})`
+                          : `Wishlist (${totalWishlistItems})`}
+                      </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setActiveTab('wishlist')}
                       className="text-xs text-[#c41230] font-bold hover:underline"
                     >
-                      Buka Semua →
+                      {language === 'JP' ? 'すべて見る →' : language === 'EN' ? 'View All →' : 'Buka Semua →'}
                     </button>
                   </div>
                   <p className="text-xs text-stone-500">
-                    Produk-produk makanan, bumbu, & camilan favorit yang Anda simpan untuk dibeli nanti.
+                    {language === 'JP'
+                      ? '後で購入するために保存したインドネシアの食材、調味料、お菓子です。'
+                      : language === 'EN'
+                      ? 'Favorite food, seasonings & snacks saved for later purchase.'
+                      : 'Produk-produk makanan, bumbu, & camilan favorit yang Anda simpan untuk dibeli nanti.'}
                   </p>
                 </div>
 
@@ -690,18 +981,28 @@ export const ProfilePage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-blue-600 font-bold text-sm">
                       <span className="material-symbols-outlined">receipt_long</span>
-                      <span>Pesanan ({orders.length})</span>
+                      <span>
+                        {language === 'JP'
+                          ? `ご注文 (${orders.length})`
+                          : language === 'EN'
+                          ? `Orders (${orders.length})`
+                          : `Pesanan (${orders.length})`}
+                      </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setActiveTab('orders')}
                       className="text-xs text-blue-600 font-bold hover:underline"
                     >
-                      Riwayat →
+                      {language === 'JP' ? '履歴を見る →' : language === 'EN' ? 'History →' : 'Riwayat →'}
                     </button>
                   </div>
                   <p className="text-xs text-stone-500">
-                    Lacak status paket pengiriman Kurir Yamato & Sagawa serta download bukti invoice belanja.
+                    {language === 'JP'
+                      ? 'ヤマト運輸および佐川急便の配送追跡とお買い物の領収書をご確認いただけます。'
+                      : language === 'EN'
+                      ? 'Track Yamato & Sagawa parcel shipments and download shopping invoices.'
+                      : 'Lacak status paket pengiriman Kurir Yamato & Sagawa serta download bukti invoice belanja.'}
                   </p>
                 </div>
               </div>
@@ -715,54 +1016,68 @@ export const ProfilePage: React.FC = () => {
             <div className="bg-white rounded-3xl border border-[#EBE5DF] p-6 sm:p-8 shadow-sm space-y-6">
               <div className="border-b border-stone-100 pb-4">
                 <span className="px-3 py-1 bg-amber-100 text-amber-900 text-xs font-black rounded-full uppercase tracking-wider">
-                  Kartu Digital Diaspora VIP
+                  {language === 'JP' ? '在日VIPデジタル会員証' : language === 'EN' ? 'VIP Digital Diaspora Card' : 'Kartu Digital Diaspora VIP'}
                 </span>
                 <h2 className="font-heading font-black text-xl sm:text-2xl text-stone-900 mt-2 flex items-center gap-2">
                   <span className="material-symbols-outlined text-amber-500 text-2xl">qr_code_2</span>
-                  <span>Barcode & QR Member Resmi</span>
+                  <span>
+                    {language === 'JP' ? '公式会員バーコード & QRコード' : language === 'EN' ? 'Official Member Barcode & QR Code' : 'Barcode & QR Member Resmi'}
+                  </span>
                 </h2>
                 <p className="text-xs text-stone-500 mt-1">
-                  Tunjukkan barcode atau QR code ini kepada kasir di Toko Fisik Sembako Nusantara (Tokyo & Osaka) untuk mendapatkan diskon member dan poin loyalty otomatis.
+                  {language === 'JP'
+                    ? '実店舗（東京・大阪）のレジにてこのバーコードをご提示いただくと、会員特別割引やポイントが自動適用されます。'
+                    : language === 'EN'
+                    ? 'Show this barcode or QR code at our physical store cashiers (Tokyo & Osaka) to receive exclusive member discounts.'
+                    : 'Tunjukkan barcode atau QR code ini kepada kasir di Toko Fisik Sembako Nusantara (Tokyo & Osaka) untuk mendapatkan diskon member dan poin loyalty otomatis.'}
                 </p>
               </div>
 
               {/* High Quality Digital Member Card UI */}
               <div className="max-w-md mx-auto bg-gradient-to-br from-[#c41230] via-[#8B0000] to-stone-900 rounded-3xl p-6 sm:p-7 text-white shadow-2xl relative overflow-hidden border-2 border-amber-300">
-                {/* Background Pattern */}
+                {/* Background Pattern & Subtle Watermark Logo (Pure White in Exact Center) */}
                 <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+                <img
+                  src={assetUrl('LOGO PUTIH SN TRANSPARANT.png')}
+                  alt=""
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 sm:w-72 sm:h-72 object-contain filter brightness-0 invert opacity-40 pointer-events-none select-none z-0"
+                />
 
                 <div className="flex items-center justify-between relative z-10 mb-6">
                   <div className="flex items-center gap-2.5">
-                    <img src={assetUrl('logo-transparent.png')} alt="Sembako Nusantara" className="h-8 w-auto filter invert brightness-200" />
+                    <img
+                      src={assetUrl('LOGO PUTIH SN TRANSPARANT.png')}
+                      alt="Sembako Nusantara"
+                      className="h-9 w-auto object-contain filter brightness-0 invert drop-shadow-sm"
+                    />
                     <div>
-                      <div className="font-heading font-black text-sm tracking-wide">SEMBAKO NUSANTARA</div>
+                      <div className="font-heading font-black text-sm tracking-wide text-white">SEMBAKO NUSANTARA</div>
                       <div className="text-[9px] text-amber-300 font-bold uppercase tracking-widest">JAPAN DIASPORA CARD</div>
                     </div>
                   </div>
                   <span className="px-2.5 py-1 bg-amber-400 text-stone-950 font-black text-[10px] rounded-full shadow-sm">
-                    {currentUser?.tier || 'GOLD MEMBER'}
+                    {currentUser?.tier || (isAdmin ? 'SUPER ADMIN' : 'GOLD MEMBER')}
                   </span>
                 </div>
 
                 {/* Member Info */}
                 <div className="relative z-10 space-y-1 mb-6">
-                  <div className="text-[10px] text-stone-300 uppercase tracking-wider">Nama Anggota Member:</div>
+                  <div className="text-[10px] text-stone-300 uppercase tracking-wider">
+                    {language === 'JP' ? '会員様氏名:' : language === 'EN' ? 'Member Name:' : 'Nama Anggota Member:'}
+                  </div>
                   <div className="font-heading font-black text-xl text-white tracking-wide">{currentUser?.name || 'Willy Pratama'}</div>
                   <div className="text-xs text-amber-300 font-mono font-bold tracking-widest mt-1">{memberId}</div>
                 </div>
 
-                {/* Barcode Strip Graphic (Crisp SVG Representation) */}
+                {/* Barcode Strip Graphic (100% Scannable Code 39 Barcode) */}
                 <div className="bg-white rounded-2xl p-4 text-stone-900 text-center shadow-inner relative z-10">
-                  <div className="flex justify-center items-center gap-[3px] h-14 py-1 overflow-hidden">
-                    {/* Stylized Code 128 Barcode lines */}
-                    {[
-                      4, 2, 6, 1, 3, 5, 2, 4, 1, 7, 3, 2, 5, 1, 4, 6, 2, 3, 1, 5, 4, 2, 6, 1, 3, 7, 2, 4, 1, 5, 3, 6, 2, 4, 1, 5
-                    ].map((w, idx) => (
+                  <div className="flex justify-center items-center h-14 py-1 overflow-x-auto select-none">
+                    {barcodeBars.map((bar, idx) => (
                       <div
                         key={idx}
-                        className="bg-black h-full rounded-xs"
-                        style={{ width: `${w * 1.5}px` }}
-                      ></div>
+                        className={bar.isBar ? 'bg-black h-full' : 'bg-transparent h-full'}
+                        style={{ width: `${bar.width}px` }}
+                      />
                     ))}
                   </div>
                   <div className="font-mono text-xs font-black tracking-widest text-stone-800 mt-1">
@@ -770,32 +1085,83 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[10px] text-stone-300 mt-4 relative z-10">
-                  <span>Poin Reward: <strong className="text-amber-300">{currentUser?.loyaltyPoints ?? 500} JPY</strong></span>
-                  <span>Masa Berlaku: <strong>Seumur Hidup</strong></span>
+                {/* Card Footer (Masa Berlaku - Poin Reward Removed) */}
+                <div className="flex items-center justify-end text-[10px] text-stone-300 mt-4 relative z-10">
+                  <span>
+                    {language === 'JP' ? (
+                      <>有効期限: <strong className="text-white">無期限 (永久有効)</strong></>
+                    ) : language === 'EN' ? (
+                      <>Validity: <strong className="text-white">Lifetime</strong></>
+                    ) : (
+                      <>Masa Berlaku: <strong className="text-white">Seumur Hidup</strong></>
+                    )}
+                  </span>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="max-w-md mx-auto flex flex-col sm:flex-row gap-3">
+              {/* Action Buttons: Salin, Download (PNG persis desain), Cetak */}
+              <div className="max-w-md mx-auto flex flex-col sm:flex-row gap-2.5">
                 <button
                   type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(memberId);
-                    alert(`ID Member "${memberId}" berhasil disalin ke clipboard!`);
+                    alert(
+                      language === 'JP'
+                        ? `会員ID「${memberId}」をクリップボードにコピーしました！`
+                        : language === 'EN'
+                        ? `Member ID "${memberId}" copied to clipboard!`
+                        : `ID Member "${memberId}" berhasil disalin ke clipboard!`
+                    );
                   }}
-                  className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-base">content_copy</span>
-                  <span>Salin ID Member</span>
+                  <span>{language === 'JP' ? '会員番号をコピー' : language === 'EN' ? 'Copy Member ID' : 'Salin ID Member'}</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsDownloadingCard(true);
+                    try {
+                      await downloadMemberCardPng({
+                        memberId,
+                        memberName: currentUser?.name || 'Willy Pratama',
+                        tier: currentUser?.tier || (isAdmin ? 'SUPER ADMIN' : 'GOLD MEMBER')
+                      });
+                    } finally {
+                      setIsDownloadingCard(false);
+                    }
+                  }}
+                  disabled={isDownloadingCard}
+                  className="flex-1 py-3 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md disabled:opacity-75"
+                >
+                  <span className="material-symbols-outlined text-base">
+                    {isDownloadingCard ? 'hourglass_top' : 'download'}
+                  </span>
+                  <span>
+                    {isDownloadingCard
+                      ? language === 'JP'
+                        ? 'ダウンロード中...'
+                        : language === 'EN'
+                        ? 'Downloading...'
+                        : 'Mengunduh...'
+                      : language === 'JP'
+                      ? '会員証画像を保存'
+                      : language === 'EN'
+                      ? 'Download Member Card'
+                      : 'Download Kartu Member'}
+                  </span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="flex-1 py-3 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="py-3 px-3.5 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                  title={language === 'JP' ? '会員証を印刷' : language === 'EN' ? 'Print Member Card' : 'Cetak Kartu Member'}
                 >
                   <span className="material-symbols-outlined text-base">print</span>
-                  <span>Cetak Kartu Member</span>
+                  <span className="hidden sm:inline">{language === 'JP' ? '印刷' : language === 'EN' ? 'Print' : 'Cetak'}</span>
                 </button>
               </div>
 
@@ -803,12 +1169,34 @@ export const ProfilePage: React.FC = () => {
               <div className="p-5 rounded-2xl bg-amber-50/70 border border-amber-200 text-xs space-y-2 text-stone-800">
                 <div className="font-bold text-amber-900 flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-base text-amber-600">verified</span>
-                  <span>Keuntungan Khusus Anggota Sembako Nusantara Jepang:</span>
+                  <span>
+                    {language === 'JP'
+                      ? 'センバコ・ヌサンタラ会員限定の特典:'
+                      : language === 'EN'
+                      ? 'Exclusive Sembako Nusantara Member Benefits:'
+                      : 'Keuntungan Khusus Anggota Sembako Nusantara Jepang:'}
+                  </span>
                 </div>
                 <ul className="list-disc list-inside space-y-1 text-stone-700 pl-1">
-                  <li>Diskon spesial setiap tanggal 25 (Hari Belanja Gajian Diaspora).</li>
-                  <li>Kumpulkan 1 Poin untuk setiap 100 JPY pembelanjaan di website maupun toko fisik.</li>
-                  <li>Gratis ongkir kurir Yamato / Sagawa untuk transaksi tertentu.</li>
+                  {language === 'JP' ? (
+                    <>
+                      <li>毎月25日（給料日セール）の特別会員割引。</li>
+                      <li>実店舗およびオンライン限定の会員プロモーションへの優先アクセス。</li>
+                      <li>一定金額以上のご注文でヤマト運輸・佐川急便の送料無料。</li>
+                    </>
+                  ) : language === 'EN' ? (
+                    <>
+                      <li>Special discounts every 25th of the month (Payday shopping promo).</li>
+                      <li>Access to exclusive member deals in physical stores & online shop.</li>
+                      <li>Free Yamato / Sagawa courier delivery on eligible orders.</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>Diskon spesial setiap tanggal 25 (Hari Belanja Gajian Diaspora).</li>
+                      <li>Akses promo eksklusif dan diskon member di toko fisik & online.</li>
+                      <li>Gratis ongkir kurir Yamato / Sagawa untuk transaksi tertentu.</li>
+                    </>
+                  )}
                 </ul>
               </div>
             </div>
@@ -823,10 +1211,20 @@ export const ProfilePage: React.FC = () => {
                 <div>
                   <h2 className="font-heading font-black text-xl sm:text-2xl text-stone-900 flex items-center gap-2">
                     <span className="material-symbols-outlined text-red-500 text-2xl">favorite</span>
-                    <span>Wishlist Produk Favorit ({totalWishlistItems})</span>
+                    <span>
+                      {language === 'JP'
+                        ? `お気に入り商品リスト (${totalWishlistItems})`
+                        : language === 'EN'
+                        ? `Favorite Products Wishlist (${totalWishlistItems})`
+                        : `Wishlist Produk Favorit (${totalWishlistItems})`}
+                    </span>
                   </h2>
                   <p className="text-xs text-stone-500 mt-1">
-                    Daftar produk yang pernah Anda klik simpan atau sukai.
+                    {language === 'JP'
+                      ? 'ハートマークで保存したお気に入りの商品一覧です。'
+                      : language === 'EN'
+                      ? 'List of products you have liked and saved for later.'
+                      : 'Daftar produk yang pernah Anda klik simpan atau sukai.'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -835,17 +1233,26 @@ export const ProfilePage: React.FC = () => {
                     className="px-3.5 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
                   >
                     <span className="material-symbols-outlined text-sm">open_in_new</span>
-                    <span>Halaman Wishlist Penuh</span>
+                    <span>{language === 'JP' ? 'ウィッシュリスト全体' : language === 'EN' ? 'Full Wishlist' : 'Halaman Wishlist Penuh'}</span>
                   </Link>
                   {wishlist.length > 0 && (
                     <button
                       type="button"
                       onClick={() => {
-                        if (confirm('Kosongkan semua daftar wishlist?')) clearWishlist();
+                        if (
+                          confirm(
+                            language === 'JP'
+                              ? 'お気に入りリストをすべて空にしますか？'
+                              : language === 'EN'
+                              ? 'Clear all wishlist items?'
+                              : 'Kosongkan semua daftar wishlist?'
+                          )
+                        )
+                          clearWishlist();
                       }}
                       className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-[#c41230] text-xs font-bold rounded-xl transition-colors cursor-pointer"
                     >
-                      Kosongkan
+                      {language === 'JP' ? 'すべて削除' : language === 'EN' ? 'Clear All' : 'Kosongkan'}
                     </button>
                   )}
                 </div>
@@ -857,9 +1264,15 @@ export const ProfilePage: React.FC = () => {
                     <span className="material-symbols-outlined text-3xl">favorite_border</span>
                   </div>
                   <div className="space-y-1">
-                    <h3 className="font-bold text-stone-800 text-base">Wishlist Anda Masih Kosong</h3>
+                    <h3 className="font-bold text-stone-800 text-base">
+                      {language === 'JP' ? 'お気に入りはまだ登録されていません' : language === 'EN' ? 'Your Wishlist is Empty' : 'Wishlist Anda Masih Kosong'}
+                    </h3>
                     <p className="text-xs text-stone-500 max-w-sm mx-auto">
-                      Jelajahi katalog sembako halal kami dan klik ikon hati ❤️ pada produk yang Anda sukai untuk menyimpannya di sini.
+                      {language === 'JP'
+                        ? 'ハラール食材カタログをご覧になり、気に入った商品にハートマーク ❤️ を付けて保存してください。'
+                        : language === 'EN'
+                        ? 'Explore our halal grocery catalog and click the heart icon ❤️ to save your favorite products here.'
+                        : 'Jelajahi katalog sembako halal kami dan klik ikon hati ❤️ pada produk yang Anda sukai untuk menyimpannya di sini.'}
                     </p>
                   </div>
                   <Link
@@ -867,7 +1280,7 @@ export const ProfilePage: React.FC = () => {
                     className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#c41230] hover:bg-[#9a0021] text-white text-xs font-bold rounded-full shadow-md transition-all"
                   >
                     <span className="material-symbols-outlined text-sm">storefront</span>
-                    <span>Mulai Jelajah Katalog</span>
+                    <span>{language === 'JP' ? 'カタログを見る' : language === 'EN' ? 'Explore Catalog' : 'Mulai Jelajah Katalog'}</span>
                   </Link>
                 </div>
               ) : (
@@ -880,11 +1293,11 @@ export const ProfilePage: React.FC = () => {
                       <div className="relative">
                         <Link to={`/product/${product.id}`} className="block overflow-hidden rounded-xl bg-stone-50 aspect-square">
                           <img
-                            src={product.image}
+                            src={product.image || '/placeholder-upload.svg'}
                             alt={product.name}
                             className="w-full h-full object-contain p-2 hover:scale-105 transition-transform"
                             onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
+                              (e.target as HTMLImageElement).src = '/placeholder-upload.svg';
                             }}
                           />
                         </Link>
@@ -901,9 +1314,11 @@ export const ProfilePage: React.FC = () => {
                       <div className="mt-3 space-y-2">
                         <Link to={`/product/${product.id}`} className="block">
                           <h4 className="font-bold text-xs text-stone-900 line-clamp-2 hover:text-[#c41230] transition-colors">
-                            {product.name}
+                            {language === 'JP' && product.nameJp ? product.nameJp : language === 'EN' && product.nameEn ? product.nameEn : product.name}
                           </h4>
-                          <span className="text-[10px] text-stone-400 block mt-0.5">{product.category}</span>
+                          <span className="text-[10px] text-stone-400 block mt-0.5">
+                            {language === 'JP' && product.categoryJp ? product.categoryJp : language === 'EN' && product.categoryEn ? product.categoryEn : product.category}
+                          </span>
                         </Link>
 
                         <div className="flex items-center justify-between pt-1">
@@ -915,7 +1330,7 @@ export const ProfilePage: React.FC = () => {
                             className="px-3 py-1 bg-[#c41230] hover:bg-[#9a0021] text-white text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1"
                           >
                             <span className="material-symbols-outlined text-xs">shopping_cart</span>
-                            <span>Beli</span>
+                            <span>{language === 'JP' ? '購入' : language === 'EN' ? 'Buy' : 'Beli'}</span>
                           </Link>
                         </div>
                       </div>
@@ -935,29 +1350,57 @@ export const ProfilePage: React.FC = () => {
                 <div>
                   <h2 className="font-heading font-black text-xl sm:text-2xl text-stone-900 flex items-center gap-2">
                     <span className="material-symbols-outlined text-blue-600 text-2xl">receipt_long</span>
-                    <span>Riwayat Pesanan Saya</span>
+                    <span>
+                      {language === 'JP' ? 'ご注文履歴' : language === 'EN' ? 'My Order History' : 'Riwayat Pesanan Saya'}
+                    </span>
                   </h2>
                   <p className="text-xs text-stone-500 mt-1">
-                    Pantau status pengiriman paket dan unduh bukti transaksi.
+                    {language === 'JP'
+                      ? '配送状況の追跡およびお買い物の領収書をご確認いただけます。'
+                      : language === 'EN'
+                      ? 'Track your parcel shipping status and download transaction receipts.'
+                      : 'Pantau status pengiriman paket dan unduh bukti transaksi.'}
                   </p>
                 </div>
 
                 {/* Status Filter Chips */}
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {(['ALL', 'DIPROSES', 'DIKIRIM', 'SELESAI'] as const).map((filter) => (
-                    <button
-                      key={filter}
-                      type="button"
-                      onClick={() => setOrderFilter(filter)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        orderFilter === filter
-                          ? 'bg-stone-900 text-white shadow-sm'
-                          : 'bg-stone-100 hover:bg-stone-200 text-stone-600'
-                      }`}
-                    >
-                      {filter === 'ALL' ? 'Semua' : filter}
-                    </button>
-                  ))}
+                  {(['ALL', 'DIPROSES', 'DIKIRIM', 'SELESAI'] as const).map((filter) => {
+                    const label =
+                      language === 'JP'
+                        ? filter === 'ALL'
+                          ? 'すべて'
+                          : filter === 'DIPROSES'
+                          ? '準備中'
+                          : filter === 'DIKIRIM'
+                          ? '発送済み'
+                          : '配達完了'
+                        : language === 'EN'
+                        ? filter === 'ALL'
+                          ? 'All'
+                          : filter === 'DIPROSES'
+                          ? 'Processing'
+                          : filter === 'DIKIRIM'
+                          ? 'Shipped'
+                          : 'Completed'
+                        : filter === 'ALL'
+                        ? 'Semua'
+                        : filter;
+                    return (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setOrderFilter(filter)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          orderFilter === filter
+                            ? 'bg-stone-900 text-white shadow-sm'
+                            : 'bg-stone-100 hover:bg-stone-200 text-stone-600'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -967,9 +1410,15 @@ export const ProfilePage: React.FC = () => {
                     <span className="material-symbols-outlined text-3xl">inbox</span>
                   </div>
                   <div className="space-y-1">
-                    <h3 className="font-bold text-stone-800 text-base">Belum Ada Transaksi</h3>
+                    <h3 className="font-bold text-stone-800 text-base">
+                      {language === 'JP' ? 'お取引履歴がありません' : language === 'EN' ? 'No Order Transactions' : 'Belum Ada Transaksi'}
+                    </h3>
                     <p className="text-xs text-stone-500 max-w-sm mx-auto">
-                      Anda belum memiliki pesanan aktif. Mulai belanja produk makanan Indonesia sekarang!
+                      {language === 'JP'
+                        ? '有効なご注文はまだありません。インドネシアの食材を今すぐお買い物しましょう！'
+                        : language === 'EN'
+                        ? 'You do not have any active orders. Start shopping for authentic Indonesian groceries now!'
+                        : 'Anda belum memiliki pesanan aktif. Mulai belanja produk makanan Indonesia sekarang!'}
                     </p>
                   </div>
                   <Link
@@ -977,7 +1426,7 @@ export const ProfilePage: React.FC = () => {
                     className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#c41230] hover:bg-[#9a0021] text-white text-xs font-bold rounded-full shadow-md transition-all"
                   >
                     <span className="material-symbols-outlined text-sm">shopping_bag</span>
-                    <span>Belanja Sekarang</span>
+                    <span>{language === 'JP' ? '今すぐ買い物する' : language === 'EN' ? 'Shop Now' : 'Belanja Sekarang'}</span>
                   </Link>
                 </div>
               ) : (
@@ -989,11 +1438,19 @@ export const ProfilePage: React.FC = () => {
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-3">
                         <div className="space-y-0.5">
-                          <span className="text-xs font-black text-stone-900">Pesanan #{order.id}</span>
+                          <span className="text-xs font-black text-stone-900">
+                            {language === 'JP' ? `注文番号 #${order.id}` : language === 'EN' ? `Order #${order.id}` : `Pesanan #${order.id}`}
+                          </span>
                           <span className="text-[11px] text-stone-400 block">{order.date}</span>
                         </div>
                         <span className="px-3 py-1 bg-amber-50 text-amber-900 border border-amber-200 text-xs font-bold rounded-full">
-                          {order.status}
+                          {language === 'JP'
+                            ? order.status === 'Selesai'
+                              ? '配達完了'
+                              : order.status === 'Dikirim'
+                              ? '発送済み'
+                              : '準備中'
+                            : order.status}
                         </span>
                       </div>
 
@@ -1010,7 +1467,9 @@ export const ProfilePage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center justify-between pt-3 border-t border-stone-100 text-xs">
-                        <span className="text-stone-500">Total Pembayaran:</span>
+                        <span className="text-stone-500">
+                          {language === 'JP' ? '合計お支払い金額:' : language === 'EN' ? 'Total Payment:' : 'Total Pembayaran:'}
+                        </span>
                         <span className="text-base font-black text-[#c41230]">¥{order.totalAmount?.toLocaleString()}</span>
                       </div>
                     </div>
@@ -1029,10 +1488,20 @@ export const ProfilePage: React.FC = () => {
                 <div>
                   <h2 className="font-heading font-black text-xl sm:text-2xl text-stone-900 flex items-center gap-2">
                     <span className="material-symbols-outlined text-emerald-600 text-2xl">shopping_cart</span>
-                    <span>Keranjang Belanja Aktif ({totalItems} Item)</span>
+                    <span>
+                      {language === 'JP'
+                        ? `現在の買い物かご (${totalItems} 点)`
+                        : language === 'EN'
+                        ? `Active Shopping Cart (${totalItems} Items)`
+                        : `Keranjang Belanja Aktif (${totalItems} Item)`}
+                    </span>
                   </h2>
                   <p className="text-xs text-stone-500 mt-1">
-                    Item yang siap Anda checkout untuk pengiriman ke seluruh prefektur Jepang.
+                    {language === 'JP'
+                      ? '日本全国47都道府県へ即日発送可能な商品です。'
+                      : language === 'EN'
+                      ? 'Items ready for checkout to all 47 prefectures in Japan.'
+                      : 'Item yang siap Anda checkout untuk pengiriman ke seluruh prefektur Jepang.'}
                   </p>
                 </div>
                 <Link
@@ -1040,7 +1509,7 @@ export const ProfilePage: React.FC = () => {
                   className="px-4 py-2 bg-[#c41230] hover:bg-[#9a0021] text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-sm">shopping_bag</span>
-                  <span>Buka Halaman Checkout</span>
+                  <span>{language === 'JP' ? 'お会計画面へ進む' : language === 'EN' ? 'Go to Checkout' : 'Buka Halaman Checkout'}</span>
                 </Link>
               </div>
 
@@ -1050,16 +1519,22 @@ export const ProfilePage: React.FC = () => {
                     <span className="material-symbols-outlined text-3xl">shopping_cart</span>
                   </div>
                   <div className="space-y-1">
-                    <h3 className="font-bold text-stone-800 text-base">Keranjang Anda Masih Kosong</h3>
+                    <h3 className="font-bold text-stone-800 text-base">
+                      {language === 'JP' ? '買い物かごは空です' : language === 'EN' ? 'Your Cart is Empty' : 'Keranjang Anda Masih Kosong'}
+                    </h3>
                     <p className="text-xs text-stone-500 max-w-sm mx-auto">
-                      Tambahkan produk sembako, bumbu instan, atau camilan favorit Anda ke keranjang.
+                      {language === 'JP'
+                        ? 'お好みのインドネシア食材や調味料、お菓子をカートに追加してください。'
+                        : language === 'EN'
+                        ? 'Add groceries, instant seasonings, or snacks to your cart.'
+                        : 'Tambahkan produk sembako, bumbu instan, atau camilan favorit Anda ke keranjang.'}
                     </p>
                   </div>
                   <Link
                     to="/catalog"
                     className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#c41230] hover:bg-[#9a0021] text-white text-xs font-bold rounded-full shadow-md transition-all"
                   >
-                    <span>Mulai Belanja</span>
+                    <span>{language === 'JP' ? 'お買い物を始める' : language === 'EN' ? 'Start Shopping' : 'Mulai Belanja'}</span>
                   </Link>
                 </div>
               ) : (
@@ -1069,12 +1544,17 @@ export const ProfilePage: React.FC = () => {
                       <div key={product.id} className="py-3.5 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={product.image}
+                            src={product.image || '/placeholder-upload.svg'}
                             alt={product.name}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/placeholder-upload.svg';
+                            }}
                             className="w-12 h-12 object-contain rounded-xl bg-stone-50 p-1 border border-stone-200"
                           />
                           <div>
-                            <h4 className="font-bold text-xs text-stone-900 line-clamp-1">{product.name}</h4>
+                            <h4 className="font-bold text-xs text-stone-900 line-clamp-1">
+                              {language === 'JP' && product.nameJp ? product.nameJp : language === 'EN' && product.nameEn ? product.nameEn : product.name}
+                            </h4>
                             <div className="text-[11px] text-stone-500 mt-0.5">
                               ¥{product.price.toLocaleString()} × {quantity}
                             </div>
@@ -1116,14 +1596,16 @@ export const ProfilePage: React.FC = () => {
 
                   <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <span className="text-xs text-stone-500 block">Total Estimasi Belanja:</span>
+                      <span className="text-xs text-stone-500 block">
+                        {language === 'JP' ? '合計お見積もり金額:' : language === 'EN' ? 'Estimated Total:' : 'Total Estimasi Belanja:'}
+                      </span>
                       <span className="text-xl font-black text-[#c41230]">¥{totalPrice.toLocaleString()}</span>
                     </div>
                     <Link
                       to="/checkout"
                       className="px-6 py-2.5 bg-[#c41230] hover:bg-[#9a0021] text-white text-xs font-bold rounded-xl shadow-md transition-all"
                     >
-                      Lanjut ke Pembayaran →
+                      {language === 'JP' ? 'お会計へ進む →' : language === 'EN' ? 'Proceed to Checkout →' : 'Lanjut ke Pembayaran →'}
                     </Link>
                   </div>
                 </div>
@@ -1139,10 +1621,16 @@ export const ProfilePage: React.FC = () => {
               <div className="border-b border-stone-100 pb-4">
                 <h2 className="font-heading font-black text-xl sm:text-2xl text-stone-900 flex items-center gap-2">
                   <span className="material-symbols-outlined text-purple-600 text-2xl">lock_reset</span>
-                  <span>Ganti Password & Keamanan Akun</span>
+                  <span>
+                    {language === 'JP' ? 'パスワード変更 & アカウント保護' : language === 'EN' ? 'Change Password & Account Security' : 'Ganti Password & Keamanan Akun'}
+                  </span>
                 </h2>
                 <p className="text-xs text-stone-500 mt-1">
-                  Amankan akun Anda dengan memperbarui password secara berkala.
+                  {language === 'JP'
+                    ? '定期的にパスワードを更新して、アカウントの安全性を確保してください。'
+                    : language === 'EN'
+                    ? 'Secure your account by periodically updating your password.'
+                    : 'Amankan akun Anda dengan memperbarui password secara berkala.'}
                 </p>
               </div>
 
@@ -1163,47 +1651,108 @@ export const ProfilePage: React.FC = () => {
               <form onSubmit={handleChangePassword} className="max-w-lg space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    Password Saat Ini / Lama
+                    {language === 'JP' ? '現在のパスワード' : language === 'EN' ? 'Current / Old Password' : 'Password Saat Ini / Lama'}
                   </label>
-                  <input
-                    type="password"
-                    value={currentPass}
-                    onChange={(e) => setCurrentPass(e.target.value)}
-                    placeholder="Masukkan password saat ini"
-                    className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] outline-none transition-all"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type={showCurrentPass ? 'text' : 'password'}
+                      value={currentPass}
+                      onChange={(e) => setCurrentPass(e.target.value)}
+                      placeholder={
+                        language === 'JP'
+                          ? 'げんざい の パスワード を にゅうりょく'
+                          : language === 'EN'
+                          ? 'Enter current password'
+                          : 'Masukkan password saat ini'
+                      }
+                      className="w-full pl-4 pr-11 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] outline-none transition-all"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPass(!showCurrentPass)}
+                      aria-label={showCurrentPass ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+                      title={showCurrentPass ? (language === 'JP' ? 'パスワードを隠す' : language === 'EN' ? 'Hide' : 'Sembunyikan') : (language === 'JP' ? 'パスワードを表示' : language === 'EN' ? 'Show' : 'Lihat')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 transition-colors p-1 rounded-lg hover:bg-stone-200/50 flex items-center justify-center cursor-pointer"
+                    >
+                      <span className={`material-symbols-outlined text-lg transition-transform duration-200 ${showCurrentPass ? 'text-[#c41230]' : 'text-stone-400'}`}>
+                        {showCurrentPass ? 'visibility' : 'visibility_off'}
+                      </span>
+                    </button>
+                  </div>
                   <span className="text-[11px] text-stone-400 mt-1 block">
-                    (Default akun customer: <strong>customer123</strong> atau <strong>123456</strong>)
+                    {language === 'JP' ? (
+                      <>(初期パスワードの目安: <strong>customer123</strong> または <strong>123456</strong>)</>
+                    ) : (
+                      <>(Default akun customer: <strong>customer123</strong> atau <strong>123456</strong>)</>
+                    )}
                   </span>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    Password Baru
+                    {language === 'JP' ? '新しいパスワード' : language === 'EN' ? 'New Password' : 'Password Baru'}
                   </label>
-                  <input
-                    type="password"
-                    value={newPass}
-                    onChange={(e) => setNewPass(e.target.value)}
-                    placeholder="Minimal 6 karakter"
-                    className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] outline-none transition-all"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type={showNewPass ? 'text' : 'password'}
+                      value={newPass}
+                      onChange={(e) => setNewPass(e.target.value)}
+                      placeholder={
+                        language === 'JP'
+                          ? '6もじ いじょう の パスワード'
+                          : language === 'EN'
+                          ? 'Minimum 6 characters'
+                          : 'Minimal 6 karakter'
+                      }
+                      className="w-full pl-4 pr-11 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] outline-none transition-all"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPass(!showNewPass)}
+                      aria-label={showNewPass ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+                      title={showNewPass ? (language === 'JP' ? 'パスワードを隠す' : language === 'EN' ? 'Hide' : 'Sembunyikan') : (language === 'JP' ? 'パスワードを表示' : language === 'EN' ? 'Show' : 'Lihat')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 transition-colors p-1 rounded-lg hover:bg-stone-200/50 flex items-center justify-center cursor-pointer"
+                    >
+                      <span className={`material-symbols-outlined text-lg transition-transform duration-200 ${showNewPass ? 'text-[#c41230]' : 'text-stone-400'}`}>
+                        {showNewPass ? 'visibility' : 'visibility_off'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    Konfirmasi Password Baru
+                    {language === 'JP' ? '新しいパスワード（確認用）' : language === 'EN' ? 'Confirm New Password' : 'Konfirmasi Password Baru'}
                   </label>
-                  <input
-                    type="password"
-                    value={confirmPass}
-                    onChange={(e) => setConfirmPass(e.target.value)}
-                    placeholder="Ulangi password baru"
-                    className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] outline-none transition-all"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type={showConfirmPass ? 'text' : 'password'}
+                      value={confirmPass}
+                      onChange={(e) => setConfirmPass(e.target.value)}
+                      placeholder={
+                        language === 'JP'
+                          ? 'あたらしい パスワード を もういちど にゅうりょく'
+                          : language === 'EN'
+                          ? 'Repeat new password'
+                          : 'Ulangi password baru'
+                      }
+                      className="w-full pl-4 pr-11 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] outline-none transition-all"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPass(!showConfirmPass)}
+                      aria-label={showConfirmPass ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+                      title={showConfirmPass ? (language === 'JP' ? 'パスワードを隠す' : language === 'EN' ? 'Hide' : 'Sembunyikan') : (language === 'JP' ? 'パスワードを表示' : language === 'EN' ? 'Show' : 'Lihat')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 transition-colors p-1 rounded-lg hover:bg-stone-200/50 flex items-center justify-center cursor-pointer"
+                    >
+                      <span className={`material-symbols-outlined text-lg transition-transform duration-200 ${showConfirmPass ? 'text-[#c41230]' : 'text-stone-400'}`}>
+                        {showConfirmPass ? 'visibility' : 'visibility_off'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 <button
@@ -1216,9 +1765,42 @@ export const ProfilePage: React.FC = () => {
                   ) : (
                     <span className="material-symbols-outlined text-base">save</span>
                   )}
-                  <span>Simpan Perubahan Password</span>
+                  <span>
+                    {language === 'JP' ? 'パスワードの変更を保存' : language === 'EN' ? 'Save Password Changes' : 'Simpan Perubahan Password'}
+                  </span>
                 </button>
               </form>
+
+              {/* Danger Zone: Hapus Akun Pengguna */}
+              <div className="pt-8 border-t border-stone-200 mt-6">
+                <div className="bg-red-50/80 border border-red-200 rounded-2xl p-5 sm:p-6 space-y-3">
+                  <div className="flex items-center gap-2 text-red-700 font-bold text-sm">
+                    <span className="material-symbols-outlined text-red-600 text-xl">warning</span>
+                    <span>
+                      {language === 'JP' ? '危険な設定: アカウントの削除' : language === 'EN' ? 'Danger Zone: Delete Account' : 'Zona Bahaya: Hapus Akun Pengguna'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-red-600/90 leading-relaxed">
+                    {language === 'JP'
+                      ? 'アカウントを削除すると、プロフィール情報、デジタルVIP会員証、カート、すべてのログインセッションが永久に消去されます。この操作は取り消せません。'
+                      : language === 'EN'
+                      ? 'Deleting your account will permanently wipe your profile data, VIP member barcode, shopping cart, and saved sessions. This action cannot be undone.'
+                      : 'Menghapus akun Anda akan menghapus data profil, barcode keanggotaan VIP, keranjang, dan seluruh sesi tersimpan secara permanen. Tindakan ini tidak dapat dibatalkan.'}
+                  </p>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteModal(true)}
+                      className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base">delete_forever</span>
+                      <span>
+                        {language === 'JP' ? 'アカウントを完全に削除する' : language === 'EN' ? 'Permanently Delete Account' : 'Hapus Akun Pengguna Secara Permanen'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1230,10 +1812,20 @@ export const ProfilePage: React.FC = () => {
               <div className="border-b border-stone-100 pb-4">
                 <h2 className="font-heading font-black text-xl sm:text-2xl text-stone-900 flex items-center gap-2">
                   <span className="material-symbols-outlined text-amber-600 text-2xl">edit</span>
-                  <span>Ubah Informasi Profil & Alamat Jepang</span>
+                  <span>
+                    {language === 'JP'
+                      ? 'プロフィールとお届け先住所の変更'
+                      : language === 'EN'
+                      ? 'Edit Profile & Japan Shipping Address'
+                      : 'Ubah Informasi Profil & Alamat Jepang'}
+                  </span>
                 </h2>
                 <p className="text-xs text-stone-500 mt-1">
-                  Perbarui alamat tempat tinggal Anda untuk kelancaran pengiriman paket kurir Yamato & Sagawa.
+                  {language === 'JP'
+                    ? 'ヤマト運輸や佐川急便の配送がスムーズに行われるよう、正確なご住所を登録してください。'
+                    : language === 'EN'
+                    ? 'Update your residence address for smooth courier delivery via Yamato & Sagawa Express.'
+                    : 'Perbarui alamat tempat tinggal Anda untuk kelancaran pengiriman paket kurir Yamato & Sagawa.'}
                 </p>
               </div>
 
@@ -1254,12 +1846,19 @@ export const ProfilePage: React.FC = () => {
               <form onSubmit={handleSaveProfile} className="space-y-4 max-w-lg">
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    Nama Lengkap
+                    {language === 'JP' ? '氏名（フルネーム）' : language === 'EN' ? 'Full Name' : 'Nama Lengkap'}
                   </label>
                   <input
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
+                    placeholder={
+                      language === 'JP'
+                        ? 'れい: やまだ たろう'
+                        : language === 'EN'
+                        ? 'e.g. John Doe'
+                        : 'Contoh: Willy Pratama'
+                    }
                     className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] outline-none transition-all"
                     required
                   />
@@ -1267,39 +1866,57 @@ export const ProfilePage: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    Nomor WhatsApp / Telepon Jepang
+                    {language === 'JP' ? 'WhatsApp番号 / 日本の電話番号' : language === 'EN' ? 'WhatsApp / Phone Number' : 'Nomor WhatsApp / Telepon Jepang'}
                   </label>
                   <input
                     type="tel"
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
-                    placeholder="+81 80-XXXX-XXXX"
+                    placeholder={
+                      language === 'JP'
+                        ? 'れい: 080-1234-5678'
+                        : '+81 80-XXXX-XXXX'
+                    }
                     className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] outline-none transition-all"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    Alamat Email
+                    {language === 'JP' ? 'メールアドレス' : language === 'EN' ? 'Email Address' : 'Alamat Email'}
                   </label>
                   <input
                     type="email"
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
-                    placeholder="nama@email.com"
+                    placeholder={
+                      language === 'JP'
+                        ? 'れい: mail@example.com'
+                        : 'nama@email.com'
+                    }
                     className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] outline-none transition-all"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    Alamat Lengkap di Jepang (Termasuk Nama Prefektur, Distrik & Apartemen)
+                    {language === 'JP'
+                      ? '日本国内の詳細な住所（郵便番号・都道府県・市区町村・マンション名・部屋番号）'
+                      : language === 'EN'
+                      ? 'Complete Address in Japan (Postal code, Prefecture, District & Apartment)'
+                      : 'Alamat Lengkap di Jepang (Termasuk Nama Prefektur, Distrik & Apartemen)'}
                   </label>
                   <textarea
                     rows={3}
                     value={editAddress}
                     onChange={(e) => setEditAddress(e.target.value)}
-                    placeholder="Contoh: 〒134-0088 Tokyo-to, Edogawa-ku, Nishi-Kasai 3-1-4 Mansion Nusantara 201"
+                    placeholder={
+                      language === 'JP'
+                        ? 'れい: 〒134-0088 とうきょうと えどがわく にしかさい 3-1-4 マンション 201ごうしつ'
+                        : language === 'EN'
+                        ? 'e.g. 〒134-0088 Tokyo-to, Edogawa-ku, Nishi-Kasai 3-1-4 Mansion 201'
+                        : 'Contoh: 〒134-0088 Tokyo-to, Edogawa-ku, Nishi-Kasai 3-1-4 Mansion Nusantara 201'
+                    }
                     className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] outline-none transition-all resize-none"
                   />
                 </div>
@@ -1309,13 +1926,91 @@ export const ProfilePage: React.FC = () => {
                   className="px-6 py-3 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-base">save</span>
-                  <span>Simpan Perubahan Data</span>
+                  <span>{language === 'JP' ? '登録内容を保存する' : language === 'EN' ? 'Save Changes' : 'Simpan Perubahan Data'}</span>
                 </button>
               </form>
             </div>
           )}
         </div>
       </div>
+
+      {/* MODAL KONFIRMASI HAPUS AKUN */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-red-200 text-stone-900 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center text-red-600 shrink-0">
+                <span className="material-symbols-outlined text-2xl">delete_forever</span>
+              </div>
+              <div>
+                <h3 className="font-heading font-black text-lg text-stone-900">
+                  {language === 'JP' ? 'アカウントを完全に削除しますか？' : language === 'EN' ? 'Permanently Delete Account?' : 'Hapus Akun Secara Permanen?'}
+                </h3>
+                <p className="text-xs text-stone-500">
+                  {language === 'JP' ? 'この操作は取り消せません' : language === 'EN' ? 'This action is permanent and cannot be undone' : 'Tindakan ini permanen dan tidak dapat dipulihkan'}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-red-50 p-4 rounded-2xl border border-red-100 text-xs text-stone-700 space-y-2">
+              <p className="font-bold text-red-800">
+                {language === 'JP'
+                  ? `「${currentUser?.name}」のアカウントを削除してもよろしいですか？`
+                  : language === 'EN'
+                  ? `Are you sure you want to delete account "${currentUser?.name}"?`
+                  : `Apakah Anda yakin ingin menghapus akun "${currentUser?.name}"?`}
+              </p>
+              <ul className="list-disc pl-4 space-y-1 text-[11px] text-stone-600">
+                {language === 'JP' ? (
+                  <>
+                    <li>ログインセッションは即時ログアウトされます。</li>
+                    <li>デジタル会員証や特典は利用できなくなります。</li>
+                    <li>この端末に保存されたデータは消去されます。</li>
+                  </>
+                ) : language === 'EN' ? (
+                  <>
+                    <li>Your login session will be logged out immediately.</li>
+                    <li>Digital member card & loyalty perks can no longer be used.</li>
+                    <li>Locally saved data on this device will be cleared.</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Sesi login Anda akan langsung dikeluarkan.</li>
+                    <li>Kartu member digital & poin belanja tidak dapat digunakan lagi.</li>
+                    <li>Data tersimpan di perangkat ini akan dibersihkan.</li>
+                  </>
+                )}
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeletingAccount}
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 font-bold text-xs cursor-pointer"
+              >
+                {language === 'JP' ? 'キャンセル' : language === 'EN' ? 'Cancel' : 'Batal'}
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingAccount}
+                onClick={handleDeleteAccount}
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingAccount ? (
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                ) : (
+                  <span className="material-symbols-outlined text-base">delete_forever</span>
+                )}
+                <span>
+                  {language === 'JP' ? 'はい、アカウントを削除します' : language === 'EN' ? 'Yes, Delete My Account' : 'Ya, Hapus Akun Saya'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

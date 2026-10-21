@@ -141,7 +141,7 @@ export const AccountingPage: React.FC = () => {
   });
   const [newTransfer, setNewTransfer] = useState({
     fromAccount: 'Kas POS Kasir Tokyo',
-    toAccount: 'Bank Japan Post (Yucho)',
+    toAccount: 'Kas Brankas Toko',
     amount: 50000,
     fee: 0,
     notes: ''
@@ -167,7 +167,7 @@ export const AccountingPage: React.FC = () => {
     };
     setCashTransferList([item, ...cashTransferList]);
     setIsCashTransferModalOpen(false);
-    setNewTransfer({ fromAccount: 'Kas POS Kasir Tokyo', toAccount: 'Bank Japan Post (Yucho)', amount: 50000, fee: 0, notes: '' });
+    setNewTransfer({ fromAccount: 'Kas POS Kasir Tokyo', toAccount: 'Kas Brankas Toko', amount: 50000, fee: 0, notes: '' });
   };
 
   // =========================================================================
@@ -284,6 +284,15 @@ export const AccountingPage: React.FC = () => {
     }
   };
 
+  // Dynamic Bank & Cash Accounts List available across Kas Keluar, Kas Masuk, Kas Transfer
+  const availableCashAccounts = useMemo(() => {
+    const defaults = [
+      'Kas POS Kasir Tokyo (Laci Tunai)'
+    ];
+    const registered = bankAccountsList.map((a: any) => `${a.accountName} (${a.bankName})`);
+    return Array.from(new Set([...defaults, ...registered]));
+  }, [bankAccountsList]);
+
   // =========================================================================
   // SUB-MODULE 6: MODAL AWAL (INITIAL CAPITAL) STATE & HANDLERS
   // =========================================================================
@@ -295,8 +304,8 @@ export const AccountingPage: React.FC = () => {
   const [newCapital, setNewCapital] = useState({
     sourceType: 'OWNER_EQUITY',
     sourceName: 'Willy Pratama (Owner)',
-    destinationType: 'BANK',
-    destinationAccount: 'Bank Japan Post (ゆうちょ銀行)',
+    destinationType: 'CASH',
+    destinationAccount: 'Kas POS Kasir Tokyo (Laci Tunai)',
     amount: 500000,
     notes: 'Setoran modal awal usaha Sembako Nusantara Jepang'
   });
@@ -374,41 +383,56 @@ export const AccountingPage: React.FC = () => {
 
   const isZeroState = totalTransactionCount === 0 && totalInitialCapital === 0;
 
-  // Estimated HPP & Gross Profit (0 when no transactions)
-  const estimatedHPP = totalRevenue === 0 ? 0 : Math.round(totalRevenue * 0.62);
+  // Real HPP & Gross Profit from products sold
+  const { posHPP, webHPP, totalHPP } = useMemo(() => {
+    let posH = 0;
+    let webH = 0;
+    const prodCostMap = new Map<string, number>();
+    products.forEach((p) => {
+      prodCostMap.set(p.id, p.costPrice || Math.round(p.price * 0.65));
+    });
+
+    posTransactions.forEach((tx) => {
+      tx.items?.forEach((item) => {
+        const prodId = item.productId || (item as any).id;
+        const unitCost = prodCostMap.get(prodId) || Math.round((item.price || 0) * 0.65);
+        posH += unitCost * (item.quantity || 1);
+      });
+    });
+
+    orders.forEach((ord) => {
+      ord.items?.forEach((item) => {
+        const prodId = item.id || (item as any).productId;
+        const unitCost = prodCostMap.get(prodId) || Math.round((item.price || 0) * 0.65);
+        webH += unitCost * (item.quantity || 1);
+      });
+    });
+
+    return { posHPP: posH, webHPP: webH, totalHPP: posH + webH };
+  }, [posTransactions, orders, products]);
+
+  const estimatedHPP = totalHPP;
   const grossProfit = totalRevenue === 0 ? 0 : totalRevenue - estimatedHPP;
   const grossMarginPercent = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 100) : 0;
 
-  // Operating Expenses (0 when in clean zero state, dynamic when active)
-  const operatingExpenses = {
-    rentWarehouse: totalTransactionCount === 0 ? 0 : 180000,
-    electricityColdStorage: totalTransactionCount === 0 ? 0 : 65000,
-    shippingSubsidyPackaging: totalTransactionCount === 0 ? 0 : 48000,
-    paymentGatewayFees: totalTransactionCount === 0 ? 0 : Math.round(totalRevenue * 0.0324),
-    staffPayroll: totalTransactionCount === 0 ? 0 : 220000,
-    marketingPromo: totalTransactionCount === 0 ? 0 : 35000
-  };
-
-  const totalOperatingExpenses = totalTransactionCount === 0
-    ? 0
-    : operatingExpenses.rentWarehouse +
-      operatingExpenses.electricityColdStorage +
-      operatingExpenses.shippingSubsidyPackaging +
-      operatingExpenses.paymentGatewayFees +
-      operatingExpenses.staffPayroll +
-      operatingExpenses.marketingPromo;
+  // Real Operating Expenses from Kas Keluar (cashOutList)
+  const totalOperatingExpenses = useMemo(() => {
+    return cashOutList.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  }, [cashOutList]);
 
   // Operating Profit
-  const operatingProfit = totalTransactionCount === 0 ? 0 : grossProfit - totalOperatingExpenses;
+  const operatingProfit = totalTransactionCount === 0 && totalOperatingExpenses === 0 ? 0 : grossProfit - totalOperatingExpenses;
   const operatingMarginPercent = totalRevenue > 0 ? Math.round((operatingProfit / totalRevenue) * 100) : 0;
 
-  // Japanese Consumption Tax (JCT 8% food, 10% shipping/services)
+  // Japanese Consumption Tax (JCT from real transactions)
+  const realTaxPos = posTransactions.reduce((acc, curr) => acc + (Number(curr.taxAmount) || 0), 0);
+  const realTaxWeb = orders.reduce((acc, curr) => acc + (Number(curr.taxAmount) || 0), 0);
   const taxFood8 = totalRevenue === 0 ? 0 : Math.round((totalRevenue / 1.08) * 0.08);
   const taxShipping10 = totalOnlineRevenue === 0 ? 0 : Math.round(((totalOnlineRevenue * 0.15) / 1.1) * 0.1);
-  const totalTaxJCT = taxFood8 + taxShipping10;
+  const totalTaxJCT = (realTaxPos + realTaxWeb) || (totalRevenue === 0 ? 0 : taxFood8 + taxShipping10);
 
   // Net Profit
-  const netProfit = totalTransactionCount === 0 ? 0 : operatingProfit - Math.round(totalTaxJCT * 0.2);
+  const netProfit = operatingProfit - totalTaxJCT;
   const netProfitMarginPercent = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
 
   // =========================================================================
@@ -1715,12 +1739,12 @@ export const AccountingPage: React.FC = () => {
                   </div>
                   <div className="pl-4 pr-2 space-y-1.5 text-stone-600">
                     <div className="flex justify-between">
-                      <span>{txt.pnlCogsItems}</span>
-                      <span className="font-mono">-¥{Math.round(estimatedHPP * 0.9).toLocaleString()}</span>
+                      <span>• HPP Barang Terjual Kasir POS Toko</span>
+                      <span className="font-mono">-¥{posHPP.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>{txt.pnlCogsCustoms}</span>
-                      <span className="font-mono">-¥{Math.round(estimatedHPP * 0.1).toLocaleString()}</span>
+                      <span>• HPP Barang Terjual E-Commerce Web</span>
+                      <span className="font-mono">-¥{webHPP.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -1738,30 +1762,18 @@ export const AccountingPage: React.FC = () => {
                     <span className="font-mono text-red-600">-¥{totalOperatingExpenses.toLocaleString()}</span>
                   </div>
                   <div className="pl-4 pr-2 space-y-1.5 text-stone-600">
-                    <div className="flex justify-between">
-                      <span>{txt.pnlOpexRent}</span>
-                      <span className="font-mono">-¥{operatingExpenses.rentWarehouse.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>{txt.pnlOpexElec}</span>
-                      <span className="font-mono">-¥{operatingExpenses.electricityColdStorage.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>{txt.pnlOpexPayroll}</span>
-                      <span className="font-mono">-¥{operatingExpenses.staffPayroll.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>{txt.pnlOpexPack}</span>
-                      <span className="font-mono">-¥{operatingExpenses.shippingSubsidyPackaging.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>{txt.pnlOpexGateway}</span>
-                      <span className="font-mono">-¥{operatingExpenses.paymentGatewayFees.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>{txt.pnlOpexPromo}</span>
-                      <span className="font-mono">-¥{operatingExpenses.marketingPromo.toLocaleString()}</span>
-                    </div>
+                    {cashOutList.length > 0 ? (
+                      cashOutList.map((item: any) => (
+                        <div key={item.id} className="flex justify-between">
+                          <span>• {item.category}: {item.recipient || item.notes || item.refNumber}</span>
+                          <span className="font-mono">-¥{Number(item.amount).toLocaleString()}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-stone-400 italic text-xs py-1">
+                        Belum ada catatan kas keluar operasional di tab Kas Keluar (¥0)
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -2937,9 +2949,9 @@ export const AccountingPage: React.FC = () => {
                     onChange={(e) => setNewCashOut({ ...newCashOut, sourceAccount: e.target.value })}
                     className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-800 font-bold outline-none focus:border-rose-600"
                   >
-                    <option value="Kas POS Kasir Tokyo">Kas POS Kasir Tokyo (Laci Tunai)</option>
-                    <option value="Bank Japan Post (Yucho)">Bank Japan Post (Yucho Bank)</option>
-                    <option value="Bank MUFG Tokyo">Bank MUFG Tokyo (Rekening Utama)</option>
+                    {availableCashAccounts.map((acc) => (
+                      <option key={acc} value={acc}>{acc}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -3051,9 +3063,9 @@ export const AccountingPage: React.FC = () => {
                     onChange={(e) => setNewCashIn({ ...newCashIn, targetAccount: e.target.value })}
                     className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-800 font-bold outline-none focus:border-emerald-600"
                   >
-                    <option value="Bank MUFG Tokyo">Bank MUFG Tokyo (Rekening Utama)</option>
-                    <option value="Bank Japan Post (Yucho)">Bank Japan Post (Yucho Bank)</option>
-                    <option value="Kas POS Kasir Tokyo">Kas POS Kasir Tokyo (Laci Tunai)</option>
+                    {availableCashAccounts.map((acc) => (
+                      <option key={acc} value={acc}>{acc}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -3148,9 +3160,9 @@ export const AccountingPage: React.FC = () => {
                     onChange={(e) => setNewTransfer({ ...newTransfer, fromAccount: e.target.value })}
                     className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-800 font-bold outline-none focus:border-blue-600"
                   >
-                    <option value="Kas POS Kasir Tokyo">Kas POS Kasir Tokyo (Laci Tunai)</option>
-                    <option value="Bank MUFG Tokyo">Bank MUFG Tokyo (Rekening Utama)</option>
-                    <option value="Bank Japan Post (Yucho)">Bank Japan Post (Yucho Bank)</option>
+                    {availableCashAccounts.map((acc) => (
+                      <option key={acc} value={acc}>{acc}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -3163,9 +3175,9 @@ export const AccountingPage: React.FC = () => {
                     onChange={(e) => setNewTransfer({ ...newTransfer, toAccount: e.target.value })}
                     className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-800 font-bold outline-none focus:border-blue-600"
                   >
-                    <option value="Bank Japan Post (Yucho)">Bank Japan Post (Yucho Bank)</option>
-                    <option value="Bank MUFG Tokyo">Bank MUFG Tokyo (Rekening Utama)</option>
-                    <option value="Kas POS Kasir Tokyo">Kas POS Kasir Tokyo (Laci Tunai)</option>
+                    {availableCashAccounts.map((acc) => (
+                      <option key={acc} value={acc}>{acc}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -3481,7 +3493,7 @@ export const AccountingPage: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. 10120-12345671"
+                      placeholder="Contoh: 12345-67890123"
                       value={newBankAccount.accountNumber}
                       onChange={(e) => setNewBankAccount({ ...newBankAccount, accountNumber: e.target.value })}
                       className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-800 font-mono font-bold outline-none focus:border-teal-600"

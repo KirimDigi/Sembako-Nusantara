@@ -28,6 +28,7 @@ import { RecipesBlogPage } from './pages/RecipesBlogPage';
 import { ReferralPartnerPage } from './pages/ReferralPartnerPage';
 import { GuidePaymentPage } from './pages/GuidePaymentPage';
 import { ContactPage } from './pages/ContactPage';
+import { AboutPage } from './pages/AboutPage';
 
 // Admin & POS Pages (Protected Behind Login)
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
@@ -40,8 +41,10 @@ import { OrdersAdminPage } from './pages/admin/OrdersAdminPage';
 import { AccountingPage } from './pages/admin/AccountingPage';
 import { CompetitorPricingPage } from './pages/admin/CompetitorPricingPage';
 import { CRMPage } from './pages/admin/CRMPage';
+import { MasterPromotionsPage } from './pages/admin/MasterPromotionsPage';
 import { SettingsPage } from './pages/admin/SettingsPage';
 import { ReportsAdminPage } from './pages/admin/ReportsAdminPage';
+import { POSCustomerDisplayPage } from './pages/admin/POSCustomerDisplayPage';
 
 // Helper component to scroll to top on page change
 const ScrollToTop: React.FC = () => {
@@ -57,6 +60,12 @@ const ScrollToTop: React.FC = () => {
 // Main Layout Router Content
 const AppContent: React.FC = () => {
   const location = useLocation();
+
+  // Standalone Customer-Facing Display (No Header/Footer, No Sidebar)
+  if (location.pathname === '/pos-display' || location.pathname === '/admin/pos/display') {
+    return <POSCustomerDisplayPage />;
+  }
+
   const isAdminRoute = location.pathname.startsWith('/admin');
 
   if (isAdminRoute) {
@@ -64,6 +73,7 @@ const AppContent: React.FC = () => {
       <Routes>
         {/* Unprotected Login Page */}
         <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route path="/admin/pos/display" element={<POSCustomerDisplayPage />} />
 
         {/* Protected Admin & POS Routes */}
         <Route
@@ -139,6 +149,46 @@ const AppContent: React.FC = () => {
           }
         />
         <Route
+          path="/admin/promotions"
+          element={
+            <ProtectedRoute>
+              <MasterPromotionsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/diskon"
+          element={
+            <ProtectedRoute>
+              <MasterPromotionsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/promo"
+          element={
+            <ProtectedRoute>
+              <MasterPromotionsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/voucher"
+          element={
+            <ProtectedRoute>
+              <MasterPromotionsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/harga-grosir"
+          element={
+            <ProtectedRoute>
+              <MasterPromotionsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/settings"
           element={
             <ProtectedRoute>
@@ -181,6 +231,8 @@ const AppContent: React.FC = () => {
       <main className="flex-1 pt-[120px] w-full max-w-full overflow-x-hidden">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/tentang-kami" element={<AboutPage />} />
           <Route path="/catalog" element={<CatalogPage />} />
           <Route path="/katalog" element={<CatalogPage />} />
           <Route path="/products" element={<CatalogPage />} />
@@ -192,12 +244,13 @@ const AppContent: React.FC = () => {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/account" element={<ProfilePage />} />
           <Route path="/orders" element={<AccountOrdersPage />} />
+          <Route path="/pesanan-saya" element={<AccountOrdersPage />} />
           <Route path="/tracking" element={<TrackingPage />} />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route path="/kontak" element={<ContactPage />} />
+          <Route path="/contact" element={<AboutPage />} />
+          <Route path="/kontak" element={<AboutPage />} />
           <Route path="/recipes" element={<RecipesBlogPage />} />
           <Route path="/referral" element={<ReferralPartnerPage />} />
-          <Route path="/guide" element={<GuidePaymentPage />} />
+          <Route path="/guide" element={<AboutPage />} />
           <Route path="*" element={<HomePage />} />
         </Routes>
       </main>

@@ -4,6 +4,8 @@ import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAdmin } from '../context/AdminContext';
 import { FreeShippingProgressBar } from '../components/common/FreeShippingProgressBar';
+import { assetUrl } from '../utils/assets';
+import { resolveProductImage, getPlaceholderImage } from '../components/common/ProductImage';
 
 export const CartPage: React.FC = () => {
   const {
@@ -114,9 +116,12 @@ export const CartPage: React.FC = () => {
                     {/* Product Info */}
                     <div className="flex items-center gap-4">
                       <img
-                        src={item.product.image}
+                        src={resolveProductImage(item.product.image, language)}
                         alt={getProductName()}
-                        className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover bg-stone-100 border border-stone-200 shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = getPlaceholderImage(language);
+                        }}
+                        className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-contain p-1 bg-[#FAF8F5] border border-stone-200 shrink-0"
                       />
                       <div>
                         <span className="text-[10px] font-bold text-[#c41230] uppercase">
@@ -186,22 +191,32 @@ export const CartPage: React.FC = () => {
               {/* Voucher Code Input */}
               <div className="pt-2 border-t border-stone-100">
                 <label className="text-[11px] font-bold text-stone-700 block mb-1.5">
-                  Punya Kode Voucher / Kupon?
+                  {language === 'JP'
+                    ? '割引クーポンコード:'
+                    : language === 'EN'
+                    ? 'Discount Voucher Code:'
+                    : 'Punya Kode Voucher / Kupon?'}
                 </label>
                 <div className="flex gap-1.5">
                   <input
                     type="text"
                     value={voucherInput}
                     onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
-                    placeholder="Contoh: INDONESIA500"
+                    placeholder={
+                      language === 'JP'
+                        ? 'れい: INDONESIA500 (クーポンコード)'
+                        : language === 'EN'
+                        ? 'e.g. INDONESIA500'
+                        : 'Contoh: INDONESIA500'
+                    }
                     className="flex-1 px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-mono font-bold uppercase focus:outline-none focus:ring-1 focus:ring-[#c41230]"
                   />
                   <button
                     type="button"
                     onClick={handleApplyVoucher}
-                    className="px-3 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold transition-all"
+                    className="px-3 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
                   >
-                    Pakai
+                    {language === 'JP' ? '適用' : language === 'EN' ? 'Apply' : 'Pakai'}
                   </button>
                 </div>
                 {voucherResult && (

@@ -14,6 +14,7 @@ interface AuthContextType {
   logout: () => void;
   updateProfile: (data: Partial<AuthUser>) => Promise<{ success: boolean; error?: string }>;
   changePassword: (oldPass: string, newPass: string) => Promise<{ success: boolean; error?: string }>;
+  deleteAccount: () => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,13 +58,23 @@ const CUSTOMER_CREDENTIALS = {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
-    const saved = localStorage.getItem('sn_user_auth_v2');
+    // Respect explicit manual logout by the customer
+    const isManuallyLoggedOut = localStorage.getItem('sn_user_logged_out_manually') === 'true';
+    if (isManuallyLoggedOut) {
+      return null;
+    }
+
+    // Check permanent customer session first (persists for lifetime), fallback to standard
+    const permanentSaved = localStorage.getItem('sn_permanent_customer_auth');
+    const standardSaved = localStorage.getItem('sn_user_auth_v2');
+    const saved = permanentSaved || standardSaved;
+
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.id) return parsed;
       } catch (e) {
-        localStorage.removeItem('sn_user_auth_v2');
+        console.warn('Gagal membaca sesi customer:', e);
       }
     }
     return null;
@@ -73,13 +84,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = currentUser?.role !== 'Customer' && isAuthenticated;
   const isCustomer = currentUser?.role === 'Customer' && isAuthenticated;
 
+  // Persist session permanently unless explicit manual logout
   useEffect(() => {
     if (currentUser) {
+      localStorage.removeItem('sn_user_logged_out_manually');
       localStorage.setItem('sn_user_auth_v2', JSON.stringify(currentUser));
+      // For Customer role: save permanently 1x for lifetime
+      if (currentUser.role === 'Customer') {
+        localStorage.setItem('sn_permanent_customer_auth', JSON.stringify(currentUser));
+      }
     } else {
-      localStorage.removeItem('sn_user_auth_v2');
+      // ONLY remove from storage if user explicitly clicked manual logout
+      if (localStorage.getItem('sn_user_logged_out_manually') === 'true') {
+        localStorage.removeItem('sn_user_auth_v2');
+        localStorage.removeItem('sn_permanent_customer_auth');
+      }
     }
   }, [currentUser]);
+
+  // Synchronize customer session across browser tabs/windows
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'sn_permanent_customer_auth' || e.key === 'sn_user_auth_v2') {
+        if (localStorage.getItem('sn_user_logged_out_manually') === 'true') {
+          setCurrentUser(null);
+          return;
+        }
+        const saved = localStorage.getItem('sn_permanent_customer_auth') || localStorage.getItem('sn_user_auth_v2');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.id) {
+              setCurrentUser(parsed);
+            }
+          } catch (err) {}
+        }
+      } else if (e.key === 'sn_user_logged_out_manually' && e.newValue === 'true') {
+        setCurrentUser(null);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const login = async (idInput: string, passInput: string): Promise<{ success: boolean; error?: string; isAdmin?: boolean; user?: AuthUser }> => {
     const cleanId = idInput.trim();
@@ -265,11 +312,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    // Explicit manual logout by user
+    localStorage.setItem('sn_user_logged_out_manually', 'true');
+    localStorage.removeItem('sn_user_auth_v2');
+    localStorage.removeItem('sn_permanent_customer_auth');
     try {
       await supabase.auth.signOut();
     } catch (e) {}
     setCurrentUser(null);
-    localStorage.removeItem('sn_user_auth_v2');
+  };
+
+  const deleteAccount = async (): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) return { success: false, error: 'Tidak ada sesi akun yang aktif.' };
+    try {
+      localStorage.setItem('sn_user_logged_out_manually', 'true');
+      localStorage.removeItem(`sn_user_custom_pass_${currentUser.id}`);
+      localStorage.removeItem('sn_user_auth_v2');
+      localStorage.removeItem('sn_permanent_customer_auth');
+      await supabase.auth.signOut();
+    } catch (e) {}
+    setCurrentUser(null);
+    return { success: true };
   };
 
   return (
@@ -284,7 +347,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginAsCustomer,
         logout,
         updateProfile,
-        changePassword
+        changePassword,
+        deleteAccount
       }}
     >
       {children}

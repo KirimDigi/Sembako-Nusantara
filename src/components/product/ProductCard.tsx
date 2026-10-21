@@ -5,6 +5,8 @@ import { HalalBadge } from './HalalBadge';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAdmin } from '../../context/AdminContext';
+import { resolveProductImage, getPlaceholderImage } from '../common/ProductImage';
 
 interface ProductCardProps {
   product: Product;
@@ -14,29 +16,44 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { language, t } = useLanguage();
+  const { itemDiscounts } = useAdmin();
   const [justAdded, setJustAdded] = useState(false);
   const isWishlisted = isInWishlist(product.id);
 
+  // Dynamic discount calculation strictly synchronized with Admin Dashboard
+  const activeDisc = itemDiscounts.find(
+    (d) => d.isActive && (d.productId === product.id || d.productSku === (product as any).sku || d.productName?.toLowerCase() === product.name.toLowerCase())
+  );
+  const discountPercent = activeDisc
+    ? (activeDisc.discountType === 'PERCENTAGE'
+        ? activeDisc.discountValue
+        : Math.round(((product.price - activeDisc.discountedPriceJPY) / product.price) * 100))
+    : (product.discountPercentage || 0);
+  const currentPrice = activeDisc?.discountedPriceJPY ?? product.price;
+  const currentPriceTax = activeDisc?.discountedPriceJPY ? Math.round(activeDisc.discountedPriceJPY * 1.08) : product.priceTax;
+
   const getProductName = () => {
-    if (language === 'JP') return product.nameJp;
-    if (language === 'EN') return product.nameEn;
+    if (language === 'JP') return product.nameJp || product.name;
+    if (language === 'EN') return product.nameEn || product.name;
     return product.name;
   };
 
   const getProductCategory = () => {
-    if (language === 'JP') return product.categoryJp;
-    if (language === 'EN') return product.categoryEn;
+    if (language === 'JP') return product.categoryJp || product.category;
+    if (language === 'EN') return product.categoryEn || product.category;
     return product.category;
   };
 
   const getProductUnit = () => {
-    if (language === 'JP') return product.unitJp;
-    if (language === 'EN') return product.unitEn;
+    if (language === 'JP') return product.unitJp || product.unit;
+    if (language === 'EN') return product.unitEn || product.unit;
     return product.unit;
   };
 
   const handleAddToCart = () => {
-    addToCart(product, 1);
+    if (currentPrice <= 0) return;
+    const productToAdd = activeDisc ? { ...product, price: currentPrice, priceTax: currentPriceTax } : product;
+    addToCart(productToAdd, 1);
     setJustAdded(true);
     setTimeout(() => {
       setJustAdded(false);
@@ -55,16 +72,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       <div className="relative aspect-square overflow-hidden bg-stone-100">
         <Link to={`/product/${product.id}`}>
           <img
-            src={product.image}
+            src={resolveProductImage(product.image, language)}
             alt={getProductName()}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = getPlaceholderImage(language);
+            }}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </Link>
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10">
           <HalalBadge isFrozen={product.isFrozen} />
-          {product.discountPercentage && (
+          {discountPercent > 0 && (
             <span className="bg-[#E11D48] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs self-start">
-              -{product.discountPercentage}%
+              -{discountPercent}%
             </span>
           )}
         </div>
@@ -114,30 +134,59 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
 
         {/* Price & Action */}
-        <div className="pt-2 border-t border-stone-100 flex items-center justify-between">
-          <div>
-            <div className="font-bold text-lg text-[#c41230] leading-none">
-              ¥{product.price.toLocaleString()}
+        <div className="pt-2 border-t border-stone-100 flex items-center justify-between gap-2">
+          {currentPrice > 0 ? (
+            <div>
+              <div className="flex items-center gap-1.5">
+                <div className="font-bold text-lg text-[#c41230] leading-none">
+                  ¥{currentPrice.toLocaleString()}
+                </div>
+                {discountPercent > 0 && activeDisc?.originalPriceJPY ? (
+                  <div className="text-xs text-stone-400 line-through">
+                    ¥{activeDisc.originalPriceJPY.toLocaleString()}
+                  </div>
+                ) : null}
+              </div>
+              <div className="text-[11px] text-stone-500 mt-0.5">
+                ({t('tax_included')} ¥{currentPriceTax.toLocaleString()})
+              </div>
             </div>
-            <div className="text-[11px] text-stone-500 mt-0.5">
-              ({t('tax_included')} ¥{product.priceTax.toLocaleString()})
+          ) : (
+            <div className="py-1">
+              <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md font-bold text-[10px]">
+                {language === 'JP' ? '近日発売 (価格未定)' : language === 'EN' ? 'Coming Soon (TBD)' : 'Segera Rilis (TBD)'}
+              </span>
             </div>
-          </div>
+          )}
 
-          <button
-            type="button"
-            onClick={handleAddToCart}
-            className={`inline-flex items-center gap-1 text-xs font-bold px-3.5 py-2 rounded-lg shadow-sm transition-all cursor-pointer ${
-              justAdded
-                ? 'bg-[#15803D] text-white scale-105'
-                : 'bg-[#c41230] hover:bg-[#9a0021] text-white active:scale-95'
-            }`}
-          >
-            <span className="material-symbols-outlined text-sm">
-              {justAdded ? 'check' : 'add_shopping_cart'}
-            </span>
-            <span>{justAdded ? 'Ditambahkan!' : t('add_to_cart')}</span>
-          </button>
+          {currentPrice > 0 ? (
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              className={`inline-flex items-center gap-1 text-xs font-bold px-3.5 py-2 rounded-lg shadow-sm transition-all cursor-pointer ${
+                justAdded
+                  ? 'bg-[#15803D] text-white scale-105'
+                  : 'bg-[#c41230] hover:bg-[#9a0021] text-white active:scale-95'
+              }`}
+            >
+              <span className="material-symbols-outlined text-sm">
+                {justAdded ? 'check' : 'add_shopping_cart'}
+              </span>
+              <span>
+                {justAdded
+                  ? (language === 'JP' ? '追加しました!' : language === 'EN' ? 'Added!' : 'Ditambahkan!')
+                  : t('add_to_cart')}
+              </span>
+            </button>
+          ) : (
+            <button
+              disabled
+              className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-stone-100 text-stone-400 border border-stone-200 cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined text-xs">hourglass_empty</span>
+              <span>{language === 'JP' ? '価格未定' : language === 'EN' ? 'TBD' : 'TBD'}</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

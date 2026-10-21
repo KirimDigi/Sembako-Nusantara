@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product, CartItem } from '../types';
 import { PRODUCTS_DATA } from '../data/products';
+import { getEffectiveUnitPrice } from '../utils/pricing';
 
 export interface ToastItem {
   product: Product;
@@ -90,8 +91,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-  const subtotalTax = cart.reduce((sum, item) => sum + (item.product.priceTax * item.quantity), 0);
+  const subtotal = cart.reduce((sum, item) => {
+    const { price } = getEffectiveUnitPrice(item.product, item.quantity);
+    return sum + (price * item.quantity);
+  }, 0);
+  const subtotalTax = cart.reduce((sum, item) => {
+    const { priceTax } = getEffectiveUnitPrice(item.product, item.quantity);
+    return sum + (priceTax * item.quantity);
+  }, 0);
   const freeShippingThreshold = 15000;
   const isFreeShipping = subtotalTax >= freeShippingThreshold;
   const remainingForFreeShipping = Math.max(0, freeShippingThreshold - subtotalTax);

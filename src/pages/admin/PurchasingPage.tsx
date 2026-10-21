@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useAdmin } from '../../context/AdminContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PurchaseOrder, Supplier } from '../../types';
+import { getStoredBankAccounts, BankAccountItem, recordAccountingCashOut } from '../../utils/bankAccounts';
 
 export const PurchasingPage: React.FC = () => {
   const {
@@ -13,9 +14,15 @@ export const PurchasingPage: React.FC = () => {
     warehouses,
     createPurchaseOrder,
     receivePurchaseOrder,
+    updatePurchaseOrder,
+    deletePurchaseOrder,
     addSupplier,
+    updateSupplier,
+    deleteSupplier,
     directPurchases,
-    addDirectPurchase
+    addDirectPurchase,
+    updateDirectPurchase,
+    deleteDirectPurchase
   } = useAdmin();
   const { language } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -55,6 +62,26 @@ export const PurchasingPage: React.FC = () => {
   const [selectedDpDetail, setSelectedDpDetail] = useState<any | null>(null);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
+  // Bank Accounts & Payment Methods Integration
+  const [bankAccounts, setBankAccounts] = useState<BankAccountItem[]>(() => getStoredBankAccounts());
+  const [dpPaymentStatus, setDpPaymentStatus] = useState<'LUNAS' | 'TEMPO' | 'BELUM_BAYAR'>('LUNAS');
+  const [dpPaymentMethod, setDpPaymentMethod] = useState<'TRANSFER_BANK' | 'CASH' | 'TEMPO'>('CASH');
+  const [dpBankAccountId, setDpBankAccountId] = useState<string>(() => {
+    const list = getStoredBankAccounts();
+    return list[0]?.id || '';
+  });
+  const [dpDueDate, setDpDueDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split('T')[0];
+  });
+  const [isSettleModalOpen, setIsSettleModalOpen] = useState<boolean>(false);
+  const [settleEntry, setSettleEntry] = useState<any | null>(null);
+  const [settleBankAccountId, setSettleBankAccountId] = useState<string>(() => {
+    const list = getStoredBankAccounts();
+    return list[0]?.id || '';
+  });
+
   // Modal State for New PO
   const [isNewPOOpen, setIsNewPOOpen] = useState<boolean>(false);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>(suppliers[0]?.id || '');
@@ -73,6 +100,10 @@ export const PurchasingPage: React.FC = () => {
   const [newSupOrigin, setNewSupOrigin] = useState<Supplier['origin']>('Indonesia');
   const [newSupLeadTime, setNewSupLeadTime] = useState<number>(7);
   const [newSupTerms, setNewSupTerms] = useState<string>('Net 30 Days');
+
+  const [editingDp, setEditingDp] = useState<any | null>(null);
+  const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
   const totalPOCost = poItems.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
   const totalDpCost = dpItems.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.costPrice) || 0), 0);
@@ -274,6 +305,15 @@ export const PurchasingPage: React.FC = () => {
     const wh = warehouses.find((w) => w.id === dpWarehouseId);
     const totalAmount = formattedItems.reduce((s, it) => s + it.subtotal, 0);
 
+    const selectedBank = bankAccounts.find((b) => b.id === dpBankAccountId);
+    const paymentMethodFinal = dpPaymentStatus === 'TEMPO' ? 'TEMPO' : dpPaymentMethod;
+    const bankAccountNameFinal =
+      dpPaymentStatus === 'LUNAS' && dpPaymentMethod === 'TRANSFER_BANK'
+        ? `${selectedBank?.bankName || 'Bank Toko'} • Rek: ${selectedBank?.accountNumber || '-'}`
+        : dpPaymentStatus === 'LUNAS' && dpPaymentMethod === 'CASH'
+        ? 'Kas Tunai Toko / Cash on Hand'
+        : undefined;
+
     addDirectPurchase({
       invoiceNumber: dpInvoiceNumber.trim() || `INV/SN/${Date.now().toString().slice(-6)}`,
       supplierName: dpSupplierName.trim(),
@@ -282,18 +322,72 @@ export const PurchasingPage: React.FC = () => {
       warehouseName: wh?.name || 'Gudang Utama Tokyo',
       totalAmount,
       status: dpStatus,
+      paymentStatus: dpPaymentStatus,
+      paymentMethod: paymentMethodFinal,
+      bankAccountId: dpPaymentStatus === 'LUNAS' && dpPaymentMethod === 'TRANSFER_BANK' ? dpBankAccountId : undefined,
+      bankAccountName: bankAccountNameFinal,
+      dueDate: dpPaymentStatus === 'TEMPO' ? dpDueDate : undefined,
+      paidAt: dpPaymentStatus === 'LUNAS' ? dpDate : undefined,
       notes: dpNotes,
       items: formattedItems
     });
+
+    // Otomatis sinkronkan pencatatan Pengeluaran / Kas Keluar Akuntansi jika Lunas
+    if (dpPaymentStatus === 'LUNAS') {
+      recordAccountingCashOut({
+        date: dpDate,
+        category: 'Pembelian Stok Barang Dagang (Supplier)',
+        amount: totalAmount,
+        sourceAccount: bankAccountNameFinal || 'Kas Bank Toko',
+        recipient: dpSupplierName.trim(),
+        notes: `Pembelian Faktur #${dpInvoiceNumber} (${paymentMethodFinal === 'TRANSFER_BANK' ? selectedBank?.bankName || 'Transfer Bank' : 'Kas Tunai'})`,
+        referenceNo: dpInvoiceNumber
+      });
+    }
 
     setIsNewDirectPurchaseOpen(false);
     setDpNotes('');
     setDpInvoiceNumber(`INV/SN/${new Date().toISOString().slice(2, 7).replace('-', '')}-${Math.floor(100 + Math.random() * 900)}`);
     setSaveSuccessMsg(
       dpStatus === 'Diterima'
-        ? `Pembelian Faktur #${dpInvoiceNumber} berhasil disimpan! Stok sebanyak ${totalDpQty} unit telah otomatis masuk ke stok sistem, Dashboard Admin, POS Kasir, dan Katalog Customer.`
+        ? `Pembelian Faktur #${dpInvoiceNumber} berhasil disimpan! Pembayaran: ${dpPaymentStatus === 'LUNAS' ? 'LUNAS via ' + (bankAccountNameFinal || 'Bank') : 'TEMPO (Hutang Dagang)'}. Stok sebanyak ${totalDpQty} unit otomatis masuk ke sistem.`
         : `Faktur #${dpInvoiceNumber} disimpan sebagai Draft.`
     );
+    setTimeout(() => setSaveSuccessMsg(null), 8000);
+  };
+
+  const handleSettleDebt = () => {
+    if (!settleEntry) return;
+    const selectedBank = bankAccounts.find((b) => b.id === settleBankAccountId);
+    const bankNameFinal = selectedBank
+      ? `${selectedBank.bankName} • Rek: ${selectedBank.accountNumber}`
+      : 'Transfer Bank Toko';
+    const now = new Date().toISOString().split('T')[0];
+
+    updateDirectPurchase(settleEntry.id, {
+      paymentStatus: 'LUNAS',
+      paymentMethod: 'TRANSFER_BANK',
+      bankAccountId: settleBankAccountId,
+      bankAccountName: bankNameFinal,
+      paidAt: now
+    });
+
+    // Catat ke Jurnal Kas Keluar Akuntansi
+    recordAccountingCashOut({
+      date: now,
+      category: 'Pelunasan Hutang Pembelian Supplier',
+      amount: settleEntry.totalAmount,
+      sourceAccount: bankNameFinal,
+      recipient: settleEntry.supplierName,
+      notes: `Pelunasan Hutang Faktur #${settleEntry.invoiceNumber} via ${selectedBank?.bankName || 'Bank Toko'}`,
+      referenceNo: settleEntry.invoiceNumber
+    });
+
+    setIsSettleModalOpen(false);
+    const settledInv = settleEntry.invoiceNumber;
+    const settledAmount = settleEntry.totalAmount;
+    setSettleEntry(null);
+    setSaveSuccessMsg(`Pelunasan Faktur #${settledInv} sebesar ¥${settledAmount.toLocaleString()} berhasil dibayarkan via ${selectedBank?.bankName || 'Bank Toko'}!`);
     setTimeout(() => setSaveSuccessMsg(null), 8000);
   };
 
@@ -348,7 +442,7 @@ export const PurchasingPage: React.FC = () => {
       contactPerson: newSupContact,
       email: newSupEmail,
       phone: newSupPhone,
-      address: 'Tokyo / Indonesia',
+      address: '〒144-0051 東京都大田区西蒲田5丁目9-16 (Tokyo, Ota-ku, Nishikamata 5-9-16)',
       origin: newSupOrigin,
       leadTimeDays: newSupLeadTime,
       paymentTerms: newSupTerms,
@@ -357,6 +451,73 @@ export const PurchasingPage: React.FC = () => {
     setIsNewSupplierOpen(false);
     setNewSupName('');
     setNewSupContact('');
+  };
+
+  // Handlers for Delete
+  const handleDeleteDp = (id: string, inv: string) => {
+    const msg = language === 'JP'
+      ? `仕入れデータ #${inv} を削除しますか？`
+      : language === 'EN'
+      ? `Delete purchase record #${inv}?`
+      : `Hapus transaksi pembelian #${inv}?`;
+    if (window.confirm(msg)) {
+      deleteDirectPurchase(id);
+    }
+  };
+
+  const handleDeletePO = (id: string, poNum: string) => {
+    const msg = language === 'JP'
+      ? `発注書 #${poNum} を削除しますか？`
+      : language === 'EN'
+      ? `Delete Purchase Order #${poNum}?`
+      : `Hapus Purchase Order #${poNum}?`;
+    if (window.confirm(msg)) {
+      deletePurchaseOrder(id);
+    }
+  };
+
+  const handleDeleteSupplier = (id: string, name: string) => {
+    const msg = language === 'JP'
+      ? `サプライヤー「${name}」を削除しますか？`
+      : language === 'EN'
+      ? `Delete supplier "${name}"?`
+      : `Hapus supplier "${name}"?`;
+    if (window.confirm(msg)) {
+      deleteSupplier(id);
+    }
+  };
+
+  // Handlers for Save Edit
+  const handleSaveEditDp = () => {
+    if (!editingDp) return;
+    const totalAmount = (editingDp.items || []).reduce(
+      (sum: number, it: any) => sum + (Number(it.quantity) || 0) * (Number(it.costPrice) || 0),
+      0
+    );
+    updateDirectPurchase(editingDp.id, {
+      ...editingDp,
+      totalAmount
+    });
+    setEditingDp(null);
+  };
+
+  const handleSaveEditPO = () => {
+    if (!editingPO) return;
+    const totalAmount = (editingPO.items || []).reduce(
+      (sum: number, it: any) => sum + (Number(it.quantity) || 0) * (Number(it.unitCost) || 0),
+      0
+    );
+    updatePurchaseOrder(editingPO.id, {
+      ...editingPO,
+      totalAmount
+    });
+    setEditingPO(null);
+  };
+
+  const handleSaveEditSupplier = () => {
+    if (!editingSupplier) return;
+    updateSupplier(editingSupplier.id, { ...editingSupplier });
+    setEditingSupplier(null);
   };
 
   return (
@@ -529,37 +690,107 @@ export const PurchasingPage: React.FC = () => {
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => setSelectedDpDetail(entry)}
-                          className="px-3 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                          className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                         >
                           <span className="material-symbols-outlined text-xs">receipt</span>
-                          <span>Lihat Faktur / Cetak</span>
+                          <span className="hidden sm:inline">Lihat Faktur / Cetak</span>
+                        </button>
+                        <button
+                          onClick={() => setEditingDp({ ...entry, items: entry.items.map((it: any) => ({ ...it })) })}
+                          title="Edit Transaksi Pembelian"
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg flex items-center gap-1 transition-colors cursor-pointer border border-blue-200"
+                        >
+                          <span className="material-symbols-outlined text-xs">edit</span>
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDp(entry.id, entry.invoiceNumber)}
+                          title="Hapus Transaksi Pembelian"
+                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-lg flex items-center gap-1 transition-colors cursor-pointer border border-rose-200"
+                        >
+                          <span className="material-symbols-outlined text-xs">delete</span>
+                          <span>Hapus</span>
                         </button>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-stone-50/70 p-3.5 rounded-xl border border-stone-200/60">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs bg-stone-50/70 p-3.5 rounded-xl border border-stone-200/60">
                       <div>
                         <span className="text-stone-400 block text-[10px] font-bold uppercase">Supplier / Pemasok</span>
-                        <span className="font-bold text-stone-900 flex items-center gap-1 mt-0.5">
+                        <span className="font-bold text-stone-900 flex items-center gap-1 mt-0.5 truncate">
                           <span className="material-symbols-outlined text-sm text-indigo-600">domain</span>
                           <span>{entry.supplierName}</span>
                         </span>
                       </div>
                       <div>
                         <span className="text-stone-400 block text-[10px] font-bold uppercase">Gudang Penerima</span>
-                        <span className="font-bold text-stone-800 flex items-center gap-1 mt-0.5">
+                        <span className="font-bold text-stone-800 flex items-center gap-1 mt-0.5 truncate">
                           <span className="material-symbols-outlined text-sm text-amber-600">warehouse</span>
                           <span>{entry.warehouseName || 'Gudang Utama Tokyo'}</span>
                         </span>
                       </div>
                       <div>
                         <span className="text-stone-400 block text-[10px] font-bold uppercase">Total Pembelian</span>
-                        <span className="font-black text-rose-600 text-sm mt-0.5 block">
+                        <span className="font-black text-rose-600 text-sm mt-0.5 block font-mono">
                           ¥{entry.totalAmount.toLocaleString()}
                         </span>
+                      </div>
+                      <div className="border-t sm:border-t-0 sm:border-l sm:pl-3 border-stone-200/60 pt-2 sm:pt-0">
+                        <span className="text-stone-400 block text-[10px] font-bold uppercase">Status & Akun Bank</span>
+                        {entry.paymentStatus === 'TEMPO' ? (
+                          <div className="mt-1 space-y-1">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                              <span className="material-symbols-outlined text-xs">pending_actions</span>
+                              <span>TEMPO (Hutang)</span>
+                            </span>
+                            <p className="text-[10px] text-stone-500 font-medium">
+                              Jatuh tempo: <span className="font-bold text-amber-900">{entry.dueDate || '-'}</span>
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSettleEntry(entry);
+                                setIsSettleModalOpen(true);
+                              }}
+                              className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold rounded-lg flex items-center gap-1 shadow-xs cursor-pointer transition-all"
+                            >
+                              <span className="material-symbols-outlined text-xs">account_balance</span>
+                              <span>Bayar via Bank</span>
+                            </button>
+                          </div>
+                        ) : entry.paymentStatus === 'BELUM_BAYAR' ? (
+                          <div className="mt-1 space-y-1">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-900 border border-rose-200">
+                              <span className="material-symbols-outlined text-xs">hourglass_empty</span>
+                              <span>Belum Dibayar</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSettleEntry(entry);
+                                setIsSettleModalOpen(true);
+                              }}
+                              className="px-2 py-1 bg-[#c41230] hover:bg-[#a80f28] text-white text-[10px] font-bold rounded-lg flex items-center gap-1 shadow-xs cursor-pointer transition-all"
+                            >
+                              <span className="material-symbols-outlined text-xs">account_balance</span>
+                              <span>Bayar via Bank</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="mt-1 space-y-0.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-200">
+                              <span className="material-symbols-outlined text-xs">verified</span>
+                              <span>LUNAS</span>
+                            </span>
+                            <p className="text-[10px] text-stone-700 font-semibold truncate flex items-center gap-1" title={entry.bankAccountName || 'Japan Post Bank (ゆうちょ銀行)'}>
+                              <span className="material-symbols-outlined text-xs text-emerald-600 shrink-0">account_balance</span>
+                              <span className="truncate">{entry.bankAccountName || 'Japan Post Bank (ゆうちょ銀行)'}</span>
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -697,22 +928,38 @@ export const PurchasingPage: React.FC = () => {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex justify-end gap-2 pt-1">
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-stone-100">
                     {po.status === 'Sent' && (
                       <button
                         onClick={() => receivePurchaseOrder(po.id)}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-sm">inventory</span>
                         <span>{txt.btnReceive}</span>
                       </button>
                     )}
                     {po.status === 'Received' && (
-                      <span className="text-xs text-emerald-700 font-bold flex items-center gap-1">
+                      <span className="text-xs text-emerald-700 font-bold flex items-center gap-1 mr-2">
                         <span className="material-symbols-outlined text-sm">check_circle</span>
                         <span>{txt.receivedSuccess}</span>
                       </span>
                     )}
+                    <button
+                      onClick={() => setEditingPO({ ...po, items: po.items.map((it) => ({ ...it })) })}
+                      title="Edit Purchase Order"
+                      className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl flex items-center gap-1 transition-colors cursor-pointer border border-blue-200"
+                    >
+                      <span className="material-symbols-outlined text-sm">edit</span>
+                      <span>Edit PO</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeletePO(po.id, po.poNumber)}
+                      title="Hapus Purchase Order"
+                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl flex items-center gap-1 transition-colors cursor-pointer border border-rose-200"
+                    >
+                      <span className="material-symbols-outlined text-sm">delete</span>
+                      <span>Hapus</span>
+                    </button>
                   </div>
                 </div>
               ))
@@ -761,9 +1008,27 @@ export const PurchasingPage: React.FC = () => {
                         </span>
                         <h4 className="font-bold text-stone-900 text-sm mt-1.5">{sup.name}</h4>
                       </div>
-                      <div className="flex items-center gap-1 text-amber-500 text-xs font-bold">
-                        <span className="material-symbols-outlined text-sm">star</span>
-                        <span>{sup.rating.toFixed(1)}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 text-amber-500 text-xs font-bold mr-1">
+                          <span className="material-symbols-outlined text-sm">star</span>
+                          <span>{sup.rating.toFixed(1)}</span>
+                        </div>
+                        <button
+                          onClick={() => setEditingSupplier({ ...sup })}
+                          title="Edit Supplier"
+                          className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg flex items-center gap-1 transition-colors cursor-pointer border border-blue-200"
+                        >
+                          <span className="material-symbols-outlined text-xs">edit</span>
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSupplier(sup.id, sup.name)}
+                          title="Hapus Supplier"
+                          className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-lg flex items-center gap-1 transition-colors cursor-pointer border border-rose-200"
+                        >
+                          <span className="material-symbols-outlined text-xs">delete</span>
+                          <span>Hapus</span>
+                        </button>
                       </div>
                     </div>
 
@@ -814,17 +1079,13 @@ export const PurchasingPage: React.FC = () => {
 
               <div>
                 <label className="font-bold text-stone-700 block mb-1">{txt.destWhSelect}</label>
-                <select
-                  value={selectedWarehouseId}
-                  onChange={(e) => setSelectedWarehouseId(e.target.value)}
-                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-medium"
-                >
-                  {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.code})
-                    </option>
-                  ))}
-                </select>
+                <div className="w-full px-3 py-2 bg-stone-100 border border-stone-200 rounded-xl font-bold text-stone-700 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-stone-500 text-sm">storefront</span>
+                    <span>Toko & Gudang Utama Tokyo (Nishikamata)</span>
+                  </div>
+                  <span className="text-[10px] bg-stone-200 text-stone-700 px-2 py-0.5 rounded-full font-bold">1 Cabang Tunggal</span>
+                </div>
               </div>
 
               {/* Items in PO */}
@@ -1111,17 +1372,13 @@ export const PurchasingPage: React.FC = () => {
 
                 <div>
                   <label className="font-bold text-stone-700 block mb-1">Gudang Tujuan:</label>
-                  <select
-                    value={dpWarehouseId}
-                    onChange={(e) => setDpWarehouseId(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl font-bold"
-                  >
-                    {warehouses.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.name} ({w.city})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="w-full px-3 py-2 bg-stone-100 border border-stone-200 rounded-xl font-bold text-stone-700 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-stone-500 text-sm">storefront</span>
+                      <span>Toko & Gudang Utama Tokyo (Nishikamata)</span>
+                    </div>
+                    <span className="text-[10px] bg-stone-200 text-stone-700 px-2 py-0.5 rounded-full font-bold">1 Cabang Tunggal</span>
+                  </div>
                 </div>
 
                 <div className="sm:col-span-2">
@@ -1152,6 +1409,224 @@ export const PurchasingPage: React.FC = () => {
                       <span>Draft (Simpan Sementara)</span>
                     </button>
                   </div>
+                </div>
+
+                {/* Status & Metode Pembayaran Supplier serta Akun Perbankan Terhubung */}
+                <div className="sm:col-span-2 pt-3 border-t border-stone-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-stone-800 flex items-center gap-1.5 text-xs">
+                      <span className="material-symbols-outlined text-rose-600 text-base">payments</span>
+                      <span>Status & Metode Pembayaran Pembelian:</span>
+                    </label>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold border border-emerald-200">
+                      Terhubung ke Akun Kas & Bank Toko
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDpPaymentStatus('LUNAS');
+                        setDpPaymentMethod('TRANSFER_BANK');
+                      }}
+                      className={`py-2 px-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+                        dpPaymentStatus === 'LUNAS'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-sm">check_circle</span>
+                      <span>Lunas (Dibayar)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDpPaymentStatus('TEMPO');
+                        setDpPaymentMethod('TEMPO');
+                      }}
+                      className={`py-2 px-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+                        dpPaymentStatus === 'TEMPO'
+                          ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                          : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-sm">pending_actions</span>
+                      <span>Tempo (Hutang)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDpPaymentStatus('BELUM_BAYAR');
+                        setDpPaymentMethod('TEMPO');
+                      }}
+                      className={`py-2 px-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+                        dpPaymentStatus === 'BELUM_BAYAR'
+                          ? 'bg-stone-800 text-white border-stone-800 shadow-xs'
+                          : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-sm">hourglass_empty</span>
+                      <span>Belum Bayar</span>
+                    </button>
+                  </div>
+
+                  {/* Panel Detail jika Pembayaran LUNAS */}
+                  {dpPaymentStatus === 'LUNAS' && (
+                    <div className="bg-emerald-50/70 p-3.5 rounded-2xl border border-emerald-200 space-y-2.5 animate-fadeIn">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <label className="text-[11px] font-bold text-emerald-900 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-sm text-emerald-700">account_balance_wallet</span>
+                          <span>Sumber Dana / Rekening Pembayar Toko:</span>
+                        </label>
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setDpPaymentMethod('TRANSFER_BANK')}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                              dpPaymentMethod === 'TRANSFER_BANK'
+                                ? 'bg-emerald-700 text-white shadow-xs'
+                                : 'bg-white text-stone-600 border border-emerald-200 hover:bg-emerald-100/50'
+                            }`}
+                          >
+                            🏦 Transfer Bank Toko
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDpPaymentMethod('CASH')}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                              dpPaymentMethod === 'CASH'
+                                ? 'bg-emerald-700 text-white shadow-xs'
+                                : 'bg-white text-stone-600 border border-emerald-200 hover:bg-emerald-100/50'
+                            }`}
+                          >
+                            💵 Kas Tunai Toko
+                          </button>
+                        </div>
+                      </div>
+
+                      {dpPaymentMethod === 'TRANSFER_BANK' ? (
+                        <div className="space-y-2 pt-1">
+                          <label className="text-[11px] font-bold text-stone-700 block">
+                            Pilih Akun Bank Toko yang Terhubung:
+                          </label>
+                          {bankAccounts.length === 0 ? (
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1.5">
+                              <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                                <span className="material-symbols-outlined text-sm text-amber-600">account_balance</span>
+                                <span>Belum Ada Rekening Bank Toko Terdaftar</span>
+                              </div>
+                              <p className="text-[11px] text-amber-700 leading-relaxed">
+                                Anda belum mendaftarkan akun rekening bank resmi toko. Anda dapat memilih metode <strong>💵 Kas Tunai Toko</strong> atau <strong>⏳ Hutang Tempo</strong>, atau daftarkan rekening bank resmi toko Anda di menu <strong>Akuntansi &gt; Akun Kas & Bank</strong>.
+                              </p>
+                              <Link
+                                to="/admin/accounting?tab=bank"
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-lg transition-colors border border-emerald-300"
+                              >
+                                <span className="material-symbols-outlined text-xs">add_circle</span>
+                                <span>+ Daftarkan Rekening Bank di Menu Akuntansi</span>
+                              </Link>
+                            </div>
+                          ) : (
+                            <>
+                              <select
+                                value={dpBankAccountId}
+                                onChange={(e) => setDpBankAccountId(e.target.value)}
+                                className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl font-bold text-xs text-stone-800"
+                              >
+                                {bankAccounts.map((b) => (
+                                  <option key={b.id} value={b.id}>
+                                    [{b.currency}] {b.bankName} - No: {b.accountNumber} ({b.accountName})
+                                  </option>
+                                ))}
+                              </select>
+
+                              {/* Preview Akun Bank Terpilih */}
+                              {(() => {
+                                const b = bankAccounts.find((acc) => acc.id === dpBankAccountId) || bankAccounts[0];
+                                if (!b) return null;
+                                return (
+                                  <div className="bg-white p-3 rounded-xl border border-emerald-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+                                    <div className="space-y-0.5">
+                                      <div className="font-bold text-stone-900 flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-sm text-emerald-600">account_balance</span>
+                                        <span>{b.bankName}</span>
+                                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-mono font-bold">
+                                          No. Rek: {b.accountNumber}
+                                        </span>
+                                      </div>
+                                      <p className="text-stone-500 text-[11px]">
+                                        A/N Rekening: <span className="font-bold text-stone-800">{b.holderName || b.accountName}</span> • Cabang: {b.branchName || 'Tokyo'}
+                                      </p>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="text-[10px] text-stone-400 block">Saldo Akun Buku:</span>
+                                      <span className="font-mono font-bold text-emerald-700 text-xs">
+                                        {b.currency === 'IDR' ? `Rp ${b.balance.toLocaleString('id-ID')}` : `¥${b.balance.toLocaleString('ja-JP')}`}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </>
+                          )}
+                          <p className="text-[10px] text-emerald-800 font-medium">
+                            ✓ Transaksi pembelian ini otomatis tersinkronisasi ke Jurnal Pengeluaran Kas & Bank Akuntansi.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-white p-3 rounded-xl border border-emerald-200 text-xs flex items-center gap-2 text-stone-700 shadow-xs">
+                          <span className="material-symbols-outlined text-emerald-600 text-xl">payments</span>
+                          <span>Pembayaran tunai langsung dari uang fisik kas toko Nishikamata (Tokyo). Otomatis memotong saldo kas toko.</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Panel Detail jika Pembayaran TEMPO / HUTANG */}
+                  {dpPaymentStatus === 'TEMPO' && (
+                    <div className="bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200 space-y-2.5 animate-fadeIn">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <label className="text-[11px] font-bold text-amber-950 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm text-amber-700">event_upcoming</span>
+                            <span>Batas Tanggal Jatuh Tempo (Due Date):</span>
+                          </label>
+                          <p className="text-[10px] text-amber-800">
+                            Dicatat sebagai Hutang Usaha dagang. Pelunasan via transfer bank dapat dicatat sewaktu-waktu.
+                          </p>
+                        </div>
+                        <input
+                          type="date"
+                          value={dpDueDate}
+                          onChange={(e) => setDpDueDate(e.target.value)}
+                          className="px-3 py-1.5 bg-white border border-amber-300 rounded-xl font-bold text-xs"
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[10px] text-amber-900 font-bold">Pilihan Cepat Tempo:</span>
+                        {[
+                          { label: '+7 Hari', days: 7 },
+                          { label: '+14 Hari', days: 14 },
+                          { label: '+30 Hari (Net 30)', days: 30 },
+                          { label: '+60 Hari (Net 60)', days: 60 }
+                        ].map((btn) => (
+                          <button
+                            key={btn.days}
+                            type="button"
+                            onClick={() => {
+                              const d = new Date(dpDate || new Date());
+                              d.setDate(d.getDate() + btn.days);
+                              setDpDueDate(d.toISOString().split('T')[0]);
+                            }}
+                            className="px-2.5 py-0.5 rounded-lg bg-white hover:bg-amber-100 text-amber-900 text-[10px] font-bold border border-amber-300 cursor-pointer shadow-xs"
+                          >
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1324,6 +1799,40 @@ export const PurchasingPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Payment & Banking Information in Invoice */}
+            <div className="p-3 bg-emerald-50/60 rounded-2xl border border-emerald-200 text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase text-emerald-900">Status Pembayaran:</span>
+                <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                  selectedDpDetail.paymentStatus === 'TEMPO'
+                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                    : selectedDpDetail.paymentStatus === 'BELUM_BAYAR'
+                    ? 'bg-rose-100 text-rose-900 border border-rose-300'
+                    : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                }`}>
+                  {selectedDpDetail.paymentStatus === 'TEMPO'
+                    ? `TEMPO (Jatuh Tempo: ${selectedDpDetail.dueDate || '-'})`
+                    : selectedDpDetail.paymentStatus === 'BELUM_BAYAR'
+                    ? 'BELUM DIBAYAR'
+                    : 'LUNAS (TERBAYAR)'}
+                </span>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-stone-700 gap-1 pt-1 border-t border-emerald-200/60">
+                <span className="text-[10px] font-bold uppercase text-stone-500">Akun Bank / Sumber Dana:</span>
+                <span className="font-bold text-stone-900 font-mono text-xs flex items-center gap-1">
+                  <span className="material-symbols-outlined text-xs text-emerald-600">account_balance</span>
+                  <span>
+                    {selectedDpDetail.bankAccountName ||
+                      (selectedDpDetail.paymentStatus === 'TEMPO'
+                        ? 'Hutang Dagang (Belum Bayar)'
+                        : selectedDpDetail.paymentMethod === 'CASH'
+                        ? 'Kas Tunai Toko'
+                        : 'Transfer Bank')}
+                  </span>
+                </span>
+              </div>
+            </div>
+
             <div className="border border-stone-200 rounded-xl overflow-hidden">
               <table className="w-full text-xs">
                 <thead className="bg-stone-100 text-stone-500 font-bold uppercase text-[10px]">
@@ -1378,6 +1887,510 @@ export const PurchasingPage: React.FC = () => {
               >
                 <span className="material-symbols-outlined text-sm">print</span>
                 <span>Cetak Bukti Pembelian</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Edit Transaksi Pembelian */}
+      {editingDp && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div>
+                <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2">
+                  <span className="material-symbols-outlined text-blue-600">edit_note</span>
+                  <span>Edit Transaksi Pembelian ({editingDp.invoiceNumber})</span>
+                </h3>
+                <p className="text-[11px] text-stone-500 mt-0.5">
+                  Perbarui nomor faktur, supplier, tanggal, atau kuantitas pembelian barang.
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingDp(null)}
+                className="text-stone-400 hover:text-stone-700 cursor-pointer p-1"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-stone-50 p-3.5 rounded-2xl border border-stone-200/80">
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Nama Supplier / Vendor:</label>
+                  <input
+                    type="text"
+                    value={editingDp.supplierName}
+                    onChange={(e) => setEditingDp({ ...editingDp, supplierName: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Nomor Faktur / Invoice:</label>
+                  <input
+                    type="text"
+                    value={editingDp.invoiceNumber}
+                    onChange={(e) => setEditingDp({ ...editingDp, invoiceNumber: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl font-mono font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Tanggal Pembelian:</label>
+                  <input
+                    type="date"
+                    value={editingDp.date}
+                    onChange={(e) => setEditingDp({ ...editingDp, date: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Status Pembelian:</label>
+                  <select
+                    value={editingDp.status}
+                    onChange={(e) => setEditingDp({ ...editingDp, status: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl font-bold"
+                  >
+                    <option value="Diterima">Diterima & Stok Masuk</option>
+                    <option value="Draft">Draft</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Items in editingDp */}
+              <div className="space-y-2">
+                <span className="font-bold text-stone-800 block">Daftar Item Barang & Harga Beli:</span>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {(editingDp.items || []).map((item: any, idx: number) => (
+                    <div key={idx} className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                      <div className="flex-1 font-bold text-stone-900">{item.productName}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-stone-500">Qty:</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const newQty = Math.max(1, Number(e.target.value));
+                              const updatedItems = [...editingDp.items];
+                              updatedItems[idx] = {
+                                ...item,
+                                quantity: newQty,
+                                subtotal: newQty * item.costPrice
+                              };
+                              setEditingDp({ ...editingDp, items: updatedItems });
+                            }}
+                            className="w-16 px-2 py-1 bg-white border border-stone-200 rounded-lg text-center font-bold"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-stone-500">¥ Beli:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={item.costPrice}
+                            onChange={(e) => {
+                              const newCost = Math.max(0, Number(e.target.value));
+                              const updatedItems = [...editingDp.items];
+                              updatedItems[idx] = {
+                                ...item,
+                                costPrice: newCost,
+                                subtotal: item.quantity * newCost
+                              };
+                              setEditingDp({ ...editingDp, items: updatedItems });
+                            }}
+                            className="w-20 px-2 py-1 bg-white border border-stone-200 rounded-lg text-right font-bold"
+                          />
+                        </div>
+                        <span className="font-mono font-black text-rose-600 min-w-[70px] text-right">
+                          ¥{((item.quantity || 0) * (item.costPrice || 0)).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Catatan Tambahan:</label>
+                <textarea
+                  rows={2}
+                  value={editingDp.notes || ''}
+                  onChange={(e) => setEditingDp({ ...editingDp, notes: e.target.value })}
+                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setEditingDp(null)}
+                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditDp}
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <span className="material-symbols-outlined text-sm">save</span>
+                <span>Simpan Perubahan</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Edit Purchase Order */}
+      {editingPO && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div>
+                <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2">
+                  <span className="material-symbols-outlined text-blue-600">edit_document</span>
+                  <span>Edit Purchase Order ({editingPO.poNumber})</span>
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditingPO(null)}
+                className="text-stone-400 hover:text-stone-700 cursor-pointer p-1"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3 bg-stone-50 p-3.5 rounded-2xl border border-stone-200">
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Status PO:</label>
+                  <select
+                    value={editingPO.status}
+                    onChange={(e) => setEditingPO({ ...editingPO, status: e.target.value as any })}
+                    className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl font-bold"
+                  >
+                    <option value="Draft">Draft</option>
+                    <option value="Sent">Sent (Menunggu Masuk)</option>
+                    <option value="Received">Received (Diterima)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Tanggal Estimasi Tiba:</label>
+                  <input
+                    type="date"
+                    value={editingPO.expectedDate}
+                    onChange={(e) => setEditingPO({ ...editingPO, expectedDate: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="font-bold text-stone-800 block">Item Barang Pesanan:</span>
+                <div className="space-y-2 max-h-52 overflow-y-auto">
+                  {editingPO.items.map((it, idx) => (
+                    <div key={idx} className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-between gap-2">
+                      <span className="font-medium text-stone-900 flex-1 truncate">{it.productName}</span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          value={it.quantity}
+                          onChange={(e) => {
+                            const newQty = Math.max(1, Number(e.target.value));
+                            const updated = [...editingPO.items];
+                            updated[idx] = { ...it, quantity: newQty, totalCost: newQty * it.unitCost };
+                            setEditingPO({ ...editingPO, items: updated });
+                          }}
+                          className="w-16 px-2 py-1 bg-white border border-stone-200 rounded-lg text-center font-bold text-xs"
+                        />
+                        <span className="text-[10px] text-stone-500">Pcs @</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={it.unitCost}
+                          onChange={(e) => {
+                            const newCost = Math.max(0, Number(e.target.value));
+                            const updated = [...editingPO.items];
+                            updated[idx] = { ...it, unitCost: newCost, totalCost: it.quantity * newCost };
+                            setEditingPO({ ...editingPO, items: updated });
+                          }}
+                          className="w-20 px-2 py-1 bg-white border border-stone-200 rounded-lg text-right font-bold text-xs"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Catatan PO:</label>
+                <textarea
+                  rows={2}
+                  value={editingPO.notes || ''}
+                  onChange={(e) => setEditingPO({ ...editingPO, notes: e.target.value })}
+                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setEditingPO(null)}
+                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditPO}
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <span className="material-symbols-outlined text-sm">save</span>
+                <span>Simpan Perubahan PO</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Edit Supplier */}
+      {editingSupplier && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2">
+                <span className="material-symbols-outlined text-blue-600">domain</span>
+                <span>Edit Database Supplier</span>
+              </h3>
+              <button onClick={() => setEditingSupplier(null)} className="text-stone-400 hover:text-stone-700 cursor-pointer p-1">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Nama Perusahaan / Supplier:</label>
+                <input
+                  type="text"
+                  value={editingSupplier.name}
+                  onChange={(e) => setEditingSupplier({ ...editingSupplier, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Contact Person (PIC):</label>
+                <input
+                  type="text"
+                  value={editingSupplier.contactPerson || ''}
+                  onChange={(e) => setEditingSupplier({ ...editingSupplier, contactPerson: e.target.value })}
+                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Email:</label>
+                  <input
+                    type="email"
+                    value={editingSupplier.email || ''}
+                    onChange={(e) => setEditingSupplier({ ...editingSupplier, email: e.target.value })}
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">No. Telp / WhatsApp:</label>
+                  <input
+                    type="text"
+                    value={editingSupplier.phone || ''}
+                    onChange={(e) => setEditingSupplier({ ...editingSupplier, phone: e.target.value })}
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Asal Negara:</label>
+                  <select
+                    value={editingSupplier.origin}
+                    onChange={(e) => setEditingSupplier({ ...editingSupplier, origin: e.target.value as any })}
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-medium"
+                  >
+                    <option value="Indonesia">Indonesia 🇮🇩</option>
+                    <option value="Jepang">Jepang 🇯🇵</option>
+                    <option value="Malaysia">Malaysia 🇲🇾</option>
+                    <option value="Thailand">Thailand 🇹🇭</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Lead Time (Hari):</label>
+                  <input
+                    type="number"
+                    value={editingSupplier.leadTimeDays || 3}
+                    onChange={(e) => setEditingSupplier({ ...editingSupplier, leadTimeDays: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Syarat Pembayaran (Terms):</label>
+                <input
+                  type="text"
+                  value={editingSupplier.paymentTerms || ''}
+                  onChange={(e) => setEditingSupplier({ ...editingSupplier, paymentTerms: e.target.value })}
+                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setEditingSupplier(null)}
+                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditSupplier}
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <span className="material-symbols-outlined text-sm">save</span>
+                <span>Simpan Perubahan</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Pelunasan Hutang Pembelian via Rekening Bank */}
+      {isSettleModalOpen && settleEntry && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                  Pelunasan Hutang Pembelian
+                </span>
+                <h3 className="font-mono font-black text-stone-900 text-base mt-1">
+                  Faktur #{settleEntry.invoiceNumber}
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsSettleModalOpen(false);
+                  setSettleEntry(null);
+                }}
+                className="text-stone-400 hover:text-stone-700 cursor-pointer p-1"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 text-xs space-y-2">
+              <div className="flex justify-between">
+                <span className="text-stone-500">Supplier:</span>
+                <span className="font-bold text-stone-900">{settleEntry.supplierName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-stone-500">Tanggal Faktur Masuk:</span>
+                <span className="font-bold text-stone-900">{settleEntry.date}</span>
+              </div>
+              <div className="flex justify-between items-center pt-1 border-t border-stone-200">
+                <span className="text-stone-700 font-bold">Total yang Harus Dibayar:</span>
+                <span className="font-mono font-black text-rose-600 text-base">
+                  ¥{settleEntry.totalAmount.toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-stone-800 block mb-1">
+                  Pilih Akun Bank Toko untuk Pembayaran Transfer:
+                </label>
+                {bankAccounts.length === 0 ? (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1.5">
+                    <p className="text-[11px] text-amber-700">
+                      Belum ada rekening bank resmi toko terdaftar di sistem. Silakan daftarkan rekening toko di menu <strong>Akuntansi &gt; Akun Kas & Bank</strong> terlebih dahulu.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      value={settleBankAccountId}
+                      onChange={(e) => setSettleBankAccountId(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-stone-300 rounded-xl font-bold text-xs"
+                    >
+                      {bankAccounts.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          [{b.currency}] {b.bankName} - No: {b.accountNumber} ({b.accountName})
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Preview Selected Bank */}
+                    {(() => {
+                      const b = bankAccounts.find((acc) => acc.id === settleBankAccountId) || bankAccounts[0];
+                      if (!b) return null;
+                      return (
+                        <div className="mt-2 bg-emerald-50/70 p-3 rounded-xl border border-emerald-200 flex items-center justify-between">
+                          <div>
+                            <div className="font-bold text-stone-900 text-xs flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-sm text-emerald-600">account_balance</span>
+                              <span>{b.bankName}</span>
+                              <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-bold">
+                                {b.accountNumber}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-stone-500 mt-0.5">
+                              A/N: <span className="font-semibold text-stone-700">{b.holderName || b.accountName}</span>
+                            </p>
+                          </div>
+                          <span className="text-[10px] font-bold text-emerald-800 bg-white px-2 py-1 rounded-md border border-emerald-200 shadow-xs">
+                            Saldo: {b.currency === 'IDR' ? `Rp ${b.balance.toLocaleString('id-ID')}` : `¥${b.balance.toLocaleString('ja-JP')}`}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+              </div>
+
+              <p className="text-[11px] text-stone-500 bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                💡 Setelah konfirmasi, status faktur pembelian akan langsung diubah menjadi <strong>LUNAS</strong> dan pengeluaran kas otomatis tercatat di Jurnal Kas Keluar Akuntansi.
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSettleModalOpen(false);
+                  setSettleEntry(null);
+                }}
+                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSettleDebt}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <span className="material-symbols-outlined text-sm">verified</span>
+                <span>Konfirmasi Pembayaran via Bank</span>
               </button>
             </div>
           </div>

@@ -5,6 +5,9 @@ import { HalalBadge } from '../components/product/HalalBadge';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useAdmin } from '../context/AdminContext';
+import { getEffectiveUnitPrice, parseMinQty } from '../utils/pricing';
+import { resolveProductImage, getPlaceholderImage } from '../components/common/ProductImage';
 
 export const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -13,9 +16,26 @@ export const ProductDetailPage: React.FC = () => {
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { language, t } = useLanguage();
+  const { itemDiscounts } = useAdmin();
 
   const product = PRODUCTS_DATA.find((p) => p.id === id) || PRODUCTS_DATA[0];
   const isWishlisted = isInWishlist(product.id);
+
+  // Dynamic discount calculation strictly synchronized with Admin Dashboard
+  const activeDisc = itemDiscounts.find(
+    (d) => d.isActive && (d.productId === product.id || d.productSku === (product as any).sku || d.productName?.toLowerCase() === product.name.toLowerCase())
+  );
+  const discountPercent = activeDisc
+    ? (activeDisc.discountType === 'PERCENTAGE'
+        ? activeDisc.discountValue
+        : Math.round(((product.price - activeDisc.discountedPriceJPY) / product.price) * 100))
+    : (product.discountPercentage || 0);
+
+  const bulkEffect = getEffectiveUnitPrice(product, quantity);
+  const currentPrice = activeDisc?.discountedPriceJPY ?? (bulkEffect.isBulk ? bulkEffect.price : product.price);
+  const currentPriceTax = activeDisc?.discountedPriceJPY
+    ? Math.round(activeDisc.discountedPriceJPY * 1.08)
+    : (bulkEffect.isBulk ? bulkEffect.priceTax : product.priceTax);
 
   const getProductName = () => {
     if (language === 'JP') return product.nameJp;
@@ -70,16 +90,19 @@ export const ProductDetailPage: React.FC = () => {
         <div className="lg:col-span-5 space-y-4">
           <div className="relative aspect-square rounded-2xl overflow-hidden bg-stone-100 border border-stone-200">
             <img
-              src={product.image}
+              src={resolveProductImage(product.image, language)}
               alt={getProductName()}
-              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = getPlaceholderImage(language);
+              }}
+              className="w-full h-full object-contain p-4 bg-[#FAF8F5]"
             />
             <div className="absolute top-4 left-4">
               <HalalBadge isFrozen={product.isFrozen} />
             </div>
-            {product.discountPercentage && (
+            {discountPercent > 0 && (
               <span className="absolute top-4 right-14 bg-[#E11D48] text-white font-bold text-xs px-3 py-1 rounded-full shadow-sm">
-                -{product.discountPercentage}%
+                -{discountPercent}%
               </span>
             )}
 
@@ -136,20 +159,116 @@ export const ProductDetailPage: React.FC = () => {
 
             {/* Price Card */}
             <div className="bg-[#FDF8F0] p-4 rounded-xl border border-[#EBE5DF] space-y-1">
-              <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-bold text-[#c41230]">
-                  ¥{product.price.toLocaleString()}
-                </span>
-                <span className="text-xs text-stone-600 font-medium">
-                  ({t('tax_included')} ¥{product.priceTax.toLocaleString()})
-                </span>
-              </div>
-              {product.originalPrice && (
-                <div className="text-xs text-stone-400 line-through">
-                  {t('original_price')}: ¥{product.originalPrice.toLocaleString()}
+              {currentPrice > 0 ? (
+                <>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-3xl font-bold text-[#c41230]">
+                      ¥{currentPrice.toLocaleString()}
+                    </span>
+                    <span className="text-xs text-stone-600 font-medium">
+                      ({t('tax_included')} ¥{currentPriceTax.toLocaleString()})
+                    </span>
+                  </div>
+                  {discountPercent > 0 && activeDisc?.originalPriceJPY ? (
+                    <div className="text-xs text-stone-400 line-through">
+                      {t('original_price')}: ¥{activeDisc.originalPriceJPY.toLocaleString()}
+                    </div>
+                  ) : product.originalPrice ? (
+                    <div className="text-xs text-stone-400 line-through">
+                      {t('original_price')}: ¥{product.originalPrice.toLocaleString()}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="py-1">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold">
+                    <span className="material-symbols-outlined text-sm">schedule</span>
+                    <span>{language === 'JP' ? '価格設定中（近日公開）' : language === 'EN' ? 'Price Pending (Coming Soon)' : 'Harga Segera Dirilis (TBD)'}</span>
+                  </div>
+                  <p className="text-[11px] text-stone-500 mt-1">
+                    {language === 'JP' ? 'この商品は現在マスター登録済みで、まもなく正式販売開始となります。' : 'Produk ini terdaftar resmi dalam master katalog dan sedang menunggu rilis harga final.'}
+                  </p>
                 </div>
               )}
             </div>
+
+            {/* Wholesale Bulk Pricing Tiers (Sheet 03 Pricing) */}
+            {product.bulkPrices && (
+              (() => {
+                const q1 = parseMinQty(product.bulkPrices.tier1_qty, 6);
+                const q2 = parseMinQty(product.bulkPrices.tier2_qty, 12);
+                const q3 = parseMinQty(product.bulkPrices.tier3_qty, 24);
+                const p1 = product.bulkPrices.tier1_price || Math.round(product.price * 0.95);
+                const p2 = product.bulkPrices.tier2_price || Math.round(product.price * 0.9);
+                const p3 = product.bulkPrices.tier3_price || Math.round(product.price * 0.85);
+
+                return (
+                  <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-blue-950">
+                        <span className="material-symbols-outlined text-base text-blue-600">layers</span>
+                        <span>
+                          {language === 'JP'
+                            ? '卸売・まとめ買い価格 (Bulk)'
+                            : language === 'EN'
+                            ? 'Wholesale Bulk Pricing'
+                            : 'Harga Grosir (Wholesale Bulk)'}
+                        </span>
+                      </div>
+                      {bulkEffect.isBulk && (
+                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full animate-pulse">
+                          ✓ {bulkEffect.tierLabel} Aktif (-{bulkEffect.savingsPercent}%)
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Tier 1 */}
+                      <div
+                        onClick={() => setQuantity(q1)}
+                        className={`p-2.5 rounded-xl border text-center cursor-pointer transition-all ${
+                          quantity >= q1 && quantity < q2
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm scale-102'
+                            : 'bg-white hover:bg-blue-50 text-stone-700 border-blue-100'
+                        }`}
+                      >
+                        <div className="text-[10px] font-bold opacity-80">{q1}–{q2 - 1} Pcs</div>
+                        <div className="text-sm font-black mt-0.5">¥{p1.toLocaleString()}</div>
+                        <div className="text-[9px] opacity-75">/ pcs</div>
+                      </div>
+
+                      {/* Tier 2 */}
+                      <div
+                        onClick={() => setQuantity(q2)}
+                        className={`p-2.5 rounded-xl border text-center cursor-pointer transition-all ${
+                          quantity >= q2 && quantity < q3
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm scale-102'
+                            : 'bg-white hover:bg-blue-50 text-stone-700 border-blue-100'
+                        }`}
+                      >
+                        <div className="text-[10px] font-bold opacity-80">{q2}+ Pcs</div>
+                        <div className="text-sm font-black mt-0.5">¥{p2.toLocaleString()}</div>
+                        <div className="text-[9px] opacity-75">/ pcs</div>
+                      </div>
+
+                      {/* Tier 3 */}
+                      <div
+                        onClick={() => setQuantity(q3)}
+                        className={`p-2.5 rounded-xl border text-center cursor-pointer transition-all ${
+                          quantity >= q3
+                            ? 'bg-indigo-700 text-white border-indigo-700 shadow-sm scale-102'
+                            : 'bg-white hover:bg-blue-50 text-stone-700 border-blue-100'
+                        }`}
+                      >
+                        <div className="text-[10px] font-bold opacity-80">1 Dus ({q3}+)</div>
+                        <div className="text-sm font-black mt-0.5">¥{p3.toLocaleString()}</div>
+                        <div className="text-[9px] opacity-75">Termurah</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()
+            )}
 
             {/* Quantity Stepper, Add to Cart & Wishlist Button */}
             <div className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4">
@@ -173,14 +292,28 @@ export const ProductDetailPage: React.FC = () => {
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => addToCart(product, quantity)}
-                className="flex-1 inline-flex items-center justify-center gap-2 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold py-3.5 px-6 sm:px-8 rounded-xl shadow-md active:scale-95 transition-all text-sm sm:text-base cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-xl">shopping_cart</span>
-                <span>{t('add_to_cart_full')}</span>
-              </button>
+              {currentPrice > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const productToAdd = activeDisc ? { ...product, price: currentPrice, priceTax: currentPriceTax } : product;
+                    addToCart(productToAdd, quantity);
+                  }}
+                  className="flex-1 inline-flex items-center justify-center gap-2 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold py-3.5 px-6 sm:px-8 rounded-xl shadow-md active:scale-95 transition-all text-sm sm:text-base cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-xl">shopping_cart</span>
+                  <span>{t('add_to_cart_full')}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="flex-1 inline-flex items-center justify-center gap-2 bg-stone-100 text-stone-400 font-bold py-3.5 px-6 sm:px-8 rounded-xl border border-stone-200 cursor-not-allowed text-sm sm:text-base"
+                >
+                  <span className="material-symbols-outlined text-xl">hourglass_empty</span>
+                  <span>{language === 'JP' ? '価格設定待ち（注文不可）' : 'Menunggu Penetapan Harga'}</span>
+                </button>
+              )}
 
               <button
                 type="button"

@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FAF8F5"/>
+      <stop offset="100%" stop-color="#F1ECE4"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C41230"/>
+      <stop offset="100%" stop-color="#991B1B"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.06"/>
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="500" height="500" fill="url(#bgGrad)"/>
+  
+  <!-- Dashed Border -->
+  <rect x="24" y="24" width="452" height="452" rx="24" fill="none" stroke="#D8D0C5" stroke-width="2.5" stroke-dasharray="8 8"/>
+
+  <!-- Center Card -->
+  <g transform="translate(60, 65)">
+    <!-- Icon Container -->
+    <g transform="translate(140, 30)">
+      <circle cx="50" cy="50" r="48" fill="#FFFFFF" stroke="#E6DFD5" stroke-width="2" filter="url(#shadow)"/>
+      
+      <!-- Camera / Image Body -->
+      <rect x="28" y="34" width="44" height="32" rx="6" fill="#F3EFEA" stroke="#78716C" stroke-width="2"/>
+      <circle cx="50" cy="50" r="9" fill="none" stroke="#78716C" stroke-width="2"/>
+      <circle cx="63" cy="40" r="2.5" fill="#C41230"/>
+      
+      <!-- Upload Badge -->
+      <circle cx="74" cy="24" r="15" fill="url(#accentGrad)" filter="url(#shadow)"/>
+      <path d="M74 30 L74 18 M69 22 L74 17 L79 22" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- Main Message Text (English) -->
+    <text x="190" y="195" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="19" font-weight="800" fill="#292524" text-anchor="middle" letter-spacing="0.8">
+      IMAGE UPLOAD
+    </text>
+    <text x="190" y="226" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="22" font-weight="900" fill="#C41230" text-anchor="middle" letter-spacing="1.2">
+      IN PROGRESS
+    </text>
+
+    <!-- Divider Accent -->
+    <line x1="140" y1="250" x2="240" y2="250" stroke="#C41230" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- Subtitle Pill -->
+    <g transform="translate(85, 275)">
+      <rect width="210" height="34" rx="17" fill="#FFFFFF" stroke="#E6DFD5" stroke-width="1.5" filter="url(#shadow)"/>
+      <text x="105" y="21" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="600" fill="#78716C" text-anchor="middle">
+        📷 Official Photo Coming Soon
+      </text>
+    </g>
+
+    <!-- Store Brand Note -->
+    <text x="190" y="342" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="600" fill="#A8A29E" text-anchor="middle" letter-spacing="0.5">
+      SEMBAKO NUSANTARA JAPAN
+    </text>
+  </g>
+</svg>

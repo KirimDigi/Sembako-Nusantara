@@ -87,7 +87,13 @@ export const FreeShippingProgressBar: React.FC<FreeShippingProgressBarProps> = (
           className={`absolute right-0 top-0.5 text-base sm:text-lg transition-transform ${
             isFreeShipping ? 'scale-125 animate-pulse' : 'opacity-85 hover:scale-110'
           }`}
-          title="Hadiah Gratis Ongkir ¥15,000"
+          title={
+            language === 'JP'
+              ? '送料無料特典 ¥15,000'
+              : language === 'EN'
+              ? 'Free Shipping Reward ¥15,000'
+              : 'Hadiah Gratis Ongkir ¥15,000'
+          }
         >
           🎁
         </div>
@@ -97,7 +103,13 @@ export const FreeShippingProgressBar: React.FC<FreeShippingProgressBarProps> = (
         <div className="flex items-center justify-between text-[10px] text-stone-500 mt-2 pt-2 border-t border-[#E8DFC9]/60">
           <span className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Kurir Yamato & Sagawa Express se-Jepang</span>
+            <span>
+              {language === 'JP'
+                ? 'ヤマト運輸＆佐川急便 全国配送'
+                : language === 'EN'
+                ? 'Yamato & Sagawa Express Nationwide Delivery'
+                : 'Kurir Yamato & Sagawa Express se-Jepang'}
+            </span>
           </span>
           <span className="font-mono font-bold text-stone-700">
             ¥{subtotalTax.toLocaleString()} / ¥{freeShippingThreshold.toLocaleString()} ({progressPercent}%)

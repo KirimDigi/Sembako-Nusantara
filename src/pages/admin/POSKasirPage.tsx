@@ -1,35 +1,165 @@
-import React, { useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useAdmin } from '../../context/AdminContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { Product, POSCartItem, POSTransaction } from '../../types';
+import { Product, POSCartItem, POSTransaction, ThermalPrinterSettings } from '../../types';
 import { CurrencyType, getActiveExchangeRate, convertJpyToIdr, formatIdr, formatJpy } from '../../utils/currency';
+import { DEFAULT_PRINTER_SETTINGS, getCleanPrinterSettings } from './SettingsPage';
+import { POSDisplayPayload } from './POSCustomerDisplayPage';
+import { resolveProductImage, getPlaceholderImage } from '../../components/common/ProductImage';
 
 export const POSKasirPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') === 'history' || searchParams.get('tab') === 'sales' ? 'history' : 'pos';
 
   const { products, addPOSTransaction, posTransactions, customers, addCustomer } = useAdmin();
   const { language } = useLanguage();
 
-  // POS Live State
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [cart, setCart] = useState<POSCartItem[]>([]);
-  const [discountPercent, setDiscountPercent] = useState<number>(0);
-  const [selectedCustomer, setSelectedCustomer] = useState<string>('');
-  const [txNotes, setTxNotes] = useState<string>('');
+  // POS Multi-Register State (Maksimal 3 Mesin Kasir Aktif)
+  const [registers, setRegisters] = useState<Array<{
+    id: number;
+    name: string;
+    cart: POSCartItem[];
+    selectedCustomer: string;
+    txNotes: string;
+    payCurrency: CurrencyType;
+    searchQuery: string;
+  }>>([
+    {
+      id: 1,
+      name: 'Mesin Kasir 1',
+      cart: [],
+      selectedCustomer: '',
+      txNotes: '',
+      payCurrency: 'JPY',
+      searchQuery: ''
+    }
+  ]);
+  const [activeRegisterId, setActiveRegisterId] = useState<number>(1);
+  const activeRegister = registers.find((r) => r.id === activeRegisterId) || registers[0];
 
-  // Dual Currency POS State (Yen / Rupiah)
-  const [payCurrency, setPayCurrency] = useState<CurrencyType>('JPY');
+  const cart = activeRegister.cart;
+  const selectedCustomer = activeRegister.selectedCustomer;
+  const txNotes = activeRegister.txNotes;
+  const payCurrency = activeRegister.payCurrency;
+  const searchQuery = activeRegister.searchQuery;
+
+  const setCart = (action: React.SetStateAction<POSCartItem[]>) => {
+    setRegisters((prev) =>
+      prev.map((reg) => {
+        if (reg.id === activeRegisterId) {
+          const nextCart = typeof action === 'function' ? action(reg.cart) : action;
+          return { ...reg, cart: nextCart };
+        }
+        return reg;
+      })
+    );
+  };
+
+  const setSelectedCustomer = (action: React.SetStateAction<string>) => {
+    setRegisters((prev) =>
+      prev.map((reg) => {
+        if (reg.id === activeRegisterId) {
+          const nextVal = typeof action === 'function' ? action(reg.selectedCustomer) : action;
+          return { ...reg, selectedCustomer: nextVal };
+        }
+        return reg;
+      })
+    );
+  };
+
+  const setTxNotes = (action: React.SetStateAction<string>) => {
+    setRegisters((prev) =>
+      prev.map((reg) => {
+        if (reg.id === activeRegisterId) {
+          const nextVal = typeof action === 'function' ? action(reg.txNotes) : action;
+          return { ...reg, txNotes: nextVal };
+        }
+        return reg;
+      })
+    );
+  };
+
+  const setPayCurrency = (curr: CurrencyType) => {
+    setRegisters((prev) =>
+      prev.map((reg) => (reg.id === activeRegisterId ? { ...reg, payCurrency: curr } : reg))
+    );
+  };
+
+  const setSearchQuery = (action: React.SetStateAction<string>) => {
+    setRegisters((prev) =>
+      prev.map((reg) => {
+        if (reg.id === activeRegisterId) {
+          const nextVal = typeof action === 'function' ? action(reg.searchQuery) : action;
+          return { ...reg, searchQuery: nextVal };
+        }
+        return reg;
+      })
+    );
+  };
+
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
   const exchangeRate = getActiveExchangeRate();
+
+  const handleAddRegister = () => {
+    if (registers.length >= 3) {
+      alert(
+        language === 'JP'
+          ? '同時に開くことができるレジ端末は最大3台までです。'
+          : language === 'EN'
+          ? 'Maximum 3 active POS register terminals allowed.'
+          : 'Maksimal 3 Mesin Kasir aktif yang dapat dibuka bersamaan.'
+      );
+      return;
+    }
+    const existingIds = registers.map((r) => r.id);
+    const nextId = [1, 2, 3].find((id) => !existingIds.includes(id)) || registers.length + 1;
+    const newRegister = {
+      id: nextId,
+      name:
+        language === 'JP'
+          ? `レジ端末 ${nextId}`
+          : language === 'EN'
+          ? `Register ${nextId}`
+          : `Mesin Kasir ${nextId}`,
+      cart: [],
+      selectedCustomer: '',
+      txNotes: '',
+      payCurrency: 'JPY' as CurrencyType,
+      searchQuery: ''
+    };
+    setRegisters((prev) => [...prev, newRegister].sort((a, b) => a.id - b.id));
+    setActiveRegisterId(nextId);
+  };
+
+  const handleCloseRegister = (regId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (registers.length <= 1) return;
+    const regToClose = registers.find((r) => r.id === regId);
+    if (regToClose && regToClose.cart.length > 0) {
+      const confirmClose = window.confirm(
+        language === 'JP'
+          ? `${regToClose.name} にはまだ ${regToClose.cart.length} 件の商品が入っています。このレジを閉じますか？`
+          : language === 'EN'
+          ? `${regToClose.name} has ${regToClose.cart.length} items in cart. Close this register?`
+          : `${regToClose.name} masih memiliki ${regToClose.cart.length} item di keranjang. Yakin ingin menutup mesin kasir ini?`
+      );
+      if (!confirmClose) return;
+    }
+    const remaining = registers.filter((r) => r.id !== regId);
+    setRegisters(remaining);
+    if (activeRegisterId === regId) {
+      setActiveRegisterId(remaining[0].id);
+    }
+  };
 
   // Quick Add Customer Modal State (from POS)
   const [isQuickAddCustomerOpen, setIsQuickAddCustomerOpen] = useState<boolean>(false);
   const [newCustName, setNewCustName] = useState<string>('');
   const [newCustPhone, setNewCustPhone] = useState<string>('');
-  const [newCustCity, setNewCustCity] = useState<string>('Tokyo (Edogawa)');
+  const [newCustCity, setNewCustCity] = useState<string>('Tokyo (Ota-ku / Nishikamata)');
 
   // Payment Modal State
   const [isPaymentOpen, setIsPaymentOpen] = useState<boolean>(false);
@@ -38,6 +168,69 @@ export const POSKasirPage: React.FC = () => {
 
   // Completed / Inspected Receipt Modal State
   const [completedTx, setCompletedTx] = useState<POSTransaction | null>(null);
+
+  // Thermal Printer Settings State (Sinkron otomatis dengan menu Pengaturan)
+  const [printerSettings, setPrinterSettings] = useState<ThermalPrinterSettings>(() => {
+    return getCleanPrinterSettings(localStorage.getItem('sn_pos_printer_settings'));
+  });
+
+  // Sinkronkan ulang pengaturan printer setiap kali modal struk dibuka
+  useEffect(() => {
+    if (completedTx) {
+      setPrinterSettings(getCleanPrinterSettings(localStorage.getItem('sn_pos_printer_settings')));
+    }
+  }, [completedTx]);
+
+  // Fungsi Cetak Nota Thermal POS (menggunakan CSS @page dengan lebar kertas dinamis)
+  const handlePrintReceipt = () => {
+    const currentSettings = getCleanPrinterSettings(localStorage.getItem('sn_pos_printer_settings'));
+    setPrinterSettings(currentSettings);
+
+    const printWidth = currentSettings.paperWidth || 57;
+    const existingStyle = document.getElementById('pos-thermal-print-override');
+    if (existingStyle) existingStyle.remove();
+
+    const fontSizePx =
+      currentSettings.fontSize === 'small' ? '10px' : currentSettings.fontSize === 'large' ? '13px' : '11px';
+
+    const styleEl = document.createElement('style');
+    styleEl.id = 'pos-thermal-print-override';
+    styleEl.innerHTML = `
+      @media print {
+        @page {
+          size: ${printWidth}mm auto;
+          margin: 0mm;
+        }
+        body * {
+          visibility: hidden !important;
+        }
+        #pos-thermal-receipt-print-area, #pos-thermal-receipt-print-area * {
+          visibility: visible !important;
+        }
+        #pos-thermal-receipt-print-area {
+          position: fixed !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: ${printWidth}mm !important;
+          max-width: ${printWidth}mm !important;
+          margin: 0 !important;
+          padding: 2mm 3mm !important;
+          background: white !important;
+          color: black !important;
+          font-family: 'Courier New', Courier, monospace !important;
+          font-size: ${fontSizePx} !important;
+          box-shadow: none !important;
+          border: none !important;
+        }
+        #pos-thermal-receipt-print-area .no-print {
+          display: none !important;
+        }
+      }
+    `;
+    document.head.appendChild(styleEl);
+
+    window.print();
+  };
 
   // History Filter State
   const [historySearch, setHistorySearch] = useState<string>('');
@@ -127,7 +320,7 @@ export const POSKasirPage: React.FC = () => {
         // Receipt Modal
         receiptHeaderStore: 'SEMBAKO NUSANTARA TOKYO',
         receiptStoreDesc: '在日インドネシア食材・ハラール専門店',
-        receiptStoreAddr: '東京都江戸川区 • TEL: 03-5678-9012',
+        receiptStoreAddr: '〒144-0051 東京都大田区西蒲田5丁目9-16 • TEL: 03-5678-9012',
         receiptNo: '伝票番号',
         receiptDate: '取引日時',
         receiptCashier: '担当レジ',
@@ -140,6 +333,10 @@ export const POSKasirPage: React.FC = () => {
         receiptPaid: 'お預かり',
         receiptChange: 'お釣り',
         receiptThanks: '毎度ご来店ありがとうございます！ 🙏',
+        itemCountLabel: '品目数 (商品の種類)',
+        totalUnitsLabel: '合計点数 (総数量)',
+        itemSuffix: '品目',
+        unitsSuffix: '点 (pcs)',
         btnPrintReceipt: 'レシート印刷',
         btnNewTx: '新規取引',
         // Quick Add Modal
@@ -240,7 +437,7 @@ export const POSKasirPage: React.FC = () => {
         // Receipt Modal
         receiptHeaderStore: 'SEMBAKO NUSANTARA TOKYO',
         receiptStoreDesc: 'Indonesian Halal Specialty Store Japan',
-        receiptStoreAddr: 'Edogawa-ku, Tokyo • Tel: 03-5678-9012',
+        receiptStoreAddr: '〒144-0051 Tokyo, Ota-ku, Nishikamata 5-9-16 • Tel: 03-5678-9012',
         receiptNo: 'Receipt No.',
         receiptDate: 'Date',
         receiptCashier: 'Cashier',
@@ -253,6 +450,10 @@ export const POSKasirPage: React.FC = () => {
         receiptPaid: 'Paid',
         receiptChange: 'Change',
         receiptThanks: 'Thank you for shopping with us! 🙏',
+        itemCountLabel: 'Item Count (Distinct)',
+        totalUnitsLabel: 'Total Quantity (Units)',
+        itemSuffix: 'Items',
+        unitsSuffix: 'pcs',
         btnPrintReceipt: 'Print Receipt',
         btnNewTx: 'New Transaction',
         // Quick Add Modal
@@ -354,7 +555,7 @@ export const POSKasirPage: React.FC = () => {
         // Receipt Modal
         receiptHeaderStore: 'SEMBAKO NUSANTARA JEPANG',
         receiptStoreDesc: 'Toko Produk Halal Indonesia di Jepang',
-        receiptStoreAddr: 'Edogawa-ku, Tokyo • Tel: 03-5678-9012',
+        receiptStoreAddr: '〒144-0051 東京都大田区西蒲田5丁目9-16 (Tokyo, Ota-ku, Nishikamata 5-9-16) • Tel: 03-5678-9012',
         receiptNo: 'No. Struk',
         receiptDate: 'Tanggal',
         receiptCashier: 'Kasir',
@@ -367,6 +568,10 @@ export const POSKasirPage: React.FC = () => {
         receiptPaid: 'Bayar',
         receiptChange: 'Kembalian',
         receiptThanks: 'Terima kasih atas kunjungan Anda! 🙏',
+        itemCountLabel: 'Jumlah Item (Item Berbeda)',
+        totalUnitsLabel: 'Total Kuantitas Fisik',
+        itemSuffix: 'Item',
+        unitsSuffix: 'pcs',
         btnPrintReceipt: 'Cetak Nota',
         btnNewTx: 'Transaksi Baru',
         // Quick Add Modal
@@ -397,40 +602,282 @@ export const POSKasirPage: React.FC = () => {
     );
   }, [customers, selectedCustomer]);
 
-  // Filter products for POS Grid
+  // Filter products for POS Grid - Default KOSONG kecuali ada pencarian/scan barang
   const filteredProducts = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return []; // Sesuai permintaan: Default KOSONG tanpa katalog
     return products.filter((p) => {
-      const matchCat = selectedCategory === 'all' || p.category === selectedCategory;
-      const matchQuery =
-        !searchQuery ||
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.nameJp && p.nameJp.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (p.nameEn && p.nameEn.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        p.brand.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchCat && matchQuery;
+      const pSku = ((p as any).sku || '').toLowerCase();
+      const pBarcode = ((p as any).barcode || '').toLowerCase();
+      return (
+        p.id.toLowerCase() === q ||
+        pSku.includes(q) ||
+        pBarcode.includes(q) ||
+        p.name.toLowerCase().includes(q) ||
+        (p.nameJp && p.nameJp.toLowerCase().includes(q)) ||
+        (p.nameEn && p.nameEn.toLowerCase().includes(q)) ||
+        p.brand.toLowerCase().includes(q)
+      );
     });
-  }, [products, selectedCategory, searchQuery]);
+  }, [products, searchQuery]);
 
-  // Cart operations
-  const addToCart = (product: Product) => {
+  // Dual-Tone Audio Feedback: Success Beep (1400Hz) & Double Error Buzzer (300Hz-220Hz)
+  const playBarcodeBeep = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1400, ctx.currentTime);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.12);
+    } catch (e) {}
+  };
+
+  const playErrorBeep = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+
+      // Tone 1: Low frequency buzz (300Hz)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(300, ctx.currentTime);
+      gain1.gain.setValueAtTime(0.16, ctx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.11);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(ctx.currentTime);
+      osc1.stop(ctx.currentTime + 0.11);
+
+      // Tone 2: Immediate follow-up drop buzz (220Hz)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sawtooth';
+      osc2.frequency.setValueAtTime(220, ctx.currentTime + 0.13);
+      gain2.gain.setValueAtTime(0.16, ctx.currentTime + 0.13);
+      gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.26);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(ctx.currentTime + 0.13);
+      osc2.stop(ctx.currentTime + 0.26);
+    } catch (e) {}
+  };
+
+  // Cart operations (mendukung penambahan kuantitas banyak sekaligus, misal: 10*barcode)
+  const addToCart = (product: Product, quantityToAdd: number = 1) => {
     if (product.stock <= 0) {
+      playErrorBeep();
       alert(txt.alertOutOfStock(product.name));
       return;
     }
 
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
+      const curQty = existing ? existing.quantity : 0;
+      if (curQty + quantityToAdd > product.stock) {
+        playErrorBeep();
+        alert(txt.alertExceedStock(product.stock));
+        return prev;
+      }
       if (existing) {
-        if (existing.quantity >= product.stock) {
-          alert(txt.alertExceedStock(product.stock));
-          return prev;
-        }
         return prev.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.product.id === product.id ? { ...item, quantity: item.quantity + quantityToAdd } : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity: quantityToAdd }];
     });
+  };
+
+  // Update kuantitas langsung secara manual (bisa ketik angka langsung di keranjang kasir)
+  const updateExactQuantity = (productId: string, exactQty: number) => {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.product.id === productId) {
+          const targetProd = products.find((p) => p.id === productId);
+          if (targetProd && exactQty > targetProd.stock) {
+            playErrorBeep();
+            alert(txt.alertExceedStock(targetProd.stock));
+            return item;
+          }
+          return { ...item, quantity: Math.max(1, exactQty) };
+        }
+        return item;
+      })
+    );
+  };
+
+  // Barcode Scanner & Sound Feedback
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const [scanFeedbackMsg, setScanFeedbackMsg] = useState<{ text: string; isError: boolean } | null>(null);
+
+  // Helper to reliably place cursor in the barcode scan box
+  const focusBarcodeInput = () => {
+    if (activeTab === 'pos' && barcodeInputRef.current) {
+      barcodeInputRef.current.focus();
+      // Ensure cursor is placed at the end of text
+      const len = barcodeInputRef.current.value.length;
+      try {
+        barcodeInputRef.current.setSelectionRange(len, len);
+      } catch (e) {}
+    }
+  };
+
+  // Auto-focus barcode search bar whenever entering POS, switching register, or closing modals
+  useEffect(() => {
+    if (activeTab === 'pos') {
+      // 1. Immediate microtask / animation frame
+      requestAnimationFrame(() => focusBarcodeInput());
+
+      // 2. Staggered timers to guarantee focus after DOM layout and route transitions
+      const t1 = setTimeout(focusBarcodeInput, 30);
+      const t2 = setTimeout(focusBarcodeInput, 100);
+      const t3 = setTimeout(focusBarcodeInput, 250);
+      const t4 = setTimeout(focusBarcodeInput, 500);
+      const t5 = setTimeout(focusBarcodeInput, 900);
+
+      // 3. Re-focus when window / tab regains focus
+      const handleWindowFocus = () => focusBarcodeInput();
+      window.addEventListener('focus', handleWindowFocus);
+
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+        clearTimeout(t4);
+        clearTimeout(t5);
+        window.removeEventListener('focus', handleWindowFocus);
+      };
+    }
+  }, [activeTab, activeRegisterId, isPaymentOpen, isQuickAddCustomerOpen, completedTx]);
+
+  // Global keydown listener for POS:
+  // If the cashier scans with a barcode scanner gun anywhere on the POS page without having clicked the input,
+  // automatically redirect focus to barcode input so the scan is captured 100% reliably!
+  useEffect(() => {
+    if (activeTab !== 'pos') return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Ignore if any modal is open
+      if (isPaymentOpen || isQuickAddCustomerOpen || completedTx) return;
+
+      // Ignore modifier combinations (Ctrl+C, Ctrl+V, Alt+Tab, etc.)
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      // Ignore navigation / special function keys
+      if (e.key === 'Tab' || e.key === 'Escape' || e.key.startsWith('F')) return;
+
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      // If already focused in another input or textarea, don't steal focus
+      if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') {
+        return;
+      }
+
+      // Automatically focus barcode scan box so the scanned data enters directly
+      if (barcodeInputRef.current) {
+        barcodeInputRef.current.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [activeTab, isPaymentOpen, isQuickAddCustomerOpen, completedTx]);
+
+  const handleBarcodeScanOrSubmit = (inputCode: string) => {
+    const rawInput = inputCode.trim();
+    if (!rawInput) return;
+
+    // 0. Dukungan Multi-Scan Cepat Kasir (Contoh: "10*8991234", "5*indomie", "24xSKU123")
+    let multiplier = 1;
+    let cleanCode = rawInput;
+    const multiMatch = rawInput.match(/^(\d+)\s*[*xX]\s*(.+)$/);
+    if (multiMatch) {
+      const parsedQty = parseInt(multiMatch[1], 10);
+      if (parsedQty > 0 && parsedQty <= 999) {
+        multiplier = parsedQty;
+        cleanCode = multiMatch[2].trim();
+      }
+    }
+
+    // 1. Look for exact match by barcode, SKU, id, or name
+    let matchedProduct = products.find((p) => {
+      const pSku = ((p as any).sku || '').toLowerCase();
+      const pBarcode = ((p as any).barcode || '').toLowerCase();
+      const target = cleanCode.toLowerCase();
+      return (
+        p.id.toLowerCase() === target ||
+        pSku === target ||
+        pBarcode === target ||
+        p.name.toLowerCase() === target
+      );
+    });
+
+    // 2. Fallback to partial match in products
+    if (!matchedProduct) {
+      const matches = products.filter((p) => {
+        const pSku = ((p as any).sku || '').toLowerCase();
+        const target = cleanCode.toLowerCase();
+        return (
+          p.name.toLowerCase().includes(target) ||
+          pSku.includes(target) ||
+          p.brand.toLowerCase().includes(target)
+        );
+      });
+      if (matches.length > 0) {
+        matchedProduct = matches[0];
+      }
+    }
+
+    if (matchedProduct) {
+      if (matchedProduct.stock <= 0) {
+        playErrorBeep();
+        setScanFeedbackMsg({
+          text: `Stok produk "${matchedProduct.name}" habis! (0 Pcs)`,
+          isError: true
+        });
+        setTimeout(() => setScanFeedbackMsg(null), 3000);
+        return;
+      }
+
+      const existingInCart = cart.find((i) => i.product.id === matchedProduct.id);
+      const curQty = existingInCart ? existingInCart.quantity : 0;
+      if (curQty + multiplier > matchedProduct.stock) {
+        playErrorBeep();
+        setScanFeedbackMsg({
+          text: `Kuantitas (${curQty + multiplier}) melebihi sisa stok (${matchedProduct.stock} Pcs)!`,
+          isError: true
+        });
+        setTimeout(() => setScanFeedbackMsg(null), 3000);
+        return;
+      }
+
+      addToCart(matchedProduct, multiplier);
+      playBarcodeBeep();
+      setScanFeedbackMsg({
+        text: `✔ [${multiplier > 1 ? `${multiplier}x ` : ''}${matchedProduct.name}] Berhasil discan & otomatis masuk keranjang kasir!`,
+        isError: false
+      });
+      setSearchQuery('');
+      barcodeInputRef.current?.focus();
+      setTimeout(() => {
+        setScanFeedbackMsg(null);
+        barcodeInputRef.current?.focus();
+      }, 1500);
+    } else {
+      playErrorBeep();
+      setScanFeedbackMsg({
+        text: `Barcode / Kode "${cleanCode}" tidak ditemukan di database produk.`,
+        isError: true
+      });
+      setTimeout(() => setScanFeedbackMsg(null), 2500);
+    }
   };
 
   const updateQuantity = (productId: string, delta: number) => {
@@ -442,6 +889,7 @@ export const POSKasirPage: React.FC = () => {
             const newQty = item.quantity + delta;
             if (newQty <= 0) return null;
             if (targetProd && newQty > targetProd.stock) {
+              playErrorBeep();
               alert(txt.alertExceedStock(targetProd.stock));
               return item;
             }
@@ -474,7 +922,7 @@ export const POSKasirPage: React.FC = () => {
       name: newCustName.trim(),
       phone: newCustPhone.trim() || '-',
       email: '-',
-      city: newCustCity.trim() || 'Tokyo (Edogawa)',
+      city: newCustCity.trim() || 'Tokyo (Ota-ku / Nishikamata)',
       tier: 'Bronze',
       loyaltyPoints: 0,
       preferredLanguage: 'ID',
@@ -488,12 +936,16 @@ export const POSKasirPage: React.FC = () => {
   };
 
   // Calculations for POS Live
+  const totalItemCount = cart.length; // Jumlah Jenis Item Berbeda (misal scan 3 item berbeda -> Jumlah Item = 3)
+  const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0); // Total Kuantitas / Pcs Fisik
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const discountAmount = Math.round((subtotal * discountPercent) / 100);
-  const taxableAmount = subtotal - discountAmount;
+  const subtotalIDR = convertJpyToIdr(subtotal, exchangeRate);
+  const discountAmount = 0; // Diskon kasir dinonaktifkan/dihapus sesuai instruksi
+  const taxableAmount = subtotal;
   const taxAmount = Math.round(taxableAmount * 0.08); // 8% food consumption tax (軽減税率 8%)
+  const taxAmountIDR = convertJpyToIdr(taxAmount, exchangeRate);
   const totalAmount = taxableAmount + taxAmount;
-  const totalAmountIDR = convertJpyToIdr(totalAmount, exchangeRate);
+  const totalAmountIDR = subtotalIDR + taxAmountIDR;
 
   const handleOpenPayment = () => {
     if (cart.length === 0) return;
@@ -504,6 +956,7 @@ export const POSKasirPage: React.FC = () => {
   const handleProcessPayment = () => {
     const activeTotalDue = payCurrency === 'IDR' ? totalAmountIDR : totalAmount;
     if (paymentMethod === 'Cash' && cashGiven < activeTotalDue) {
+      playErrorBeep();
       alert(txt.alertCashNotEnough);
       return;
     }
@@ -557,6 +1010,111 @@ export const POSKasirPage: React.FC = () => {
     setTxNotes('');
     setCompletedTx(savedTx);
   };
+
+  // Broadcast POS Live State ke Customer Display (Layar Pelanggan / Dual Monitor)
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel('sn_pos_display_channel');
+    } catch (e) {}
+
+    const payload: POSDisplayPayload = {
+      storeName: 'Sembako Nusantara Tokyo (東京店)',
+      registerName: activeRegister.name,
+      cart: cart.map((c) => ({
+        id: c.product.id,
+        name:
+          language === 'JP'
+            ? c.product.nameJp || c.product.name
+            : language === 'EN'
+            ? c.product.nameEn || c.product.name
+            : c.product.name,
+        nameJp: c.product.nameJp,
+        nameEn: c.product.nameEn,
+        price: c.product.price,
+        quantity: c.quantity,
+        image: c.product.image,
+        category: c.product.category,
+        isFrozen: c.product.isFrozen,
+        subtotal: c.product.price * c.quantity
+      })),
+      totalItemCount,
+      totalQuantity,
+      subtotal,
+      taxAmount,
+      totalAmount,
+      payCurrency,
+      exchangeRate,
+      subtotalIDR,
+      taxAmountIDR,
+      totalAmountIDR,
+      customerName: selectedCustomer,
+      isPaymentOpen,
+      paymentMethod,
+      cashGiven,
+      changeAmount:
+        paymentMethod === 'Cash' &&
+        cashGiven >= (payCurrency === 'IDR' ? totalAmountIDR : totalAmount)
+          ? cashGiven - (payCurrency === 'IDR' ? totalAmountIDR : totalAmount)
+          : 0,
+      completedTx: completedTx
+        ? {
+            receiptNumber: completedTx.receiptNumber,
+            date: completedTx.date,
+            totalAmount: completedTx.totalAmount,
+            amountPaid: completedTx.amountPaid,
+            changeAmount: completedTx.changeAmount,
+            paymentMethod: completedTx.paymentMethod,
+            currency: completedTx.currency,
+            customerName: completedTx.customerName
+          }
+        : null,
+      lastScannedItemId: cart.length > 0 ? cart[cart.length - 1].product.id : undefined,
+      timestamp: Date.now()
+    };
+
+    try {
+      localStorage.setItem('sn_pos_display_state', JSON.stringify(payload));
+      if (channel) {
+        channel.postMessage({ type: 'POS_STATE_UPDATE', payload });
+      }
+    } catch (e) {}
+
+    const handleDisplayPing = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'REQUEST_POS_STATE') {
+        try {
+          channel?.postMessage({ type: 'POS_STATE_UPDATE', payload });
+        } catch (err) {}
+      }
+    };
+
+    if (channel) {
+      channel.onmessage = handleDisplayPing;
+    }
+
+    return () => {
+      if (channel) channel.close();
+    };
+  }, [
+    cart,
+    selectedCustomer,
+    payCurrency,
+    exchangeRate,
+    subtotal,
+    taxAmount,
+    totalAmount,
+    subtotalIDR,
+    taxAmountIDR,
+    totalAmountIDR,
+    totalItemCount,
+    totalQuantity,
+    isPaymentOpen,
+    paymentMethod,
+    cashGiven,
+    completedTx,
+    activeRegister.name,
+    language
+  ]);
 
   // History Statistics & Calculations
   const historyStats = useMemo(() => {
@@ -698,25 +1256,83 @@ export const POSKasirPage: React.FC = () => {
       title={activeTab === 'history' ? txt.historyTitle : txt.title}
       subtitle={activeTab === 'history' ? txt.historySubtitle : txt.subtitle}
     >
-      {/* Top Tab Switcher */}
+      {/* Top Tab Switcher: Multi-Mesin Kasir (Max 3) & History */}
       <div className="max-w-7xl mx-auto mb-5">
         <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-stone-200 shadow-xs">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSearchParams({ tab: 'pos' })}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                activeTab === 'pos'
-                  ? 'bg-[#c41230] text-white shadow-xs'
-                  : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
-              }`}
-            >
-              <span className="material-symbols-outlined text-lg">point_of_sale</span>
-              <span>{txt.tabLive}</span>
-            </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Dynamic Active Register Tabs (1, 2, 3) */}
+            {registers.map((reg) => {
+              const isActive = activeTab === 'pos' && activeRegisterId === reg.id;
+              const regItemCount = reg.cart.length;
+              return (
+                <div key={reg.id} className="relative inline-flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveRegisterId(reg.id);
+                      if (activeTab !== 'pos') setSearchParams({ tab: 'pos' });
+                    }}
+                    className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#c41230] text-white shadow-xs'
+                        : 'bg-stone-100 text-stone-700 hover:bg-stone-200 hover:text-stone-900'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">point_of_sale</span>
+                    <span>{reg.name}</span>
+                    {regItemCount > 0 && (
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                          isActive ? 'bg-white text-[#c41230]' : 'bg-[#c41230] text-white'
+                        }`}
+                      >
+                        {regItemCount}
+                      </span>
+                    )}
+                  </button>
+                  {registers.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleCloseRegister(reg.id, e)}
+                      title="Tutup Mesin Kasir"
+                      className={`ml-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-black cursor-pointer transition-colors ${
+                        isActive
+                          ? 'bg-red-800 text-white hover:bg-black'
+                          : 'bg-stone-200 text-stone-600 hover:bg-rose-600 hover:text-white'
+                      }`}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              );
+            })}
 
+            {/* Button + Buka Mesin Kasir (Max 3) */}
+            {registers.length < 3 ? (
+              <button
+                type="button"
+                onClick={handleAddRegister}
+                className="flex items-center gap-1 px-3 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                title="Buka Mesin Kasir Baru (Maksimal 3)"
+              >
+                <span className="material-symbols-outlined text-sm font-bold">add</span>
+                <span>+ Buka Mesin Kasir ({registers.length}/3)</span>
+              </button>
+            ) : (
+              <span
+                className="text-[11px] font-bold text-stone-400 bg-stone-100 px-2.5 py-2 rounded-xl border border-stone-200"
+                title="Batas maksimal 3 mesin kasir aktif telah tercapai"
+              >
+                ✓ Maks. 3 Kasir
+              </span>
+            )}
+
+            {/* History Tab */}
             <button
+              type="button"
               onClick={() => setSearchParams({ tab: 'history' })}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeTab === 'history'
                   ? 'bg-[#c41230] text-white shadow-xs'
                   : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
@@ -746,11 +1362,31 @@ export const POSKasirPage: React.FC = () => {
                 <span>{txt.exportCSV}</span>
               </button>
               <button
-                onClick={() => setSearchParams({ tab: 'pos' })}
+                onClick={handleAddRegister}
                 className="flex items-center gap-1.5 px-3.5 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-sm">add</span>
                 <span>{txt.btnOpenPOS}</span>
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'pos' && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  window.open(
+                    '#/admin/pos/display',
+                    'SN_POS_Customer_Display',
+                    'width=1200,height=800,menubar=no,toolbar=no,location=no,status=no'
+                  );
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 hover:from-black hover:to-stone-950 text-amber-300 border border-amber-400/40 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                title="Buka Layar Monitor Kedua / Tampilan Pelanggan (Customer-Facing Display)"
+              >
+                <span className="material-symbols-outlined text-base text-amber-400">desktop_windows</span>
+                <span>🖥️ Layar Pelanggan (Dual Display)</span>
               </button>
             </div>
           )}
@@ -1073,118 +1709,234 @@ export const POSKasirPage: React.FC = () => {
           <div className="lg:col-span-7 xl:col-span-8 space-y-4">
             {/* Search & Category Filter */}
             <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs space-y-3">
-              {/* Search Input */}
+              {/* Scan Toast Feedback */}
+              {scanFeedbackMsg && (
+                <div
+                  className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn transition-all shadow-xs ${
+                    scanFeedbackMsg.isError
+                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                      : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-base">
+                    {scanFeedbackMsg.isError ? 'error' : 'check_circle'}
+                  </span>
+                  <span>{scanFeedbackMsg.text}</span>
+                </div>
+              )}
+
+              {/* Barcode Scanner & Search Input */}
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400">
-                  search
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#c41230]">
+                  barcode_scanner
                 </span>
                 <input
+                  ref={barcodeInputRef}
+                  id="pos-barcode-scanner-input"
+                  autoFocus
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={txt.searchPlaceholder}
-                  className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#c41230] focus:bg-white transition-all"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSearchQuery(val);
+                    // Automatic detection when full barcode is scanned without pressing Enter
+                    if (val.trim().length >= 4) {
+                      const directMatch = products.find((p) => {
+                        const pSku = ((p as any).sku || '').toLowerCase();
+                        const pBarcode = ((p as any).barcode || '').toLowerCase();
+                        const target = val.trim().toLowerCase();
+                        return p.id.toLowerCase() === target || pSku === target || pBarcode === target;
+                      });
+                      if (directMatch) {
+                        handleBarcodeScanOrSubmit(val);
+                      }
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleBarcodeScanOrSubmit(searchQuery);
+                    }
+                  }}
+                  placeholder={
+                    language === 'JP'
+                      ? 'バーコードスキャン / 例: 10*バーコードで10個一括スキャン / SKU・商品名検索...'
+                      : language === 'EN'
+                      ? 'Scan barcode (or type 10*barcode for 10 pcs multi-scan) / search SKU or name...'
+                      : 'Scan barcode (atau ketik 10*Barcode untuk multi-scan 10 pcs) / ketik SKU & Nama...'
+                  }
+                  className="w-full pl-11 pr-24 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#c41230] focus:bg-white transition-all shadow-2xs"
                 />
-                {searchQuery && (
+                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        barcodeInputRef.current?.focus();
+                      }}
+                      className="text-stone-400 hover:text-stone-600 p-1 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">cancel</span>
+                    </button>
+                  )}
                   <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 cursor-pointer"
+                    type="button"
+                    onClick={() => handleBarcodeScanOrSubmit(searchQuery)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#c41230] hover:bg-[#a80f28] text-white text-[10px] font-bold shadow-2xs transition-colors cursor-pointer"
+                    title="Scan Barcode / Tambah ke Keranjang"
                   >
-                    <span className="material-symbols-outlined text-sm">cancel</span>
+                    <span className="material-symbols-outlined text-xs">barcode_scanner</span>
+                    <span>Scan</span>
                   </button>
-                )}
+                </div>
               </div>
 
-              {/* Categories Pills */}
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {txt.categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                      selectedCategory === cat.id
-                        ? 'bg-[#c41230] text-white shadow-xs'
-                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
             </div>
 
-            {/* Product Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-              {filteredProducts.map((product) => {
-                const inCartItem = cart.find((item) => item.product.id === product.id);
-                const isOutOfStock = product.stock <= 0;
-                const displayName =
-                  language === 'JP'
-                    ? product.nameJp || product.name
+            {/* Product Area: Default Kosong dengan Banner Panduan Scan / Pencarian */}
+            {!searchQuery.trim() ? (
+              <div className="bg-white rounded-3xl border border-stone-200/90 shadow-xs p-8 sm:p-12 text-center flex flex-col items-center justify-center min-h-[380px] animate-fadeIn">
+                <div className="w-20 h-20 rounded-3xl bg-red-50 text-[#c41230] flex items-center justify-center mb-4 shadow-xs border border-red-100">
+                  <span className="material-symbols-outlined text-4xl">barcode_scanner</span>
+                </div>
+                <h3 className="text-base sm:text-lg font-black text-stone-900 mb-1.5">
+                  {language === 'JP'
+                    ? 'バーコードをスキャンするか、商品名・SKUを入力してください'
                     : language === 'EN'
-                    ? product.nameEn || product.name
-                    : product.name;
-
-                return (
-                  <button
-                    key={product.id}
-                    disabled={isOutOfStock}
-                    onClick={() => addToCart(product)}
-                    className={`bg-white p-3 rounded-2xl border text-left flex flex-col justify-between transition-all duration-200 group relative cursor-pointer ${
-                      isOutOfStock
-                        ? 'border-stone-200 opacity-60 cursor-not-allowed'
-                        : inCartItem
-                        ? 'border-[#c41230] ring-2 ring-[#c41230]/20 shadow-sm'
-                        : 'border-stone-200 hover:border-[#c41230] hover:shadow-md'
-                    }`}
-                  >
-                    {inCartItem && (
-                      <span className="absolute top-2 right-2 bg-[#c41230] text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-xs z-10">
-                        {inCartItem.quantity}
-                      </span>
-                    )}
-
+                    ? 'Please Scan Barcode or Type Product Name / SKU'
+                    : 'Silakan Scan Barcode atau Ketik Nama / SKU Produk'}
+                </h3>
+                <p className="text-xs sm:text-sm text-stone-500 max-w-md leading-relaxed mb-6">
+                  {language === 'JP'
+                    ? 'バーコードリーダーで商品のバーコードをスキャンすると、自動的にレジカートに追加されます。「10*バーコード」で複数個一括スキャンも可能です。'
+                    : language === 'EN'
+                    ? 'Scan product barcode to automatically add to cart. Use "10*barcode" for fast multi-quantity scan.'
+                    : 'Arahkan scanner ke barcode produk untuk otomatis masuk ke keranjang kasir. Gunakan format "10*Barcode" untuk scan 10 pcs sekaligus.'}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-w-2xl w-full text-left text-xs">
+                  <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-center gap-2.5">
+                    <span className="material-symbols-outlined text-lg text-[#c41230] shrink-0">qr_code_scanner</span>
                     <div>
-                      <div className="aspect-square rounded-xl bg-stone-50 overflow-hidden mb-2 relative">
-                        <img
-                          src={product.image}
-                          alt={displayName}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        {product.isFrozen && (
-                          <span className="absolute bottom-1.5 left-1.5 bg-blue-600/90 text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold flex items-center gap-0.5">
-                            {txt.frozenBadge}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-stone-400 font-semibold uppercase truncate">
-                        {product.brand}
-                      </div>
-                      <h4 className="text-xs font-bold text-stone-900 line-clamp-2 leading-snug">
-                        {displayName}
-                      </h4>
+                      <span className="font-bold text-stone-800 block text-[11px]">Scan Barcode</span>
+                      <span className="text-[10px] text-stone-500">Auto-add ke kasir</span>
                     </div>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-center gap-2.5">
+                    <span className="material-symbols-outlined text-lg text-purple-600 shrink-0">pin</span>
+                    <div>
+                      <span className="font-bold text-stone-800 block text-[11px]">Multi-Scan Qty</span>
+                      <span className="text-[10px] text-stone-500">Ketik 10*Barcode</span>
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-center gap-2.5">
+                    <span className="material-symbols-outlined text-lg text-amber-600 shrink-0">search</span>
+                    <div>
+                      <span className="font-bold text-stone-800 block text-[11px]">Ketik Nama / SKU</span>
+                      <span className="text-[10px] text-stone-500">Tampilkan katalog</span>
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-center gap-2.5">
+                    <span className="material-symbols-outlined text-lg text-emerald-600 shrink-0">desktop_windows</span>
+                    <div>
+                      <span className="font-bold text-stone-800 block text-[11px]">Layar Pelanggan</span>
+                      <span className="text-[10px] text-stone-500">Dual display siap</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="bg-white rounded-3xl border border-stone-200 p-8 text-center flex flex-col items-center justify-center min-h-[300px]">
+                <span className="material-symbols-outlined text-4xl text-stone-300 mb-2">search_off</span>
+                <h4 className="text-sm font-bold text-stone-800 mb-1">
+                  {language === 'JP' ? '商品が見つかりません' : language === 'EN' ? 'No products found' : 'Produk Tidak Ditemukan'}
+                </h4>
+                <p className="text-xs text-stone-500 max-w-sm">
+                  {language === 'JP'
+                    ? `「${searchQuery}」に一致する商品は登録されていません。`
+                    : language === 'EN'
+                    ? `No product matches "${searchQuery}". Please check SKU or name.`
+                    : `Tidak ada produk yang cocok dengan "${searchQuery}". Silakan periksa barcode atau ketik kata kunci lain.`}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                {filteredProducts.map((product) => {
+                  const inCartItem = cart.find((item) => item.product.id === product.id);
+                  const isOutOfStock = product.stock <= 0;
+                  const displayName =
+                    language === 'JP'
+                      ? product.nameJp || product.name
+                      : language === 'EN'
+                      ? product.nameEn || product.name
+                      : product.name;
 
-                    <div className="mt-3 pt-2 border-t border-stone-100 flex items-center justify-between">
+                  return (
+                    <button
+                      key={product.id}
+                      disabled={isOutOfStock}
+                      onClick={() => addToCart(product)}
+                      className={`bg-white p-3 rounded-2xl border text-left flex flex-col justify-between transition-all duration-200 group relative cursor-pointer ${
+                        isOutOfStock
+                          ? 'border-stone-200 opacity-60 cursor-not-allowed'
+                          : inCartItem
+                          ? 'border-[#c41230] ring-2 ring-[#c41230]/20 shadow-sm'
+                          : 'border-stone-200 hover:border-[#c41230] hover:shadow-md'
+                      }`}
+                    >
+                      {inCartItem && (
+                        <span className="absolute top-2 right-2 bg-[#c41230] text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-xs z-10">
+                          {inCartItem.quantity}
+                        </span>
+                      )}
+
                       <div>
-                        <div className="text-sm font-bold text-[#c41230]">
-                          ¥{product.price.toLocaleString()}
+                        <div className="aspect-square rounded-xl bg-stone-50 overflow-hidden mb-2 relative">
+                          <img
+                            src={resolveProductImage(product.image, language)}
+                            alt={displayName}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = getPlaceholderImage(language);
+                            }}
+                            className="w-full h-full object-contain p-1.5 bg-[#FAF8F5] group-hover:scale-105 transition-transform duration-300"
+                          />
+                          {product.isFrozen && (
+                            <span className="absolute bottom-1.5 left-1.5 bg-blue-600/90 text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold flex items-center gap-0.5">
+                              {txt.frozenBadge}
+                            </span>
+                          )}
                         </div>
-                        <div className="text-[9px] text-stone-400">
-                          {txt.stockLabel}{' '}
-                          <span className={product.stock <= 5 ? 'text-amber-600 font-bold' : ''}>
-                            {product.stock}
-                          </span>
+                        <div className="text-[10px] text-stone-400 font-semibold uppercase truncate">
+                          {product.brand}
+                        </div>
+                        <h4 className="text-xs font-bold text-stone-900 line-clamp-2 leading-snug">
+                          {displayName}
+                        </h4>
+                      </div>
+
+                      <div className="mt-3 pt-2 border-t border-stone-100 flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-bold text-[#c41230]">
+                            {payCurrency === 'IDR'
+                              ? formatIdr(convertJpyToIdr(product.price, exchangeRate))
+                              : `¥${product.price.toLocaleString()}`}
+                          </div>
+                          <div className="text-[9px] text-stone-400">
+                            {txt.stockLabel}{' '}
+                            <span className={product.stock <= 5 ? 'text-amber-600 font-bold' : ''}>
+                              {product.stock}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-6 h-6 rounded-lg bg-stone-100 group-hover:bg-[#c41230] group-hover:text-white text-stone-600 flex items-center justify-center transition-colors">
+                          <span className="material-symbols-outlined text-sm">add</span>
                         </div>
                       </div>
-                      <div className="w-6 h-6 rounded-lg bg-stone-100 group-hover:bg-[#c41230] group-hover:text-white text-stone-600 flex items-center justify-center transition-colors">
-                        <span className="material-symbols-outlined text-sm">add</span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Right Column: Live Cart & Bill Summary (4 cols) */}
@@ -1192,11 +1944,20 @@ export const POSKasirPage: React.FC = () => {
             <div>
               {/* Cart Header */}
               <div className="flex items-center justify-between pb-3 border-b border-stone-200 mb-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="material-symbols-outlined text-stone-700">shopping_cart</span>
                   <h3 className="font-bold text-stone-900 text-sm">{txt.cartTitle}</h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">
-                    {cart.reduce((s, i) => s + i.quantity, 0)} item
+                  <span
+                    className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-red-100 text-[#c41230] border border-red-200"
+                    title="Jumlah item berbeda yang discan kasir"
+                  >
+                    Jumlah Item: {totalItemCount}
+                  </span>
+                  <span
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 border border-stone-200"
+                    title="Total kuantitas fisik semua produk"
+                  >
+                    Total: {totalQuantity} pcs
                   </span>
                 </div>
                 {cart.length > 0 && (
@@ -1238,7 +1999,7 @@ export const POSKasirPage: React.FC = () => {
                   <datalist id="pos-customers-datalist">
                     {customers.map((c) => (
                       <option key={c.id} value={c.name}>
-                        ⭐ {c.name} ({c.tier} - {c.loyaltyPoints} Pts) • {c.phone}
+                        ⭐ {c.name} ({c.tier}) • {c.phone}
                       </option>
                     ))}
                   </datalist>
@@ -1272,8 +2033,8 @@ export const POSKasirPage: React.FC = () => {
                         {selectedCustomerObj.tier}
                       </span>
                     </div>
-                    <span className="font-bold text-emerald-600 font-mono">
-                      {selectedCustomerObj.loyaltyPoints} Pts
+                    <span className="font-bold text-stone-400 font-mono">
+                      -
                     </span>
                   </div>
                 ) : selectedCustomer ? (
@@ -1308,33 +2069,62 @@ export const POSKasirPage: React.FC = () => {
                         <div className="min-w-0 flex-1 pr-2">
                           <h5 className="text-xs font-bold text-stone-900 truncate">{prodName}</h5>
                           <div className="text-[11px] text-stone-500">
-                            ¥{item.product.price.toLocaleString()} × {item.quantity} ={' '}
-                            <span className="font-bold text-stone-800">
-                              ¥{(item.product.price * item.quantity).toLocaleString()}
-                            </span>
+                            {payCurrency === 'IDR' ? (
+                              <>
+                                {formatIdr(convertJpyToIdr(item.product.price, exchangeRate))} × {item.quantity} ={' '}
+                                <span className="font-bold text-stone-800">
+                                  {formatIdr(convertJpyToIdr(item.product.price * item.quantity, exchangeRate))}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                ¥{item.product.price.toLocaleString()} × {item.quantity} ={' '}
+                                <span className="font-bold text-stone-800">
+                                  ¥{(item.product.price * item.quantity).toLocaleString()}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </div>
 
-                        {/* Qty Counter Buttons */}
+                        {/* Qty Counter Buttons & Direct Number Input */}
                         <div className="flex items-center gap-1">
                           <button
+                            type="button"
                             onClick={() => updateQuantity(item.product.id, -1)}
                             className="w-6 h-6 rounded-md bg-white border border-stone-200 hover:bg-stone-100 flex items-center justify-center text-xs font-bold text-stone-700 cursor-pointer"
+                            title="Kurangi 1"
                           >
                             -
                           </button>
-                          <span className="w-5 text-center text-xs font-bold text-stone-900">
-                            {item.quantity}
-                          </span>
+                          <input
+                            type="number"
+                            min="1"
+                            max={item.product.stock}
+                            value={item.quantity}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              if (!isNaN(val) && val >= 1) {
+                                updateExactQuantity(item.product.id, val);
+                              }
+                            }}
+                            className="w-10 h-6 text-center text-xs font-black text-stone-900 bg-white border border-stone-300 rounded px-1 py-0 focus:ring-1 focus:ring-[#c41230] focus:outline-none"
+                            title="Ketik jumlah langsung (contoh: 12, 24, dll)"
+                          />
                           <button
+                            type="button"
                             onClick={() => updateQuantity(item.product.id, 1)}
                             className="w-6 h-6 rounded-md bg-white border border-stone-200 hover:bg-stone-100 flex items-center justify-center text-xs font-bold text-stone-700 cursor-pointer"
+                            title="Tambah 1"
                           >
                             +
                           </button>
                           <button
+                            type="button"
                             onClick={() => removeFromCart(item.product.id)}
                             className="w-6 h-6 rounded-md text-stone-400 hover:text-rose-600 flex items-center justify-center ml-1 cursor-pointer"
+                            title="Hapus dari keranjang"
                           >
                             <span className="material-symbols-outlined text-sm">delete</span>
                           </button>
@@ -1348,43 +2138,40 @@ export const POSKasirPage: React.FC = () => {
 
             {/* Calculations, Notes & Checkout Button */}
             <div className="mt-3 pt-3 border-t border-stone-200 space-y-2">
-              {/* Discount Selector */}
-              {cart.length > 0 && (
-                <div className="flex items-center justify-between text-xs py-1">
-                  <span className="text-stone-600">{txt.discount}</span>
-                  <div className="flex gap-1">
-                    {[0, 5, 10, 15].map((d) => (
-                      <button
-                        key={d}
-                        onClick={() => setDiscountPercent(d)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer ${
-                          discountPercent === d
-                            ? 'bg-[#c41230] text-white'
-                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                        }`}
-                      >
-                        {d === 0 ? '0%' : `${d}%`}
-                      </button>
-                    ))}
-                  </div>
+              {/* Rincian Jumlah Item & Total Kuantitas (Highlight Box) */}
+              <div className="bg-stone-50 p-2.5 rounded-xl border border-stone-200/90 space-y-1.5 text-xs">
+                <div className="flex justify-between items-center text-stone-700">
+                  <span className="font-semibold flex items-center gap-1.5 text-stone-800">
+                    <span className="material-symbols-outlined text-sm text-[#c41230]">category</span>
+                    <span>{txt.itemCountLabel}:</span>
+                  </span>
+                  <span className="font-black text-sm text-[#c41230] font-mono bg-red-50 px-2.5 py-0.5 rounded-md border border-red-200">
+                    {totalItemCount} {txt.itemSuffix}
+                  </span>
                 </div>
-              )}
+                <div className="flex justify-between items-center text-stone-600 text-[11px]">
+                  <span className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-stone-400">inventory_2</span>
+                    <span>{txt.totalUnitsLabel}:</span>
+                  </span>
+                  <span className="font-bold text-stone-800 font-mono">
+                    {totalQuantity} {txt.unitsSuffix}
+                  </span>
+                </div>
+              </div>
 
               <div className="flex justify-between text-xs text-stone-600">
                 <span>{txt.subtotal}</span>
-                <span className="font-semibold text-stone-900">¥{subtotal.toLocaleString()}</span>
+                <span className="font-semibold text-stone-900">
+                  {payCurrency === 'IDR' ? formatIdr(subtotalIDR) : formatJpy(subtotal)}
+                </span>
               </div>
-
-              {discountPercent > 0 && (
-                <div className="flex justify-between text-xs text-emerald-600">
-                  <span>{txt.discountCut(discountPercent)}</span>
-                  <span className="font-semibold">-¥{discountAmount.toLocaleString()}</span>
-                </div>
-              )}
 
               <div className="flex justify-between text-xs text-stone-500">
                 <span>{txt.tax8}</span>
-                <span className="font-semibold">¥{taxAmount.toLocaleString()}</span>
+                <span className="font-semibold">
+                  {payCurrency === 'IDR' ? formatIdr(taxAmountIDR) : formatJpy(taxAmount)}
+                </span>
               </div>
 
               {/* Text Area Kolom Catatan / Keterangan Transaksi */}
@@ -1463,11 +2250,6 @@ export const POSKasirPage: React.FC = () => {
                 <div className="text-right">
                   <span className="text-[#c41230] text-lg block">
                     {payCurrency === 'IDR' ? formatIdr(totalAmountIDR) : formatJpy(totalAmount)}
-                  </span>
-                  <span className="text-[10px] text-stone-400 font-normal">
-                    {payCurrency === 'IDR'
-                      ? `(Ekuivalen: ${formatJpy(totalAmount)})`
-                      : `(Ekuivalen: ${formatIdr(totalAmountIDR)})`}
                   </span>
                 </div>
               </div>
@@ -1625,11 +2407,11 @@ export const POSKasirPage: React.FC = () => {
               <div className="text-3xl font-black text-amber-400 mt-0.5">
                 {payCurrency === 'IDR' ? formatIdr(totalAmountIDR) : formatJpy(totalAmount)}
               </div>
-              <div className="text-[10px] text-stone-400 mt-1">
-                {payCurrency === 'IDR'
-                  ? `Ekuivalen: ${formatJpy(totalAmount)} • Kurs 1 JPY = Rp ${exchangeRate}`
-                  : `Ekuivalen: ${formatIdr(totalAmountIDR)}`}
-              </div>
+              {payCurrency === 'IDR' && (
+                <div className="text-[10px] text-stone-400 mt-1">
+                  Kurs: 1 JPY = Rp {exchangeRate}
+                </div>
+              )}
             </div>
 
             {/* Method Picker */}
@@ -1771,135 +2553,251 @@ export const POSKasirPage: React.FC = () => {
       {/* MODAL 2: DETAIL NOTA STRUK KASIR (RECEIPT VIEW / PRINT MODAL)             */}
       {/* ========================================================================= */}
       {completedTx && (
-        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-200 animate-scaleUp space-y-4">
-            {/* Thermal Struk Header */}
-            <div className="text-center space-y-1 pb-3 border-b border-dashed border-stone-300">
-              <div className="w-10 h-10 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto mb-1">
-                <span className="material-symbols-outlined text-xl">check</span>
-              </div>
-              <h3 className="font-black text-sm text-stone-900 tracking-wider">
-                {txt.receiptHeaderStore}
-              </h3>
-              <p className="text-[10px] text-stone-500">{txt.receiptStoreDesc}</p>
-              <p className="text-[9px] text-stone-400">{txt.receiptStoreAddr}</p>
-            </div>
-
-            {/* Struk Metadata */}
-            <div className="text-[11px] space-y-1 text-stone-600 font-mono py-1 border-b border-dashed border-stone-300">
-              <div className="flex justify-between">
-                <span>{txt.receiptNo}:</span>
-                <span className="font-bold text-stone-900">{completedTx.receiptNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>{txt.receiptDate}:</span>
-                <span>{new Date(completedTx.date).toLocaleString('id-ID')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>{txt.receiptCashier}:</span>
-                <span>{completedTx.cashierName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>{txt.receiptCustomer}:</span>
-                <span className="font-bold text-stone-800">{completedTx.customerName || 'Walk-in'}</span>
-              </div>
-            </div>
-
-            {/* Items List */}
-            <div className="space-y-1.5 max-h-44 overflow-y-auto text-xs py-2 border-b border-dashed border-stone-300">
-              {completedTx.items.map((item, idx) => (
-                <div key={idx} className="flex justify-between items-start">
-                  <div className="pr-2">
-                    <div className="font-semibold text-stone-800 text-[11px]">
-                      {item.productName}
-                    </div>
-                    <div className="text-[10px] text-stone-400">
-                      ¥{item.price.toLocaleString()} × {item.quantity}
-                    </div>
+        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-stone-200 animate-scaleUp space-y-3">
+            {/* PRINTER STATUS & QUICK CONFIG BANNER */}
+            <div className="bg-stone-50 border border-stone-200 rounded-2xl p-2.5 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#c41230]/10 text-[#c41230] flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-base">print</span>
                   </div>
-                  <div className="font-bold text-stone-900 font-mono text-[11px]">
-                    ¥{item.subtotal.toLocaleString()}
+                  <div>
+                    <div className="font-bold text-stone-900 text-[11px] flex items-center gap-1.5 flex-wrap">
+                      <span>{printerSettings.printerName}</span>
+                      <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-black rounded-md">
+                        {printerSettings.paperWidth}×{printerSettings.rollDiameter} mm
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-stone-500">
+                      {printerSettings.connectionType === 'browser_driver'
+                        ? 'Universal Driver (USB / BT Windows & Mac)'
+                        : printerSettings.connectionType === 'bluetooth'
+                        ? 'Bluetooth Direct ESC/POS'
+                        : printerSettings.connectionType === 'usb_direct'
+                        ? 'USB Direct ESC/POS'
+                        : 'Network IP ESC/POS'}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-
-            {/* Catatan / Keterangan Transaksi pada Struk */}
-            {completedTx.notes && (
-              <div className="text-[10px] p-2 bg-stone-50 rounded-lg border border-dashed border-stone-200 text-stone-600 font-mono">
-                <span className="font-bold text-stone-800 block uppercase mb-0.5">
-                  {txt.receiptNotes}:
-                </span>
-                <span>{completedTx.notes}</span>
+                <button
+                  type="button"
+                  onClick={() => navigate('/admin/settings?tab=printer')}
+                  className="px-2 py-1 bg-stone-200 hover:bg-stone-300 text-stone-700 text-[10px] font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                  title="Atur ukuran kertas & model printer thermal di menu Pengaturan"
+                >
+                  <span className="material-symbols-outlined text-xs">settings</span>
+                  <span>Atur</span>
+                </button>
               </div>
-            )}
 
-            {/* Totals */}
-            <div className="space-y-1 text-xs font-mono">
-              <div className="flex justify-between text-stone-600">
-                <span>{txt.receiptSubtotal}</span>
-                <span>¥{completedTx.subtotal.toLocaleString()}</span>
-              </div>
-              {completedTx.discountAmount > 0 && (
-                <div className="flex justify-between text-emerald-600">
-                  <span>{txt.receiptDiscount}</span>
-                  <span>-¥{completedTx.discountAmount.toLocaleString()}</span>
+              {/* Quick switch between connected Windows / Mac printers */}
+              {printerSettings.savedPrinters && printerSettings.savedPrinters.length > 0 && (
+                <div className="flex items-center gap-2 pt-2 border-t border-stone-200 text-xs">
+                  <label className="text-stone-800 font-bold shrink-0 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm text-[#c41230]">print</span>
+                    <span>Printer :</span>
+                  </label>
+                  <select
+                    value={
+                      printerSettings.savedPrinters.find((p) => p.name === printerSettings.printerName)?.id || ''
+                    }
+                    onChange={(e) => {
+                      const sel = printerSettings.savedPrinters?.find((p) => p.id === e.target.value);
+                      if (sel) {
+                        const newSettings = {
+                          ...printerSettings,
+                          printerName: sel.name,
+                          connectionType: sel.connectionType,
+                          paperWidth: sel.paperWidth,
+                          rollDiameter: sel.rollDiameter
+                        };
+                        setPrinterSettings(newSettings);
+                        localStorage.setItem('sn_pos_printer_settings', JSON.stringify(newSettings));
+                      }
+                    }}
+                    className="flex-1 bg-white border border-stone-300 rounded-lg text-xs font-bold px-2 py-1.5 text-stone-900 focus:outline-none focus:ring-1 focus:ring-[#c41230] shadow-xs cursor-pointer truncate"
+                  >
+                    {printerSettings.savedPrinters.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} {p.paperWidth ? `(${p.paperWidth}x${p.rollDiameter || 47}mm)` : ''} {p.name === printerSettings.printerName ? '★ [AKTIF]' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
-              <div className="flex justify-between text-stone-600">
-                <span>{txt.receiptTax}</span>
-                <span>¥{completedTx.taxAmount.toLocaleString()}</span>
+            </div>
+
+            {/* RECEIPT PRINT CONTAINER */}
+            <div
+              id="pos-thermal-receipt-print-area"
+              className="bg-white p-3 border border-dashed border-stone-300 rounded-2xl space-y-3 font-mono"
+            >
+              {/* Thermal Struk Header */}
+              <div className="text-center space-y-0.5 pb-2 border-b border-dashed border-stone-400">
+                {printerSettings.showLogo && (
+                  <div className="text-xs font-black tracking-wider text-[#c41230] mb-0.5 font-sans">
+                    せんばこ ぬさんたら にほん
+                  </div>
+                )}
+                <h3 className="font-black text-xs text-stone-900 tracking-wider uppercase">
+                  {printerSettings.storeName || txt.receiptHeaderStore}
+                </h3>
+                <p className="text-[10px] text-stone-600 leading-tight">
+                  {printerSettings.storeAddress || txt.receiptStoreAddr}
+                </p>
+                {printerSettings.storePhone && (
+                  <p className="text-[9px] text-stone-500">Telp: {printerSettings.storePhone}</p>
+                )}
               </div>
-              <div className="flex justify-between font-bold text-sm text-stone-900 pt-1 border-t border-stone-200">
-                <span>{txt.receiptTotal}</span>
-                <div className="text-right">
-                  <span>
-                    {completedTx.currency === 'IDR'
-                      ? formatIdr(completedTx.amountPaidOriginal || convertJpyToIdr(completedTx.totalAmount, completedTx.exchangeRate))
-                      : formatJpy(completedTx.totalAmount)}
-                  </span>
-                  {completedTx.currency === 'IDR' && (
-                    <span className="block text-[10px] text-stone-400 font-normal">
-                      (Ekuivalen: {formatJpy(completedTx.totalAmount)})
-                    </span>
-                  )}
+
+              {/* Struk Metadata */}
+              <div className="text-[10px] space-y-0.5 text-stone-700 py-1 border-b border-dashed border-stone-400">
+                <div className="flex justify-between">
+                  <span>No:</span>
+                  <span className="font-bold text-stone-900">{completedTx.receiptNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tgl:</span>
+                  <span>{new Date(completedTx.date).toLocaleString('id-ID')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Kasir:</span>
+                  <span>{completedTx.cashierName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Pelanggan:</span>
+                  <span className="font-bold text-stone-800">{completedTx.customerName || 'Walk-in'}</span>
                 </div>
               </div>
-              <div className="flex justify-between text-stone-600 pt-1">
-                <span>
-                  {txt.receiptPaid} ({completedTx.paymentMethod} {completedTx.currency === 'IDR' ? 'Rp' : '¥'})
-                </span>
-                <span>
-                  {completedTx.currency === 'IDR'
-                    ? formatIdr(completedTx.amountPaidOriginal || completedTx.amountPaid)
-                    : formatJpy(completedTx.amountPaid)}
-                </span>
+
+              {/* Items List */}
+              <div className="space-y-1.5 max-h-48 overflow-y-auto text-[11px] py-1.5 border-b border-dashed border-stone-400">
+                {completedTx.items.map((item, idx) => {
+                  const isIdr = completedTx.currency === 'IDR';
+                  const rate = completedTx.exchangeRate || exchangeRate;
+                  const itemPriceStr = isIdr
+                    ? formatIdr(convertJpyToIdr(item.price, rate))
+                    : `¥${item.price.toLocaleString()}`;
+                  const itemSubtotalStr = isIdr
+                    ? formatIdr(convertJpyToIdr(item.subtotal, rate))
+                    : `¥${item.subtotal.toLocaleString()}`;
+                  return (
+                    <div key={idx} className="flex justify-between items-start">
+                      <div className="pr-1 flex-1">
+                        <div className="font-semibold text-stone-900 leading-tight">
+                          {item.productName}
+                        </div>
+                        <div className="text-[9px] text-stone-500">
+                          {itemPriceStr} × {item.quantity}
+                        </div>
+                      </div>
+                      <div className="font-bold text-stone-900 shrink-0 text-right">
+                        {itemSubtotalStr}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="flex justify-between text-stone-600">
-                <span>{txt.receiptChange}</span>
-                <span>
-                  {completedTx.currency === 'IDR'
-                    ? formatIdr(completedTx.changeAmountOriginal || completedTx.changeAmount)
-                    : formatJpy(completedTx.changeAmount)}
-                </span>
+
+              {/* Catatan / Keterangan Transaksi pada Struk */}
+              {completedTx.notes && (
+                <div className="text-[9px] p-1.5 bg-stone-50 rounded border border-dashed border-stone-300 text-stone-700">
+                  <span className="font-bold block uppercase mb-0.5">Catatan:</span>
+                  <span>{completedTx.notes}</span>
+                </div>
+              )}
+
+              {/* Totals */}
+              <div className="space-y-1 text-[11px]">
+                <div className="flex justify-between text-stone-600 text-[10px] pb-1 border-b border-dashed border-stone-300">
+                  <span>Jumlah Item:</span>
+                  <span className="font-bold text-stone-900">
+                    {completedTx.items.length} Item ({completedTx.items.reduce((s, i) => s + i.quantity, 0)} pcs)
+                  </span>
+                </div>
+                <div className="flex justify-between text-stone-600">
+                  <span>Subtotal:</span>
+                  <span>
+                    {completedTx.currency === 'IDR'
+                      ? formatIdr(convertJpyToIdr(completedTx.subtotal, completedTx.exchangeRate || exchangeRate))
+                      : `¥${completedTx.subtotal.toLocaleString()}`}
+                  </span>
+                </div>
+                {completedTx.discountAmount > 0 && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Diskon:</span>
+                    <span>-¥{completedTx.discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-stone-600">
+                  <span>Pajak (8%):</span>
+                  <span>
+                    {completedTx.currency === 'IDR'
+                      ? formatIdr(convertJpyToIdr(completedTx.taxAmount, completedTx.exchangeRate || exchangeRate))
+                      : `¥${completedTx.taxAmount.toLocaleString()}`}
+                  </span>
+                </div>
+                <div className="flex justify-between font-bold text-xs text-stone-900 pt-1 border-t border-stone-400">
+                  <span>TOTAL:</span>
+                  <div className="text-right">
+                    <span>
+                      {completedTx.currency === 'IDR'
+                        ? formatIdr(completedTx.amountPaidOriginal || convertJpyToIdr(completedTx.totalAmount, completedTx.exchangeRate))
+                        : formatJpy(completedTx.totalAmount)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex justify-between text-stone-700 pt-1 border-t border-dashed border-stone-300">
+                  <span>
+                    Bayar ({completedTx.paymentMethod} {completedTx.currency === 'IDR' ? 'Rp' : '¥'}):
+                  </span>
+                  <span>
+                    {completedTx.currency === 'IDR'
+                      ? formatIdr(completedTx.amountPaidOriginal || completedTx.amountPaid)
+                      : formatJpy(completedTx.amountPaid)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-stone-700">
+                  <span>Kembali:</span>
+                  <span className="font-bold">
+                    {completedTx.currency === 'IDR'
+                      ? formatIdr(completedTx.changeAmountOriginal || completedTx.changeAmount)
+                      : formatJpy(completedTx.changeAmount)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Footer Note & Store Policy */}
+              <div className="text-center pt-2 border-t border-dashed border-stone-400 space-y-1">
+                <p className="text-[10px] text-stone-700 font-bold leading-tight">
+                  {printerSettings.footerNote || txt.receiptThanks}
+                </p>
+                {printerSettings.storePolicyNote && (
+                  <p className="text-[8.5px] text-stone-500 leading-tight">
+                    {printerSettings.storePolicyNote}
+                  </p>
+                )}
+                <div className="text-[8px] text-stone-400 pt-1 tracking-widest uppercase">
+                  *** UKURAN NOTA: {printerSettings.paperWidth}×{printerSettings.rollDiameter} MM ***
+                </div>
               </div>
             </div>
 
-            <div className="text-center text-[10px] text-stone-400 pt-2 border-t border-dashed border-stone-300">
-              {txt.receiptThanks}
-            </div>
-
+            {/* ACTION BUTTONS */}
             <div className="flex gap-2 pt-1">
               <button
-                onClick={() => window.print()}
-                className="flex-1 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                type="button"
+                onClick={handlePrintReceipt}
+                className="flex-1 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-colors"
               >
                 <span className="material-symbols-outlined text-sm">print</span>
-                <span>{txt.btnPrintReceipt}</span>
+                <span>Cetak Nota ({printerSettings.paperWidth}mm)</span>
               </button>
               <button
+                type="button"
                 onClick={() => setCompletedTx(null)}
-                className="flex-1 py-2.5 bg-[#c41230] hover:bg-[#a80f28] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                className="flex-1 py-2.5 bg-[#c41230] hover:bg-[#a80f28] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-colors"
               >
                 <span className="material-symbols-outlined text-sm">close</span>
                 <span>Tutup</span>

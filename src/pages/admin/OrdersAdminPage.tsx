@@ -5,7 +5,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { Order } from '../../types';
 
 export const OrdersAdminPage: React.FC = () => {
-  const { orders, updateOrderStatus } = useAdmin();
+  const { orders, updateOrderStatus, cancelOrder } = useAdmin();
   const { language } = useLanguage();
 
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -16,6 +16,11 @@ export const OrdersAdminPage: React.FC = () => {
   const [trackingNumberInput, setTrackingNumberInput] = useState<string>('');
   const [courierInput, setCourierInput] = useState<Order['courier']>('Yamato Transport');
   const [statusInput, setStatusInput] = useState<Order['status']>('Dikirim');
+
+  // Modal State for Cancelling Order
+  const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
+  const [cancelReason, setCancelReason] = useState<string>('Permintaan Pembeli / Customer Request');
+  const [cancelSuccessToast, setCancelSuccessToast] = useState<string | null>(null);
 
   const filteredOrders = orders.filter((ord) => {
     const matchStatus = filterStatus === 'all' || ord.status === filterStatus;
@@ -35,8 +40,22 @@ export const OrdersAdminPage: React.FC = () => {
 
   const handleSaveFulfillment = () => {
     if (!selectedOrder) return;
-    updateOrderStatus(selectedOrder.id, statusInput, trackingNumberInput, courierInput);
+    if (statusInput === 'Dibatalkan') {
+      cancelOrder(selectedOrder.id, 'Dibatalkan via update tahapan');
+      setCancelSuccessToast(`Pesanan #${selectedOrder.id} berhasil dibatalkan dan stok dikembalikan!`);
+      setTimeout(() => setCancelSuccessToast(null), 3000);
+    } else {
+      updateOrderStatus(selectedOrder.id, statusInput, trackingNumberInput, courierInput);
+    }
     setSelectedOrder(null);
+  };
+
+  const handleConfirmCancelOrder = () => {
+    if (!orderToCancel) return;
+    cancelOrder(orderToCancel.id, cancelReason);
+    setCancelSuccessToast(`Pesanan #${orderToCancel.id} berhasil dibatalkan.`);
+    setTimeout(() => setCancelSuccessToast(null), 3500);
+    setOrderToCancel(null);
   };
 
   const txt = useMemo(() => {
@@ -280,13 +299,42 @@ export const OrdersAdminPage: React.FC = () => {
                       </span>
                     </td>
 
-                    <td className="px-5 py-3.5 text-right space-x-2">
-                      <button
-                        onClick={() => handleOpenFulfillment(ord)}
-                        className="px-3 py-1.5 bg-[#c41230] hover:bg-[#9a0021] text-white rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs"
-                      >
-                        {txt.btnUpdateStatus}
-                      </button>
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        <button
+                          onClick={() => handleOpenFulfillment(ord)}
+                          className="px-3 py-1.5 bg-[#c41230] hover:bg-[#9a0021] text-white rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs whitespace-nowrap"
+                        >
+                          {txt.btnUpdateStatus}
+                        </button>
+
+                        {ord.status !== 'Dibatalkan' ? (
+                          <button
+                            onClick={() => {
+                              setOrderToCancel(ord);
+                              setCancelReason('Permintaan Pembeli / Customer Request');
+                            }}
+                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 hover:text-rose-800 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 whitespace-nowrap shadow-2xs"
+                            title="Batalkan Pesanan Ini"
+                          >
+                            <span className="material-symbols-outlined text-xs">cancel</span>
+                            <span>Batalkan</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              updateOrderStatus(ord.id, 'Dikemas');
+                              setCancelSuccessToast(`Pesanan #${ord.id} diaktifkan kembali.`);
+                              setTimeout(() => setCancelSuccessToast(null), 3000);
+                            }}
+                            className="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-600 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            title="Aktifkan Kembali Pesanan"
+                          >
+                            <span className="material-symbols-outlined text-xs">restart_alt</span>
+                            <span>Buka Lagi</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -295,6 +343,94 @@ export const OrdersAdminPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Floating Notification Toast */}
+      {cancelSuccessToast && (
+        <div className="fixed top-20 right-4 sm:right-8 z-50 bg-stone-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-stone-700 flex items-center gap-3 animate-bounce">
+          <span className="material-symbols-outlined text-emerald-400">check_circle</span>
+          <span className="text-xs sm:text-sm font-semibold">{cancelSuccessToast}</span>
+        </div>
+      )}
+
+      {/* MODAL: BATALKAN PESANAN ORDER */}
+      {orderToCancel && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4 text-stone-900 relative">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-2 text-rose-600">
+                <span className="material-symbols-outlined text-2xl">error</span>
+                <h3 className="font-heading font-bold text-base text-stone-900">
+                  Batalkan Pesanan #{orderToCancel.id}
+                </h3>
+              </div>
+              <button
+                onClick={() => setOrderToCancel(null)}
+                className="text-stone-400 hover:text-stone-700 cursor-pointer p-1 rounded-full hover:bg-stone-100"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-rose-50/70 rounded-2xl border border-rose-200 text-xs space-y-1.5 text-stone-700">
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">Penerima:</span>
+                <span className="font-bold text-stone-900">{orderToCancel.customerName || 'Pelanggan'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">Total Belanja:</span>
+                <span className="font-bold text-rose-700 text-sm">¥{orderToCancel.totalAmount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">Jumlah Produk:</span>
+                <span className="font-bold text-stone-900">{orderToCancel.items.length} item</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                Alasan Pembatalan Pesanan:
+              </label>
+              <select
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="w-full px-3 py-2.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-rose-500"
+              >
+                <option value="Permintaan Pembeli / Customer Request">Permintaan Pembeli / Customer Request</option>
+                <option value="Stok Produk di Gudang Kosong / Habis">Stok Produk di Gudang Kosong / Habis</option>
+                <option value="Alamat Pengiriman Salah / Tidak Lengkap">Alamat Pengiriman Salah / Tidak Lengkap</option>
+                <option value="Pembayaran Gagal / Dibatalkan">Pembayaran Gagal / Dibatalkan</option>
+                <option value="Pesanan Duplikat">Pesanan Duplikat</option>
+                <option value="Lainnya">Alasan Lainnya</option>
+              </select>
+            </div>
+
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-2 text-[11px] text-amber-900 leading-tight">
+              <span className="material-symbols-outlined text-sm text-amber-700 shrink-0 mt-0.5">info</span>
+              <span>
+                <strong>Catatan Stok:</strong> Seluruh stok produk pada pesanan ini akan otomatis dikembalikan ke gudang penyimpanan toko.
+              </span>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setOrderToCancel(null)}
+                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs cursor-pointer transition-colors"
+              >
+                Tutup / Kembali
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancelOrder}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs shadow-md cursor-pointer transition-all flex items-center justify-center gap-1"
+              >
+                <span className="material-symbols-outlined text-xs">cancel</span>
+                <span>Ya, Batalkan Pesanan</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Fulfillment & Tracking Modal */}
       {selectedOrder && (

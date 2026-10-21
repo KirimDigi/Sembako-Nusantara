@@ -59,13 +59,13 @@ export const ReportsAdminPage: React.FC = () => {
 
     // Payment methods breakdown
     const cashTotal = dailyPos
-      .filter((tx) => tx.paymentMethod === 'cash')
+      .filter((tx) => tx.paymentMethod === 'Cash' || (tx.paymentMethod as string).toLowerCase() === 'cash')
       .reduce((sum, tx) => sum + tx.totalAmount, 0);
     const paypayTotal = dailyPos
-      .filter((tx) => tx.paymentMethod === 'paypay')
+      .filter((tx) => tx.paymentMethod === 'PayPay' || (tx.paymentMethod as string).toLowerCase() === 'paypay')
       .reduce((sum, tx) => sum + tx.totalAmount, 0);
     const creditTotal = dailyPos
-      .filter((tx) => tx.paymentMethod === 'credit_card')
+      .filter((tx) => tx.paymentMethod === 'Credit Card' || (tx.paymentMethod as string).toLowerCase() === 'credit_card')
       .reduce((sum, tx) => sum + tx.totalAmount, 0);
     const onlineTotal = orderTotal;
 
@@ -141,110 +141,208 @@ export const ReportsAdminPage: React.FC = () => {
     };
   }, [posTransactions, orders, selectedYear]);
 
-  // --- Calculations for Neraca (Balance Sheet) ---
+  // --- Calculations for Neraca (Balance Sheet) from Real Accounting Data ---
   const balanceSheetData = useMemo(() => {
-    // Current inventory total value: sum of stock * price * 0.65 (est. cost)
-    const inventoryValuation = products.reduce((sum, p) => sum + p.stock * Math.round(p.price * 0.65), 0);
+    // 1. Read real data from Accounting & Pajak modules
+    let bankAccounts: any[] = [];
+    let assetJournal: any[] = [];
+    let initialCapitalList: any[] = [];
+    let cashOutList: any[] = [];
 
-    // Dynamic cash & bank balances
-    const cashOnHand = 850000 + (dailyData.cashTotal || 45000);
-    const bankMUFG = 4850000;
-    const bankYucho = 3420000;
-    const accountsReceivable = 280000; // Piutang Bon Pelanggan
+    try {
+      const savedBanks = localStorage.getItem('sn_bank_accounts_v3');
+      if (savedBanks) bankAccounts = JSON.parse(savedBanks);
+      const savedAssets = localStorage.getItem('sn_assets_journal_v3');
+      if (savedAssets) assetJournal = JSON.parse(savedAssets);
+      const savedCapital = localStorage.getItem('sn_initial_capital_v3');
+      if (savedCapital) initialCapitalList = JSON.parse(savedCapital);
+      const savedCashOut = localStorage.getItem('sn_cash_out_v3');
+      if (savedCashOut) cashOutList = JSON.parse(savedCashOut);
+    } catch (e) {}
 
-    const currentAssetsTotal = cashOnHand + bankMUFG + bankYucho + accountsReceivable + inventoryValuation;
+    // Current inventory total value: sum of stock * (costPrice or 65% of price)
+    const inventoryValuation = products.reduce((sum, p) => sum + (p.stock * (p.costPrice || Math.round(p.price * 0.65))), 0);
 
-    // Fixed Assets
-    const posHardware = 450000;
-    const coldStorageFreezer = 1200000;
-    const racksShelving = 380000;
-    const deliveryVan = 950000;
-    const accumulatedDepreciation = -480000;
-    const fixedAssetsTotal = posHardware + coldStorageFreezer + racksShelving + deliveryVan + accumulatedDepreciation;
+    // Real POS cash tendered from actual transactions
+    const realPosCash = posTransactions.reduce((sum, tx) => {
+      if (tx.paymentMethod === 'Cash' || (tx.paymentMethod as string) === 'Tunai' || !tx.paymentMethod) {
+        return sum + (Number(tx.totalAmount) || 0);
+      }
+      return sum;
+    }, 0);
+
+    // Sum of real bank accounts registered in Accounting
+    const totalBankBalances = bankAccounts.reduce((sum, b) => sum + (Number(b.balance) || 0), 0);
+    const cashOnHand = realPosCash;
+
+    const currentAssetsTotal = cashOnHand + totalBankBalances + inventoryValuation;
+
+    // Fixed Assets: ONLY from real Jurnal Aset entries
+    const totalAssetCost = assetJournal.reduce((sum, a) => sum + (Number(a.cost) || 0), 0);
+    const totalAccumDeprec = assetJournal.reduce((sum, a) => sum + (Number(a.accumulatedDepreciation) || 0), 0);
+    const fixedAssetsTotal = totalAssetCost - totalAccumDeprec;
 
     const totalAssets = currentAssetsTotal + fixedAssetsTotal;
 
-    // Liabilities
-    const accountsPayable = 820000; // Hutang PO Supplier
-    const accruedJctTax = 385000; // Pajak JCT 8% & 10% Terutang
-    const shortTermLiabilities = accountsPayable + accruedJctTax;
+    // Liabilities: Real calculated JCT tax from online orders & POS
+    const accruedJctTax = orders.reduce((sum, o) => sum + (Number(o.taxAmount) || 0), 0) +
+      posTransactions.reduce((sum, t) => sum + (Number(t.taxAmount) || 0), 0);
+    const accountsPayable = directPurchases
+      .filter((dp) => dp.paymentStatus === 'TEMPO' || dp.paymentStatus === 'BELUM_BAYAR')
+      .reduce((sum, dp) => sum + (Number(dp.totalAmount) || 0), 0);
+    const shortTermLiabilities = accruedJctTax + accountsPayable;
 
-    // Equity (Balanced)
-    const initialCapital = 6500000; // Modal Awal Sembako Nusantara
-    const retainedEarnings = 2200000;
-    const currentPeriodNetIncome = totalAssets - shortTermLiabilities - initialCapital - retainedEarnings;
+    // Equity: Real Modal Awal from Initial Capital Hub + Laba Berjalan
+    const initialCapital = initialCapitalList.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    const retainedEarnings = 0;
+    const currentPeriodNetIncome = totalAssets - shortTermLiabilities - initialCapital;
     const totalEquity = initialCapital + retainedEarnings + currentPeriodNetIncome;
 
     const totalLiabilitiesAndEquity = shortTermLiabilities + totalEquity;
 
     return {
-      currentAssets: { cashOnHand, bankMUFG, bankYucho, accountsReceivable, inventoryValuation, total: currentAssetsTotal },
-      fixedAssets: { posHardware, coldStorageFreezer, racksShelving, deliveryVan, accumulatedDepreciation, total: fixedAssetsTotal },
+      currentAssets: {
+        cashOnHand,
+        bankAccounts,
+        totalBankBalances,
+        inventoryValuation,
+        total: currentAssetsTotal
+      },
+      fixedAssets: {
+        items: assetJournal,
+        totalCost: totalAssetCost,
+        accumulatedDepreciation: totalAccumDeprec,
+        total: fixedAssetsTotal
+      },
       totalAssets,
-      liabilities: { accountsPayable, accruedJctTax, total: shortTermLiabilities },
-      equity: { initialCapital, retainedEarnings, currentPeriodNetIncome, total: totalEquity },
+      liabilities: {
+        accountsPayable,
+        accruedJctTax,
+        total: shortTermLiabilities
+      },
+      equity: {
+        initialCapital,
+        retainedEarnings,
+        currentPeriodNetIncome,
+        total: totalEquity
+      },
       totalLiabilitiesAndEquity,
       isBalanced: Math.abs(totalAssets - totalLiabilitiesAndEquity) < 2
     };
-  }, [products, dailyData]);
+  }, [products, posTransactions, orders, directPurchases]);
 
-  // --- Calculations for Laba Rugi (Income Statement) ---
+  // --- Calculations for Laba Rugi (Income Statement) from Real Store & Accounting Data ---
   const incomeStatementData = useMemo(() => {
+    // 1. Read real Cash Out & Cash In from Accounting
+    let cashOutList: any[] = [];
+    let cashInList: any[] = [];
+    try {
+      const savedCashOut = localStorage.getItem('sn_cash_out_v3');
+      if (savedCashOut) cashOutList = JSON.parse(savedCashOut);
+      const savedCashIn = localStorage.getItem('sn_cash_in_v3');
+      if (savedCashIn) cashInList = JSON.parse(savedCashIn);
+    } catch (e) {}
+
     // Filter transactions in range
-    const inRangePos = posTransactions.filter((tx) => tx.date >= plStartDate && tx.date <= `${plEndDate} 23:59`);
+    const inRangePos = posTransactions.filter((tx) => tx.date >= plStartDate && tx.date <= `${plEndDate} 23:59:59`);
     const inRangeOrders = orders.filter((o) => o.date >= plStartDate && o.date <= plEndDate);
+    const inRangeCashOut = cashOutList.filter((co) => co.date >= plStartDate && co.date <= plEndDate);
+    const inRangeCashIn = cashInList.filter((ci) => ci.date >= plStartDate && ci.date <= plEndDate);
 
-    const grossPos = inRangePos.reduce((sum, tx) => sum + tx.totalAmount, 0);
-    const grossWeb = inRangeOrders.reduce((sum, ord) => sum + ord.totalAmount, 0);
-    const discountsGiven = inRangePos.reduce((sum, tx) => sum + tx.discountAmount, 0);
+    // 1. PENDAPATAN PENJUALAN (REVENUE)
+    const grossPos = inRangePos.reduce((sum, tx) => sum + (Number(tx.totalAmount) || 0), 0);
+    const grossWeb = inRangeOrders.reduce((sum, ord) => sum + (Number(ord.totalAmount) || 0), 0);
+    const discountsGiven = inRangePos.reduce((sum, tx) => sum + (Number(tx.discountAmount) || 0), 0);
+    const otherInflow = inRangeCashIn.reduce((sum, ci) => sum + (Number(ci.amount) || 0), 0);
 
-    const grossRevenue = (grossPos || 1850000) + (grossWeb || 1240000);
-    const netRevenue = grossRevenue - discountsGiven;
+    const grossRevenue = grossPos + grossWeb + otherInflow;
+    const netRevenue = Math.max(0, grossRevenue - discountsGiven);
 
-    // HPP / COGS (Rata-rata 64% dari harga jual)
-    const cogsMaterial = Math.round(netRevenue * 0.61);
-    const inboundLogistics = Math.round(netRevenue * 0.035);
-    const totalCOGS = cogsMaterial + inboundLogistics;
+    // 2. BEBAN POKOK PENJUALAN (COGS / HPP) DARI BARANG TERJUAL REAL
+    const productCostMap = new Map<string, number>();
+    products.forEach((p) => {
+      productCostMap.set(p.id, p.costPrice || Math.round(p.price * 0.65));
+    });
 
+    let posCOGS = 0;
+    inRangePos.forEach((tx) => {
+      tx.items?.forEach((item) => {
+        const prodId = item.productId || (item as any).id;
+        const unitCost = productCostMap.get(prodId) || Math.round((item.price || 0) * 0.65);
+        const qty = Number(item.quantity) || 1;
+        posCOGS += unitCost * qty;
+      });
+    });
+
+    let webCOGS = 0;
+    inRangeOrders.forEach((ord) => {
+      ord.items?.forEach((item) => {
+        const prodId = item.id || (item as any).productId;
+        const unitCost = productCostMap.get(prodId) || Math.round((item.price || 0) * 0.65);
+        const qty = Number(item.quantity) || 1;
+        webCOGS += unitCost * qty;
+      });
+    });
+
+    const inRangePurchases = directPurchases.filter(
+      (dp) => dp.date >= plStartDate && dp.date <= plEndDate
+    );
+    const purchasesTotal = inRangePurchases.reduce((sum, dp) => sum + (Number(dp.totalAmount) || 0), 0);
+
+    // Total COGS: Biaya pokok riil produk yang terjual (tanpa freight masuk pelabuhan fiktif)
+    const totalCOGS = posCOGS + webCOGS;
+
+    // Gross Profit
     const grossProfit = netRevenue - totalCOGS;
-    const grossProfitMargin = Math.round((grossProfit / netRevenue) * 100);
+    const grossProfitMargin = netRevenue > 0 ? Math.round((grossProfit / netRevenue) * 100) : 0;
 
-    // Operating Expenses (OPEX)
-    const rentTokyoOsaka = 280000;
-    const electricityColdStorage = 120000;
-    const courierYamatoSagawa = Math.round(netRevenue * 0.045);
-    const staffSalary = 350000;
-    const packagingSupplies = 45000;
-    const totalOPEX = rentTokyoOsaka + electricityColdStorage + courierYamatoSagawa + staffSalary + packagingSupplies;
+    // 3. BEBAN OPERASIONAL (OPEX) DARI KAS KELUAR REAL ACCOUNTING
+    const opexCategories: { name: string; amount: number }[] = [];
+    const catMap = new Map<string, number>();
+    inRangeCashOut.forEach((co) => {
+      const cat = co.category || 'Operasional Lainnya';
+      const amt = Number(co.amount) || 0;
+      catMap.set(cat, (catMap.get(cat) || 0) + amt);
+    });
+    catMap.forEach((amount, name) => {
+      opexCategories.push({ name, amount });
+    });
 
+    const totalOPEX = inRangeCashOut.reduce((sum, co) => sum + (Number(co.amount) || 0), 0);
+
+    // 4. LABA OPERASIONAL (EBIT)
     const operatingIncome = grossProfit - totalOPEX;
-    const jctTaxExpense = Math.round(operatingIncome > 0 ? operatingIncome * 0.1 : 0);
+
+    // 5. PAJAK KONSUMSI JCT (8% & 10%) DARI TRANSAKSI REAL
+    const realTaxPos = inRangePos.reduce((sum, tx) => sum + (Number(tx.taxAmount) || 0), 0);
+    const realTaxWeb = inRangeOrders.reduce((sum, ord) => sum + (Number(ord.taxAmount) || 0), 0);
+    const jctTaxExpense = realTaxPos + realTaxWeb;
+
+    // 6. LABA BERSIH (NET PROFIT)
     const netIncome = operatingIncome - jctTaxExpense;
-    const netIncomeMargin = Math.round((netIncome / netRevenue) * 100);
+    const netIncomeMargin = netRevenue > 0 ? Math.round((netIncome / netRevenue) * 100) : 0;
 
     return {
+      grossPos,
+      grossWeb,
+      otherInflow,
       grossRevenue,
       discountsGiven,
       netRevenue,
-      cogsMaterial,
-      inboundLogistics,
+      posCOGS,
+      webCOGS,
+      purchasesTotal,
       totalCOGS,
       grossProfit,
       grossProfitMargin,
-      opex: {
-        rentTokyoOsaka,
-        electricityColdStorage,
-        courierYamatoSagawa,
-        staffSalary,
-        packagingSupplies,
-        total: totalOPEX
-      },
+      opexCategories,
+      totalOPEX,
       operatingIncome,
       jctTaxExpense,
       netIncome,
       netIncomeMargin
     };
-  }, [posTransactions, orders, plStartDate, plEndDate]);
+  }, [posTransactions, orders, products, directPurchases, plStartDate, plEndDate]);
 
   return (
     <AdminLayout
@@ -611,37 +709,47 @@ export const ReportsAdminPage: React.FC = () => {
                 <div className="p-5 space-y-5 text-xs">
                   {/* Aset Lancar */}
                   <div>
-                    <h4 className="font-bold text-stone-800 uppercase text-[11px] pb-1 border-b border-stone-200 text-blue-700">
-                      Aset Lancar (Current Assets)
+                    <h4 className="font-bold text-stone-800 uppercase text-[11px] pb-1 border-b border-stone-200 text-blue-700 flex items-center justify-between">
+                      <span>Aset Lancar (Current Assets)</span>
+                      <span className="text-[10px] text-stone-400 font-normal">Kas, Bank & Persediaan</span>
                     </h4>
                     <div className="divide-y divide-stone-100 mt-2">
-                      <div className="py-2 flex justify-between">
-                        <span className="text-stone-600">Kas Fisik di Toko (Petty Cash)</span>
-                        <span className="font-mono font-bold text-stone-800">
+                      <div className="py-2 flex justify-between items-center">
+                        <div>
+                          <span className="text-stone-700 font-semibold block">Kas Fisik di Toko (POS Drawer)</span>
+                          <span className="text-[10px] text-stone-400">Penerimaan Tunai Transaksi Kasir</span>
+                        </div>
+                        <span className="font-mono font-bold text-stone-900">
                           ¥{balanceSheetData.currentAssets.cashOnHand.toLocaleString()}
                         </span>
                       </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-stone-600">Bank MUFG Rekening Operasional</span>
-                        <span className="font-mono font-bold text-stone-800">
-                          ¥{balanceSheetData.currentAssets.bankMUFG.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-stone-600">Bank Yucho (Japan Post Bank)</span>
-                        <span className="font-mono font-bold text-stone-800">
-                          ¥{balanceSheetData.currentAssets.bankYucho.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-stone-600">Piutang Usaha Pelanggan (Bon)</span>
-                        <span className="font-mono font-bold text-stone-800">
-                          ¥{balanceSheetData.currentAssets.accountsReceivable.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="py-2 flex justify-between bg-amber-50/50 px-2 rounded-lg">
-                        <span className="text-stone-800 font-semibold">Persediaan Barang Dagang (Stok Gudang)</span>
-                        <span className="font-mono font-extrabold text-[#c41230]">
+
+                      {/* Dynamic Bank Accounts from sn_bank_accounts_v3 */}
+                      {balanceSheetData.currentAssets.bankAccounts.length === 0 ? (
+                        <div className="py-2 flex justify-between items-center text-stone-400">
+                          <span>Akun Bank Terdaftar (Menu Akun Kas & Bank)</span>
+                          <span className="font-mono font-bold">¥0</span>
+                        </div>
+                      ) : (
+                        balanceSheetData.currentAssets.bankAccounts.map((acc: any) => (
+                          <div key={acc.id} className="py-2 flex justify-between items-center">
+                            <div>
+                              <span className="text-stone-700 font-semibold block">{acc.accountName}</span>
+                              <span className="text-[10px] text-stone-400 font-mono">{acc.bankName} • No: {acc.accountNumber}</span>
+                            </div>
+                            <span className="font-mono font-bold text-stone-900">
+                              ¥{(Number(acc.balance) || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        ))
+                      )}
+
+                      <div className="py-2 flex justify-between items-center bg-amber-50/60 px-2 rounded-lg">
+                        <div>
+                          <span className="text-stone-900 font-bold block">Persediaan Barang Dagang (Stok)</span>
+                          <span className="text-[10px] text-stone-500">Valuasi Real Stok Fisik Toko Tokyo</span>
+                        </div>
+                        <span className="font-mono font-black text-[#c41230]">
                           ¥{balanceSheetData.currentAssets.inventoryValuation.toLocaleString()}
                         </span>
                       </div>
@@ -652,45 +760,46 @@ export const ReportsAdminPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Aset Tetap */}
+                  {/* Aset Tetap (Fixed Assets from Jurnal Aset) */}
                   <div>
-                    <h4 className="font-bold text-stone-800 uppercase text-[11px] pb-1 border-b border-stone-200 text-blue-700">
-                      Aset Tetap (Fixed Assets)
+                    <h4 className="font-bold text-stone-800 uppercase text-[11px] pb-1 border-b border-stone-200 text-purple-700 flex items-center justify-between">
+                      <span>Aset Tetap (Fixed Assets)</span>
+                      <span className="text-[10px] text-purple-600 font-normal">Sinkronisasi Jurnal Aset</span>
                     </h4>
                     <div className="divide-y divide-stone-100 mt-2">
-                      <div className="py-2 flex justify-between">
-                        <span className="text-stone-600">Mesin Kasir POS & Komputer Toko</span>
-                        <span className="font-mono font-bold text-stone-800">
-                          ¥{balanceSheetData.fixedAssets.posHardware.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-stone-600">Freezer & Cold Storage Gudang</span>
-                        <span className="font-mono font-bold text-stone-800">
-                          ¥{balanceSheetData.fixedAssets.coldStorageFreezer.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-stone-600">Rak & Display Toko Tokyo</span>
-                        <span className="font-mono font-bold text-stone-800">
-                          ¥{balanceSheetData.fixedAssets.racksShelving.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-stone-600">Kendaraan Operasional Toko</span>
-                        <span className="font-mono font-bold text-stone-800">
-                          ¥{balanceSheetData.fixedAssets.deliveryVan.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="py-2 flex justify-between text-rose-700">
-                        <span>Akumulasi Penyusutan Aset</span>
-                        <span className="font-mono font-bold">
-                          ¥{balanceSheetData.fixedAssets.accumulatedDepreciation.toLocaleString()}
-                        </span>
-                      </div>
+                      {balanceSheetData.fixedAssets.items.length === 0 ? (
+                        <div className="py-3 px-3 my-1 bg-stone-50 rounded-xl border border-stone-200 text-stone-500 flex items-center justify-between text-xs">
+                          <span className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-sm text-stone-400">info</span>
+                            <span>Belum ada aset tetap tercatat di Jurnal Aset</span>
+                          </span>
+                          <span className="font-mono font-bold text-stone-700">¥0</span>
+                        </div>
+                      ) : (
+                        balanceSheetData.fixedAssets.items.map((it: any) => (
+                          <div key={it.id} className="py-2 flex justify-between items-center">
+                            <div>
+                              <span className="text-stone-700 font-semibold block">{it.name}</span>
+                              <span className="text-[10px] text-stone-400">{it.category} • Nilai Perolehan: ¥{it.cost.toLocaleString()}</span>
+                            </div>
+                            <span className="font-mono font-bold text-stone-900">
+                              ¥{((it.cost || 0) - (it.accumulatedDepreciation || 0)).toLocaleString()}
+                            </span>
+                          </div>
+                        ))
+                      )}
+
+                      {balanceSheetData.fixedAssets.accumulatedDepreciation > 0 && (
+                        <div className="py-2 flex justify-between text-rose-700">
+                          <span>Akumulasi Penyusutan Aset Tetap</span>
+                          <span className="font-mono font-bold">
+                            -¥{balanceSheetData.fixedAssets.accumulatedDepreciation.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="pt-2 flex justify-between font-bold text-stone-900 border-t border-stone-300">
-                      <span>Total Aset Tetap:</span>
+                      <span>Total Aset Tetap (Buku Bersih):</span>
                       <span className="font-mono">¥{balanceSheetData.fixedAssets.total.toLocaleString()}</span>
                     </div>
                   </div>
@@ -715,19 +824,26 @@ export const ReportsAdminPage: React.FC = () => {
                 <div className="p-5 space-y-5 text-xs">
                   {/* Kewajiban / Hutang */}
                   <div>
-                    <h4 className="font-bold text-stone-800 uppercase text-[11px] pb-1 border-b border-stone-200 text-rose-700">
-                      Kewajiban Jangka Pendek (Liabilities)
+                    <h4 className="font-bold text-stone-800 uppercase text-[11px] pb-1 border-b border-stone-200 text-rose-700 flex items-center justify-between">
+                      <span>Kewajiban Jangka Pendek (Liabilities)</span>
+                      <span className="text-[10px] text-stone-400 font-normal">Hutang & Beban Terutang</span>
                     </h4>
                     <div className="divide-y divide-stone-100 mt-2">
-                      <div className="py-2 flex justify-between">
-                        <span className="text-stone-600">Hutang Usaha ke Supplier / Vendor</span>
+                      <div className="py-2 flex justify-between items-center">
+                        <div>
+                          <span className="text-stone-700 font-semibold block">Hutang Usaha ke Supplier</span>
+                          <span className="text-[10px] text-stone-400">Pembelian Tempo Belum Lunas</span>
+                        </div>
                         <span className="font-mono font-bold text-stone-800">
                           ¥{balanceSheetData.liabilities.accountsPayable.toLocaleString()}
                         </span>
                       </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-stone-600">Pajak Konsumsi JCT (8% & 10%) Terutang</span>
-                        <span className="font-mono font-bold text-stone-800">
+                      <div className="py-2 flex justify-between items-center">
+                        <div>
+                          <span className="text-stone-700 font-semibold block">Pajak Konsumsi JCT (8% & 10%) Terutang</span>
+                          <span className="text-[10px] text-stone-400">Kewajiban Setor Pajak Transaksi</span>
+                        </div>
+                        <span className="font-mono font-bold text-rose-700">
                           ¥{balanceSheetData.liabilities.accruedJctTax.toLocaleString()}
                         </span>
                       </div>
@@ -740,24 +856,25 @@ export const ReportsAdminPage: React.FC = () => {
 
                   {/* Ekuitas / Modal */}
                   <div>
-                    <h4 className="font-bold text-stone-800 uppercase text-[11px] pb-1 border-b border-stone-200 text-emerald-700">
-                      Ekuitas Pemilik (Equity)
+                    <h4 className="font-bold text-stone-800 uppercase text-[11px] pb-1 border-b border-stone-200 text-emerald-700 flex items-center justify-between">
+                      <span>Ekuitas Pemilik (Equity)</span>
+                      <span className="text-[10px] text-emerald-600 font-normal">Modal Awal & Laba Berjalan</span>
                     </h4>
                     <div className="divide-y divide-stone-100 mt-2">
-                      <div className="py-2 flex justify-between">
-                        <span className="text-stone-600">Modal Disetor / Awal Sembako Nusantara</span>
+                      <div className="py-2 flex justify-between items-center">
+                        <div>
+                          <span className="text-stone-700 font-semibold block">Modal Awal Disetor</span>
+                          <span className="text-[10px] text-stone-400">Tercatat di Menu Modal Awal</span>
+                        </div>
                         <span className="font-mono font-bold text-stone-800">
                           ¥{balanceSheetData.equity.initialCapital.toLocaleString()}
                         </span>
                       </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-stone-600">Laba Ditahan (Retained Earnings)</span>
-                        <span className="font-mono font-bold text-stone-800">
-                          ¥{balanceSheetData.equity.retainedEarnings.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="py-2 flex justify-between bg-emerald-50/60 px-2 rounded-lg">
-                        <span className="text-emerald-900 font-semibold">Laba Tahun Berjalan</span>
+                      <div className="py-2 flex justify-between items-center bg-emerald-50/60 px-2 rounded-lg">
+                        <div>
+                          <span className="text-emerald-950 font-bold block">Laba Tahun Berjalan</span>
+                          <span className="text-[10px] text-emerald-700">Hasil Penjualan Bersih Setelah HPP & Operasional</span>
+                        </div>
                         <span className="font-mono font-extrabold text-emerald-700">
                           ¥{balanceSheetData.equity.currentPeriodNetIncome.toLocaleString()}
                         </span>
@@ -842,9 +959,19 @@ export const ReportsAdminPage: React.FC = () => {
                   </div>
                   <div className="py-2 pl-4 space-y-1.5 text-stone-600">
                     <div className="flex justify-between">
-                      <span>Penjualan Bruto (POS Kasir Toko + E-Commerce Web)</span>
-                      <span className="font-mono">¥{incomeStatementData.grossRevenue.toLocaleString()}</span>
+                      <span>Penjualan Bruto POS Kasir Toko</span>
+                      <span className="font-mono">¥{incomeStatementData.grossPos.toLocaleString()}</span>
                     </div>
+                    <div className="flex justify-between">
+                      <span>Penjualan Bruto E-Commerce Web</span>
+                      <span className="font-mono">¥{incomeStatementData.grossWeb.toLocaleString()}</span>
+                    </div>
+                    {incomeStatementData.otherInflow > 0 && (
+                      <div className="flex justify-between text-blue-600">
+                        <span>Penerimaan Kas Masuk Operasional Lainnya</span>
+                        <span className="font-mono">+¥{incomeStatementData.otherInflow.toLocaleString()}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-rose-600">
                       <span>Potongan Diskon & Promo Pelanggan</span>
                       <span className="font-mono">-¥{incomeStatementData.discountsGiven.toLocaleString()}</span>
@@ -864,13 +991,19 @@ export const ReportsAdminPage: React.FC = () => {
                   </div>
                   <div className="py-2 pl-4 space-y-1.5 text-stone-600">
                     <div className="flex justify-between">
-                      <span>Biaya Pembelian Barang Dagang dari Supplier / Vendor</span>
-                      <span className="font-mono">¥{incomeStatementData.cogsMaterial.toLocaleString()}</span>
+                      <span>HPP Barang Dagang Terjual (POS Kasir Toko)</span>
+                      <span className="font-mono">¥{incomeStatementData.posCOGS.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Ongkos Kirim Freight Masuk & Handling Pelabuhan</span>
-                      <span className="font-mono">¥{incomeStatementData.inboundLogistics.toLocaleString()}</span>
+                      <span>HPP Barang Dagang Terjual (E-Commerce Web)</span>
+                      <span className="font-mono">¥{incomeStatementData.webCOGS.toLocaleString()}</span>
                     </div>
+                    {incomeStatementData.purchasesTotal > 0 && (
+                      <div className="flex justify-between text-stone-400 text-[11px] pt-1 border-t border-dashed border-stone-200">
+                        <span>* Total Pembelian Stok Masuk dari Supplier (Menu Purchasing):</span>
+                        <span className="font-mono">¥{incomeStatementData.purchasesTotal.toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-between font-bold text-stone-900 bg-stone-50 p-2.5 rounded-xl border border-stone-200">
                     <span>TOTAL BEBAN POKOK PENJUALAN:</span>
@@ -895,33 +1028,25 @@ export const ReportsAdminPage: React.FC = () => {
                 <div>
                   <div className="font-bold text-stone-900 text-sm pb-1.5 border-b border-stone-300 flex justify-between">
                     <span>3. BEBAN OPERASIONAL (OPERATING EXPENSES)</span>
-                    <span className="font-mono text-rose-700">-¥{incomeStatementData.opex.total.toLocaleString()}</span>
+                    <span className="font-mono text-rose-700">-¥{incomeStatementData.totalOPEX.toLocaleString()}</span>
                   </div>
                   <div className="py-2 pl-4 space-y-1.5 text-stone-600">
-                    <div className="flex justify-between">
-                      <span>Sewa Tempat Toko & Gudang (Tokyo & Osaka Hub)</span>
-                      <span className="font-mono">¥{incomeStatementData.opex.rentTokyoOsaka.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Listrik & Utilitas Cold Storage Freezer</span>
-                      <span className="font-mono">¥{incomeStatementData.opex.electricityColdStorage.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Biaya Ekspedisi Pengiriman Kurir Yamato & Sagawa</span>
-                      <span className="font-mono">¥{incomeStatementData.opex.courierYamatoSagawa.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Gaji Karyawan Toko & Kasir Shift</span>
-                      <span className="font-mono">¥{incomeStatementData.opex.staffSalary.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Biaya Kardus & Perlengkapan Packing</span>
-                      <span className="font-mono">¥{incomeStatementData.opex.packagingSupplies.toLocaleString()}</span>
-                    </div>
+                    {incomeStatementData.opexCategories.length > 0 ? (
+                      incomeStatementData.opexCategories.map((cat) => (
+                        <div key={cat.name} className="flex justify-between">
+                          <span>{cat.name}</span>
+                          <span className="font-mono">¥{cat.amount.toLocaleString()}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-stone-400 italic text-xs py-1">
+                        Belum ada catatan pengeluaran kas operasional (Kas Keluar di menu Accounting) pada periode ini (¥0).
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-between font-bold text-stone-900 bg-stone-50 p-2.5 rounded-xl border border-stone-200">
                     <span>TOTAL BEBAN OPERASIONAL:</span>
-                    <span className="font-mono text-rose-700">-¥{incomeStatementData.opex.total.toLocaleString()}</span>
+                    <span className="font-mono text-rose-700">-¥{incomeStatementData.totalOPEX.toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -932,7 +1057,7 @@ export const ReportsAdminPage: React.FC = () => {
                     <span className="font-mono">¥{incomeStatementData.operatingIncome.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-stone-600 pl-4">
-                    <span>Estimasi Pajak Konsumsi JCT (8% & 10%):</span>
+                    <span>Pajak Konsumsi JCT Terutang (8% & 10% dari Transaksi):</span>
                     <span className="font-mono text-rose-600">-¥{incomeStatementData.jctTaxExpense.toLocaleString()}</span>
                   </div>
                 </div>

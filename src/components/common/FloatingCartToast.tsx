@@ -83,8 +83,11 @@ export const FloatingCartToast: React.FC = () => {
         {/* Product Item Preview */}
         <div className="flex items-center gap-3 bg-stone-50 p-2.5 rounded-xl border border-stone-100">
           <img
-            src={product.image}
+            src={product.image || '/placeholder-upload.svg'}
             alt={product.name}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/placeholder-upload.svg';
+            }}
             className="w-12 h-12 rounded-lg object-contain bg-white border border-stone-200 shrink-0 p-1"
           />
           <div className="flex-1 min-w-0">

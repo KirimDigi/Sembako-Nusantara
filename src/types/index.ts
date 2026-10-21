@@ -9,6 +9,7 @@ export interface Product {
   categoryJp: string;
   categoryEn: string;
   price: number;
+  costPrice?: number;
   priceTax: number;
   originalPrice?: number;
   rating: number;
@@ -28,6 +29,17 @@ export interface Product {
   ingredientsJp?: string[];
   ingredientsEn?: string[];
   brand: string;
+  sku?: string;
+  barcode?: string;
+  bulkPrices?: {
+    tier1_qty?: number | string;
+    tier1_price?: number;
+    tier2_qty?: number | string;
+    tier2_price?: number;
+    tier3_qty?: number | string;
+    tier3_price?: number;
+  };
+  status?: 'ACTIVE' | 'TBD';
 }
 
 export interface CartItem {
@@ -53,6 +65,9 @@ export interface Order {
   items: OrderItem[];
   shippingAddress: string;
   customerName?: string;
+  userId?: string;
+  userEmail?: string;
+  phone?: string;
   paymentMethod?: string;
   taxAmount?: number;
   currency?: 'JPY' | 'IDR';
@@ -160,6 +175,8 @@ export interface Supplier {
   leadTimeDays: number;
   paymentTerms: string;
   rating: number;
+  isActive?: boolean;
+  notes?: string;
 }
 
 export interface PurchaseOrderItem {
@@ -245,13 +262,67 @@ export interface Voucher {
   code: string;
   title: string;
   description: string;
-  discountType: 'FIXED' | 'PERCENTAGE';
-  discountValue: number; // e.g. 500 for ¥500 or 10 for 10%
+  discountType: 'FIXED' | 'PERCENTAGE' | 'NOMINAL_JPY' | 'NOMINAL_IDR';
+  discountValue: number; // e.g. 500 for ¥500 or 10 for 10% or 50000 for Rp 50.000
+  currency?: 'JPY' | 'IDR';
   minSpend: number;
   maxDiscount?: number;
   validUntil: string;
   usageCount: number;
   isActive: boolean;
+}
+
+export interface ItemDiscount {
+  id: string;
+  productId: string;
+  productName: string;
+  productSku?: string;
+  productImage?: string;
+  originalPriceJPY: number;
+  discountType: 'PERCENTAGE' | 'NOMINAL_JPY' | 'NOMINAL_IDR';
+  discountValue: number; // e.g. 15 for 15%, 150 for ¥150, 15000 for Rp 15.000
+  discountedPriceJPY: number;
+  discountedPriceIDR: number;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  notes?: string;
+}
+
+export interface ProductPromo {
+  id: string;
+  productId: string;
+  productName: string;
+  productSku?: string;
+  productImage?: string;
+  promoTitle: string;
+  promoType: 'BUY_X_GET_Y' | 'FLASH_SALE' | 'SPECIAL_BUNDLE' | 'CASHBACK_POINTS';
+  currency: 'JPY' | 'IDR';
+  promoPrice?: number; // e.g. special bundle or flash sale price
+  buyQty?: number;     // e.g. Beli 5
+  getQty?: number;     // e.g. Gratis 1
+  freeItemName?: string;
+  minPurchaseAmount?: number;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  notes?: string;
+}
+
+export interface WholesalePriceTier {
+  id: string;
+  productId: string;
+  productName: string;
+  productSku?: string;
+  productImage?: string;
+  regularPriceJPY: number;
+  minQuantity: number; // e.g. 5, 10, 24, 40
+  unit: string; // 'Pcs' | 'Pack' | 'Dus (Karton)' | 'Bal'
+  wholesalePriceJPY: number;
+  wholesalePriceIDR: number;
+  savingsPercentage: number;
+  isActive: boolean;
+  notes?: string;
 }
 
 // === Roles & Access Control ===
@@ -335,9 +406,72 @@ export interface DirectPurchaseEntry {
   warehouseName?: string;
   totalAmount: number;
   status: 'Diterima' | 'Draft';
+  paymentStatus?: 'LUNAS' | 'TEMPO' | 'BELUM_BAYAR';
+  paymentMethod?: 'TRANSFER_BANK' | 'CASH' | 'TEMPO';
+  bankAccountId?: string;
+  bankAccountName?: string;
+  dueDate?: string;
+  paidAt?: string;
   notes?: string;
   items: DirectPurchaseItem[];
 }
 
+export interface ConnectedPrinterProfile {
+  id: string;
+  name: string;
+  connectionType: 'browser_driver' | 'bluetooth' | 'usb_direct' | 'network_ip';
+  paperWidth: number;
+  rollDiameter: number;
+  osTarget?: 'Windows' | 'Mac' | 'Semua Perangkat';
+  isDefault?: boolean;
+}
 
+export interface ThermalPrinterSettings {
+  printerName: string;
+  connectionType: 'browser_driver' | 'bluetooth' | 'usb_direct' | 'network_ip';
+  ipAddress?: string;
+  paperWidth: number; // Lebar Kertas mm (Default: 57)
+  rollDiameter: number; // Diameter Lingkaran mm (Default: 47)
+  charPerLine: number; // default: 32
+  fontSize: 'small' | 'normal' | 'large';
+  autoCut: boolean;
+  openCashDrawer: boolean;
+  showLogo: boolean;
+  storeName: string;
+  storeAddress: string;
+  storePhone: string;
+  footerNote: string;
+  storePolicyNote: string;
+  printCopies: number;
+  autoPrintOnCheckout: boolean;
+  savedPrinters?: ConnectedPrinterProfile[];
+}
+
+// === Stock Opname (Audit Fisik Inventori) Types ===
+export interface StockOpnameSessionItem {
+  productId: string;
+  productName: string;
+  sku?: string;
+  category: string;
+  systemStock: number;
+  physicalStock: number;
+  differenceQty: number; // physical - system
+  costPrice: number;
+  differenceValue: number; // differenceQty * costPrice
+  notes: string;
+}
+
+export interface StockOpnameSession {
+  id: string;
+  sessionCode: string;
+  date: string;
+  officerName: string;
+  totalItemsChecked: number;
+  itemsWithDiscrepancy: number;
+  totalDiscrepancyQty: number;
+  totalDiscrepancyValue: number;
+  status: 'Selesai' | 'Draft';
+  notes?: string;
+  items: StockOpnameSessionItem[];
+}
 

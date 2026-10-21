@@ -33,3 +33,5 @@ dist-ssr
 # Scratch / Temp
 .tempmediaStorage
 .system_generated
+scratch/
+*.mp4
