@@ -466,6 +466,40 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     fetchCloudSuppliers();
 
+    // Fetch live products from Supabase to keep storefront & admin synchronized
+    const fetchCloudProducts = async () => {
+      try {
+        const { data, error } = await supabase.from('products').select('*');
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          setProducts((prev) => {
+            const cloudMap = new Map<string, any>();
+            data.forEach((d: any) => {
+              if (d.id) cloudMap.set(String(d.id), d);
+              if (d.sku) cloudMap.set(d.sku, d);
+            });
+
+            return prev.map((p) => {
+              const cloudItem = cloudMap.get(String(p.id)) || (p.sku ? cloudMap.get(p.sku) : undefined);
+              if (!cloudItem) return p;
+
+              return {
+                ...p,
+                price: typeof cloudItem.price === 'number' ? cloudItem.price : p.price,
+                costPrice: typeof cloudItem.cost_price === 'number' ? cloudItem.cost_price : p.costPrice,
+                stock: typeof cloudItem.stock === 'number' ? cloudItem.stock : p.stock,
+                originalPrice: cloudItem.original_price !== undefined && cloudItem.original_price !== null ? cloudItem.original_price : p.originalPrice,
+                barcode: cloudItem.barcode || p.barcode,
+                image: (cloudItem.image && !cloudItem.image.includes('placeholder-upload')) ? cloudItem.image : p.image
+              };
+            });
+          });
+        }
+      } catch (e) {
+        console.warn('Cloud products sync notice:', e);
+      }
+    };
+    fetchCloudProducts();
+
     // Fetch live vouchers from Supabase
     const fetchCloudVouchers = async () => {
       try {
@@ -504,15 +538,27 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     fromWarehouse?: string,
     toWarehouse?: string
   ) => {
+    let resolvedNewStock: number | null = null;
     setProducts((prev) =>
       prev.map((p) => {
         if (p.id === productId) {
           const newStock = Math.max(0, p.stock + deltaQuantity);
+          resolvedNewStock = newStock;
           return { ...p, stock: newStock };
         }
         return p;
       })
     );
+
+    // Sync stock level to Supabase cloud database
+    if (resolvedNewStock !== null) {
+      try {
+        supabase.from('products').update({
+          stock: resolvedNewStock,
+          updated_at: new Date().toISOString()
+        }).eq('id', productId).then(() => {}, () => {});
+      } catch (e) {}
+    }
 
     const targetProd = products.find((p) => p.id === productId);
     const newMovement: StockMovement = {
@@ -529,6 +575,21 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setStockMovements((prev) => [newMovement, ...prev]);
+
+    // Sync stock movement record to Supabase
+    try {
+      supabase.from('stock_movements').insert({
+        id: newMovement.id,
+        product_id: newMovement.productId,
+        product_name: newMovement.productName,
+        delta_quantity: deltaQuantity,
+        type: newMovement.type,
+        reason: newMovement.notes || reason,
+        from_warehouse: newMovement.fromWarehouse || 'wh-tokyo',
+        to_warehouse: newMovement.toWarehouse || null,
+        operator_name: 'Willy Pratama (Admin)'
+      }).then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const addPOSTransaction = (
@@ -1046,16 +1107,62 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const addNewProduct = (product: Product) => {
     setProducts((prev) => [product, ...prev]);
+
+    try {
+      supabase.from('products').upsert({
+        id: product.id,
+        sku: product.sku || product.id,
+        name: product.name,
+        name_jp: product.nameJp || product.name,
+        name_en: product.nameEn || product.name,
+        category: product.category,
+        price: product.price,
+        original_price: product.originalPrice || null,
+        cost_price: product.costPrice || 0,
+        stock: product.stock,
+        min_stock: 5,
+        unit: product.unit,
+        image: product.image || '/placeholder-upload.svg',
+        is_halal: product.isHalal ?? true,
+        is_frozen: product.isFrozen ?? false,
+        barcode: product.barcode || null,
+        description: product.description || ''
+      }).then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const updateProduct = (id: string, updatedData: Partial<Product>) => {
     setProducts((prev) =>
       prev.map((p) => (p.id === id ? { ...p, ...updatedData } : p))
     );
+
+    try {
+      const mapped: any = { updated_at: new Date().toISOString() };
+      if (updatedData.name !== undefined) mapped.name = updatedData.name;
+      if (updatedData.nameJp !== undefined) mapped.name_jp = updatedData.nameJp;
+      if (updatedData.nameEn !== undefined) mapped.name_en = updatedData.nameEn;
+      if (updatedData.category !== undefined) mapped.category = updatedData.category;
+      if (updatedData.price !== undefined) mapped.price = updatedData.price;
+      if (updatedData.costPrice !== undefined) mapped.cost_price = updatedData.costPrice;
+      if (updatedData.originalPrice !== undefined) mapped.original_price = updatedData.originalPrice;
+      if (updatedData.stock !== undefined) mapped.stock = updatedData.stock;
+      if (updatedData.unit !== undefined) mapped.unit = updatedData.unit;
+      if (updatedData.image !== undefined) mapped.image = updatedData.image;
+      if (updatedData.isHalal !== undefined) mapped.is_halal = updatedData.isHalal;
+      if (updatedData.isFrozen !== undefined) mapped.is_frozen = updatedData.isFrozen;
+      if (updatedData.barcode !== undefined) mapped.barcode = updatedData.barcode;
+      if (updatedData.description !== undefined) mapped.description = updatedData.description;
+
+      supabase.from('products').update(mapped).eq('id', id).then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const deleteProduct = (id: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== id));
+
+    try {
+      supabase.from('products').delete().eq('id', id).then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const clearAllTransactions = () => {
@@ -1168,6 +1275,31 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const savedHistory = JSON.parse(localStorage.getItem('sn_stock_opname_history_v1') || '[]');
       const updatedHistory = [session, ...savedHistory];
       localStorage.setItem('sn_stock_opname_history_v1', JSON.stringify(updatedHistory));
+    } catch (e) {}
+
+    // Sync batch physical stock adjustments and movements to Supabase cloud database
+    try {
+      adjustments.forEach((adj) => {
+        const physicalStock = Math.max(0, Math.round(Number(adj.physicalStock) || 0));
+        supabase.from('products').update({
+          stock: physicalStock,
+          updated_at: new Date().toISOString()
+        }).eq('id', adj.productId).then(() => {}, () => {});
+      });
+
+      if (newMovements.length > 0) {
+        const movementsPayload = newMovements.map((m) => ({
+          id: m.id,
+          product_id: m.productId,
+          product_name: m.productName,
+          delta_quantity: m.quantity,
+          type: m.type,
+          reason: m.notes || 'Stok Opname Fisik',
+          from_warehouse: m.fromWarehouse || 'wh-tokyo',
+          operator_name: officerName
+        }));
+        supabase.from('stock_movements').insert(movementsPayload).then(() => {}, () => {});
+      }
     } catch (e) {}
 
     return session;
