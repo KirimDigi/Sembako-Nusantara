@@ -29,6 +29,8 @@ import { ReferralPartnerPage } from './pages/ReferralPartnerPage';
 import { GuidePaymentPage } from './pages/GuidePaymentPage';
 import { ContactPage } from './pages/ContactPage';
 import { AboutPage } from './pages/AboutPage';
+import { InstallAppPage } from './pages/InstallAppPage';
+import { PWAUpdateToast } from './components/common/PWAUpdateToast';
 
 // Admin & POS Pages (Protected Behind Login)
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
@@ -227,6 +229,9 @@ const AppContent: React.FC = () => {
       {/* Live Customer Order Status Banner (Bottom) */}
       <CustomerLiveOrderStatusBanner />
 
+      {/* Seamless PWA Auto-Update Notification Toast */}
+      <PWAUpdateToast />
+
       {/* Main Storefront Application Routes */}
       <main className="flex-1 pt-[120px] w-full max-w-full overflow-x-hidden">
         <Routes>
@@ -246,6 +251,9 @@ const AppContent: React.FC = () => {
           <Route path="/orders" element={<AccountOrdersPage />} />
           <Route path="/pesanan-saya" element={<AccountOrdersPage />} />
           <Route path="/tracking" element={<TrackingPage />} />
+          <Route path="/pintasan" element={<InstallAppPage />} />
+          <Route path="/install" element={<InstallAppPage />} />
+          <Route path="/app" element={<InstallAppPage />} />
           <Route path="/contact" element={<AboutPage />} />
           <Route path="/kontak" element={<AboutPage />} />
           <Route path="/recipes" element={<RecipesBlogPage />} />

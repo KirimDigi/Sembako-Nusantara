@@ -164,6 +164,14 @@ export const Footer: React.FC = () => {
                 {language === 'JP' ? 'パートナー＆コミュニティ提携' : language === 'EN' ? 'Partner & Community Program' : 'Program Mitra & Komunitas'}
               </Link>
             </li>
+            <li>
+              <Link to="/pintasan" className="text-[#c41230] font-bold hover:underline flex items-center gap-1">
+                <span className="material-symbols-outlined text-xs">install_mobile</span>
+                <span>
+                  {language === 'JP' ? 'アプリを追加 (ホーム画面・PC)' : language === 'EN' ? 'Install App Shortcut' : 'Pasang Pintasan Aplikasi (HP/PC)'}
+                </span>
+              </Link>
+            </li>
             {isAdmin && (
               <li className="pt-2 border-t border-stone-200">
                 <Link to="/admin" className="text-[#c41230] font-bold hover:underline flex items-center gap-1">

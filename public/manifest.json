@@ -1,0 +1,71 @@
+{
+  "name": "Sembako Nusantara Jepang",
+  "short_name": "Sembako JP",
+  "description": "Toko Sembako & Makanan Halal Indonesia Terlengkap di Seluruh Jepang. Pengiriman Kilat ke 47 Prefektur.",
+  "id": "sembako-nusantara-jepang-pwa",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FDF8F0",
+  "theme_color": "#C41230",
+  "categories": ["shopping", "food", "lifestyle", "business"],
+  "lang": "id",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo-transparent.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-transparent.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Katalog Belanja",
+      "short_name": "Katalog",
+      "description": "Lihat produk sembako dan makanan halal",
+      "url": "./#/catalog",
+      "icons": [{ "src": "/pwa-icon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Keranjang Belanja",
+      "short_name": "Keranjang",
+      "description": "Cek keranjang belanjaan Anda",
+      "url": "./#/cart",
+      "icons": [{ "src": "/pwa-icon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Lacak Pesanan",
+      "short_name": "Pesanan",
+      "description": "Lacak status kiriman Yamato & Sagawa",
+      "url": "./#/orders",
+      "icons": [{ "src": "/pwa-icon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Kasir POS Toko",
+      "short_name": "Kasir POS",
+      "description": "Akses Cepat Kasir POS Sembako Nusantara",
+      "url": "./#/admin/pos",
+      "icons": [{ "src": "/pwa-icon.svg", "sizes": "192x192" }]
+    }
+  ]
+}

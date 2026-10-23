@@ -24,6 +24,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     { to: '/wishlist', label: language === 'JP' ? 'お気に入り' : language === 'EN' ? 'Wishlist' : 'Wishlist Favorit', icon: 'favorite', badge: totalWishlistItems > 0 ? totalWishlistItems : null },
     { to: '/about', label: language === 'JP' ? '会社概要・ビジョン' : language === 'EN' ? 'About Us & Contact' : 'Tentang Kami & Kontak', icon: 'info' },
     { to: '/orders', label: language === 'JP' ? '注文履歴・配送状況 (Pesanan Saya)' : language === 'EN' ? 'My Orders & Tracking' : 'Pesanan Saya (Lacak Order)', icon: 'receipt_long' },
+    { to: '/pintasan', label: language === 'JP' ? 'ホーム画面に追加 (アプリ)' : language === 'EN' ? 'Install App Shortcut' : 'Pasang Pintasan Aplikasi', icon: 'install_mobile', badge: 'App' },
     { to: '/referral', label: language === 'JP' ? 'パートナー' : language === 'EN' ? 'Partner' : 'Mitra Diaspora', icon: 'handshake' },
     { to: '/profile', label: language === 'JP' ? 'マイページ' : language === 'EN' ? 'My Profile' : 'Profil & Member', icon: 'account_circle' }
   ];

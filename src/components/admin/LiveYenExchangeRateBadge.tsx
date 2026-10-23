@@ -42,6 +42,19 @@ export const LiveYenExchangeRateBadge: React.FC<LiveYenExchangeRateBadgeProps> =
       second: '2-digit'
     });
 
+    // Bandwidth saving: check if cached rate is less than 15 minutes old
+    const CACHE_KEY_TIME = 'sn_rate_last_fetched';
+    const lastFetch = Number(localStorage.getItem(CACHE_KEY_TIME) || 0);
+    const now = Date.now();
+    if (!showSpin && now - lastFetch < 15 * 60 * 1000) {
+      const active = getActiveExchangeRate();
+      if (active) {
+        setRate(active);
+        setLastUpdated(nowTime);
+        return;
+      }
+    }
+
     try {
       // 1. Attempt to fetch from real-time open exchange rate API
       const controller = new AbortController();
@@ -59,6 +72,7 @@ export const LiveYenExchangeRateBadge: React.FC<LiveYenExchangeRateBadgeProps> =
           const roundedRate = Math.round(liveIdr * 100) / 100;
           setRate(roundedRate);
           saveActiveExchangeRate(roundedRate);
+          localStorage.setItem(CACHE_KEY_TIME, String(now));
           setLastUpdated(nowTime);
           return;
         }
@@ -81,10 +95,12 @@ export const LiveYenExchangeRateBadge: React.FC<LiveYenExchangeRateBadgeProps> =
     setTodayDateStr(formatTodayDate());
     fetchLiveRate(false);
 
-    // Auto-refresh every 2 minutes
+    // Auto-refresh periodically only when tab is active (save bandwidth/egress)
     const interval = setInterval(() => {
-      fetchLiveRate(false);
-    }, 120000);
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchLiveRate(false);
+      }
+    }, 15 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [fetchLiveRate, formatTodayDate]);

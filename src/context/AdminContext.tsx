@@ -118,32 +118,72 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 const INITIAL_ORDERS: Order[] = [];
 
-export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>(() => {
-    // Purge legacy mock data cache so real Excel products are loaded cleanly
-    try {
-      localStorage.removeItem('sn_products_v6');
-      localStorage.removeItem('sn_products_v5');
-      localStorage.removeItem('sn_products_v4');
-      localStorage.removeItem('sn_products_v3');
-      localStorage.removeItem('sn_products_v2');
-      localStorage.removeItem('sn_products_v1');
-    } catch (e) {}
-
+// Intelligent Non-Destructive Product Merging
+// Ensures builds, updates, and deploys NEVER reset user stock, prices, HPP, or transactions
+function loadAndMergeProducts(): Product[] {
+  try {
     const saved = localStorage.getItem('sn_products_v7');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length >= 100 && parsed[0]?.sku?.startsWith('SN-')) {
-          return parsed;
-        }
-      } catch (e) {}
-    }
-    try {
+    if (!saved) {
       localStorage.setItem('sn_products_v7', JSON.stringify(PRODUCTS_DATA));
-    } catch (e) {}
+      return PRODUCTS_DATA;
+    }
+
+    const parsed: Product[] = JSON.parse(saved);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      localStorage.setItem('sn_products_v7', JSON.stringify(PRODUCTS_DATA));
+      return PRODUCTS_DATA;
+    }
+
+    // Index saved products by both SKU and ID
+    const savedMap = new Map<string, Product>();
+    parsed.forEach((item) => {
+      if (item.sku) savedMap.set(item.sku, item);
+      if (item.id) savedMap.set(String(item.id), item);
+    });
+
+    // Merge PRODUCTS_DATA with saved edits (strictly preserving user-edited stock, prices, HPP, bulkPrices)
+    const mergedList: Product[] = PRODUCTS_DATA.map((codeItem) => {
+      const existing = (codeItem.sku && savedMap.get(codeItem.sku)) || savedMap.get(String(codeItem.id));
+      if (!existing) {
+        return codeItem;
+      }
+
+      // Preserve user modifications while updating any new code translations or attributes
+      return {
+        ...codeItem,
+        stock: typeof existing.stock === 'number' ? existing.stock : codeItem.stock,
+        costPrice: typeof existing.costPrice === 'number' ? existing.costPrice : codeItem.costPrice,
+        price: typeof existing.price === 'number' ? existing.price : codeItem.price,
+        originalPrice: existing.originalPrice !== undefined ? existing.originalPrice : codeItem.originalPrice,
+        bulkPrices: existing.bulkPrices || codeItem.bulkPrices,
+        rating: existing.rating || codeItem.rating,
+        reviewCount: existing.reviewCount || codeItem.reviewCount,
+        // Preserve custom uploaded photo if set
+        image: (existing.image && !existing.image.includes('placeholder-upload')) ? existing.image : codeItem.image,
+      };
+    });
+
+    // Retain any custom products created by the user in Admin that were not in default code
+    const codeSkus = new Set(PRODUCTS_DATA.map((p) => p.sku).filter(Boolean));
+    const codeIds = new Set(PRODUCTS_DATA.map((p) => String(p.id)));
+
+    parsed.forEach((savedItem) => {
+      const matchesSku = savedItem.sku && codeSkus.has(savedItem.sku);
+      const matchesId = savedItem.id && codeIds.has(String(savedItem.id));
+      if (!matchesSku && !matchesId) {
+        mergedList.push(savedItem);
+      }
+    });
+
+    return mergedList;
+  } catch (err) {
+    console.warn('[AdminContext] Error merging products data:', err);
     return PRODUCTS_DATA;
-  });
+  }
+}
+
+export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [products, setProducts] = useState<Product[]>(() => loadAndMergeProducts());
 
   const [warehouses] = useState<Warehouse[]>(INITIAL_WAREHOUSES);
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {

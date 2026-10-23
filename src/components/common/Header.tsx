@@ -354,6 +354,20 @@ export const Header: React.FC = () => {
                 </Link>
               )}
 
+              {/* Install PWA Shortcut Button */}
+              <Link
+                to="/pintasan"
+                className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-red-50 to-amber-50 hover:from-red-100 hover:to-amber-100 text-[#c41230] border border-red-200/90 rounded-full text-xs font-extrabold transition-all shadow-2xs hover:shadow-xs group cursor-pointer"
+                title={language === 'JP' ? 'アプリをホーム画面・デスクトップに追加' : language === 'EN' ? 'Install App Shortcut' : 'Pasang Pintasan Aplikasi di HP/PC'}
+              >
+                <span className="material-symbols-outlined text-[17px] text-[#c41230] group-hover:scale-110 transition-transform">
+                  install_mobile
+                </span>
+                <span className="hidden xl:inline">
+                  {language === 'JP' ? 'アプリ追加' : language === 'EN' ? 'Install App' : 'Pasang Pintasan'}
+                </span>
+              </Link>
+
               {/* Wishlist Heart Icon Link */}
               <Link
                 to="/wishlist"
