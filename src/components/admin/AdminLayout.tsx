@@ -7,6 +7,7 @@ import { checkSupabaseConnection } from '../../lib/supabase';
 import { Language, UserRole } from '../../types';
 import { assetUrl } from '../../utils/assets';
 import { LiveYenExchangeRateBadge } from './LiveYenExchangeRateBadge';
+import { POSCollapsedSidebar } from './POSCollapsedSidebar';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -42,6 +43,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
   const [isLaporanOpen, setIsLaporanOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const isPOSPage = location.pathname === '/admin/pos';
+  const [isPOSSidebarExpanded, setIsPOSSidebarExpanded] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [isSidebarPinned, setIsSidebarPinned] = useState(true);
   const [supabaseStatus, setSupabaseStatus] = useState<{ connected: boolean; latencyMs?: number }>({
@@ -533,39 +535,27 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
         />
       )}
 
-      {/* Floating Hover Panah Trigger for Auto-Hide Sidebar on POS Fullscreen */}
-      {isPOSPage && !isSidebarHovered && !isSidebarPinned && (
-        <div
-          onMouseEnter={() => setIsSidebarHovered(true)}
-          className="fixed left-0 top-1/2 -translate-y-1/2 z-[99] flex items-center group cursor-pointer"
-          title="Arahkan kursor ke sini untuk menampilkan Menu Sidebar"
-        >
-          <button
-            onClick={() => setIsSidebarPinned(true)}
-            className="bg-[#141414]/95 hover:bg-[#c41230] text-white py-3 px-1.5 rounded-r-2xl shadow-2xl border-y border-r border-stone-700/80 flex flex-col items-center gap-1.5 transition-all group-hover:scale-105 group-hover:pl-2.5 backdrop-blur-xs cursor-pointer"
-            aria-label="Tampilkan Sidebar Admin"
-          >
-            <span className="material-symbols-outlined text-base animate-pulse">chevron_right</span>
-            <span className="text-[8px] font-black uppercase [writing-mode:vertical-lr] tracking-widest text-stone-300 group-hover:text-white">
-              MENU
-            </span>
-          </button>
-        </div>
+      {/* 1. Dedicated Collapsed Mini Sidebar when on POS page (desktop view) */}
+      {isPOSPage && !isPOSSidebarExpanded && (
+        <POSCollapsedSidebar
+          activeRole={activeRole}
+          posTransactionsCount={posTransactions.length}
+          lowStockCount={lowStockCount}
+          pendingOrdersCount={pendingOrdersCount}
+          onExpandSidebar={() => setIsPOSSidebarExpanded(true)}
+          onLogout={handleLogout}
+        />
       )}
 
-      {/* Sidebar Navigation (z-[100] ensures it is always on top of all page headers/hero sections) */}
+      {/* 2. Full Sidebar Navigation (For standard admin pages, or when expanded in POS, or on mobile drawer) */}
       <aside
-        onMouseEnter={() => {
-          if (isPOSPage) setIsSidebarHovered(true);
-        }}
-        onMouseLeave={() => {
-          if (isPOSPage) setIsSidebarHovered(false);
-        }}
         className={`fixed inset-y-0 left-0 z-[100] w-72 max-w-[85vw] md:w-64 bg-[#141414] text-stone-200 flex flex-col transition-all duration-300 ease-in-out overflow-y-auto shadow-2xl h-screen shrink-0 ${
           isPOSPage
-            ? isSidebarHovered || isSidebarPinned || mobileMenuOpen
+            ? isPOSSidebarExpanded
               ? 'translate-x-0 md:static md:shadow-none'
-              : '-translate-x-full md:-ml-64'
+              : mobileMenuOpen
+              ? 'translate-x-0 md:hidden'
+              : '-translate-x-full md:hidden'
             : mobileMenuOpen
             ? 'translate-x-0'
             : '-translate-x-full md:translate-x-0 md:static md:shadow-none'
@@ -591,15 +581,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
             {isPOSPage && (
               <button
                 type="button"
-                onClick={() => {
-                  setIsSidebarPinned(false);
-                  setIsSidebarHovered(false);
-                }}
-                className="hidden md:flex text-stone-400 hover:text-white p-1 rounded-lg bg-stone-800 hover:bg-stone-700 transition-colors cursor-pointer text-[10px] items-center gap-1"
-                title="Sembunyikan Sidebar (Full Layar POS)"
+                onClick={() => setIsPOSSidebarExpanded(false)}
+                className="hidden md:flex text-stone-400 hover:text-white p-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 transition-colors cursor-pointer text-[10px] items-center gap-1 border border-stone-700/80"
+                title="Ciutkan Sidebar ke Mode Ikon (Collapsed)"
               >
-                <span className="material-symbols-outlined text-sm">fullscreen</span>
-                <span>Auto-Hide</span>
+                <span className="material-symbols-outlined text-sm">dock_to_left</span>
+                <span>Ciutkan</span>
               </button>
             )}
             <button
