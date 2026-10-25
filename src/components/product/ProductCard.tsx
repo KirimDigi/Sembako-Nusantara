@@ -7,6 +7,7 @@ import { useWishlist } from '../../context/WishlistContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAdmin } from '../../context/AdminContext';
 import { resolveProductImage, getPlaceholderImage } from '../common/ProductImage';
+import { useExchangeRate, convertJpyToIdr, formatIdr } from '../../utils/currency';
 
 interface ProductCardProps {
   product: Product;
@@ -16,6 +17,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { language, t } = useLanguage();
+  const exchangeRate = useExchangeRate();
   const { itemDiscounts } = useAdmin();
   const [justAdded, setJustAdded] = useState(false);
   const isWishlisted = isInWishlist(product.id);
@@ -147,6 +149,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                   </div>
                 ) : null}
               </div>
+              {language === 'ID' && (
+                <div className="text-[11px] font-bold text-emerald-700 leading-tight mt-0.5">
+                  ≈ {formatIdr(convertJpyToIdr(currentPrice, exchangeRate))}
+                </div>
+              )}
               <div className="text-[11px] text-stone-500 mt-0.5">
                 ({t('tax_included')} ¥{currentPriceTax.toLocaleString()})
               </div>

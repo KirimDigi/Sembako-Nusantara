@@ -8,6 +8,7 @@ import { Product } from '../../types';
 import { FreeShippingProgressBar } from '../common/FreeShippingProgressBar';
 import { smartSearchProducts } from '../../utils/smartSearch';
 import { resolveProductImage, getPlaceholderImage } from '../common/ProductImage';
+import { useExchangeRate, convertJpyToIdr, formatIdr } from '../../utils/currency';
 
 interface ProductCatalogSectionProps {
   showTitleHeader?: boolean;
@@ -23,6 +24,7 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { language } = useLanguage();
+  const exchangeRate = useExchangeRate();
   const { itemDiscounts, products: adminProducts } = useAdmin();
   const products = adminProducts && adminProducts.length > 0 ? adminProducts : PRODUCTS_DATA;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -776,7 +778,12 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
                                   </span>
                                 ) : null}
                               </div>
-                              <span className="text-[9px] sm:text-[10px] text-stone-400">
+                              {language === 'ID' && (
+                                <div className="text-[11px] sm:text-xs font-bold text-emerald-700 leading-tight mt-0.5">
+                                  ≈ {formatIdr(convertJpyToIdr(displayPrice, exchangeRate))}
+                                </div>
+                              )}
+                              <span className="text-[9px] sm:text-[10px] text-stone-400 block mt-0.5">
                                 ({language === 'JP' ? '税込' : language === 'EN' ? 'Tax incl.' : 'Pajak'} ¥{displayPriceTax.toLocaleString()})
                               </span>
                             </div>

@@ -18,12 +18,46 @@ export function getActiveExchangeRate(): number {
   return DEFAULT_JPY_TO_IDR_RATE;
 }
 
+export const EVENT_EXCHANGE_RATE_UPDATED = 'sn_exchange_rate_updated';
+
 /**
- * Menyimpan kurs baru ke localStorage
+ * Menyimpan kurs baru ke localStorage dan menyiarkan event ke seluruh komponen
  */
 export function saveActiveExchangeRate(rate: number): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem('sn_kurs_jpy_to_idr', rate.toString());
+  try {
+    window.dispatchEvent(new CustomEvent(EVENT_EXCHANGE_RATE_UPDATED, { detail: rate }));
+  } catch (e) {}
+}
+
+/**
+ * React hook agar komponen otomatis re-render setiap kali kurs live diperbarui
+ */
+import { useState, useEffect } from 'react';
+
+export function useExchangeRate(): number {
+  const [rate, setRate] = useState<number>(() => getActiveExchangeRate());
+
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      if (typeof e.detail === 'number' && e.detail > 0) {
+        setRate(e.detail);
+      } else {
+        setRate(getActiveExchangeRate());
+      }
+    };
+
+    window.addEventListener(EVENT_EXCHANGE_RATE_UPDATED, handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener(EVENT_EXCHANGE_RATE_UPDATED, handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  return rate;
 }
 
 /**

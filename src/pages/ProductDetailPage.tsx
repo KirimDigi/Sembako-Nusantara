@@ -8,6 +8,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAdmin } from '../context/AdminContext';
 import { getEffectiveUnitPrice, parseMinQty } from '../utils/pricing';
 import { resolveProductImage, getPlaceholderImage } from '../components/common/ProductImage';
+import { useExchangeRate, convertJpyToIdr, formatIdr } from '../utils/currency';
 
 export const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +17,7 @@ export const ProductDetailPage: React.FC = () => {
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { language, t } = useLanguage();
+  const exchangeRate = useExchangeRate();
   const { itemDiscounts } = useAdmin();
 
   const product = PRODUCTS_DATA.find((p) => p.id === id) || PRODUCTS_DATA[0];
@@ -169,6 +171,11 @@ export const ProductDetailPage: React.FC = () => {
                       ({t('tax_included')} ¥{currentPriceTax.toLocaleString()})
                     </span>
                   </div>
+                  {language === 'ID' && (
+                    <div className="text-base sm:text-lg font-bold text-emerald-700 leading-tight">
+                      ≈ {formatIdr(convertJpyToIdr(currentPrice, exchangeRate))}
+                    </div>
+                  )}
                   {discountPercent > 0 && activeDisc?.originalPriceJPY ? (
                     <div className="text-xs text-stone-400 line-through">
                       {t('original_price')}: ¥{activeDisc.originalPriceJPY.toLocaleString()}
@@ -234,6 +241,11 @@ export const ProductDetailPage: React.FC = () => {
                       >
                         <div className="text-[10px] font-bold opacity-80">{q1}–{q2 - 1} Pcs</div>
                         <div className="text-sm font-black mt-0.5">¥{p1.toLocaleString()}</div>
+                        {language === 'ID' && (
+                          <div className="text-[10px] font-bold opacity-90 text-emerald-600">
+                            ≈ {formatIdr(convertJpyToIdr(p1, exchangeRate))}
+                          </div>
+                        )}
                         <div className="text-[9px] opacity-75">/ pcs</div>
                       </div>
 
@@ -248,6 +260,11 @@ export const ProductDetailPage: React.FC = () => {
                       >
                         <div className="text-[10px] font-bold opacity-80">{q2}+ Pcs</div>
                         <div className="text-sm font-black mt-0.5">¥{p2.toLocaleString()}</div>
+                        {language === 'ID' && (
+                          <div className="text-[10px] font-bold opacity-90 text-emerald-600">
+                            ≈ {formatIdr(convertJpyToIdr(p2, exchangeRate))}
+                          </div>
+                        )}
                         <div className="text-[9px] opacity-75">/ pcs</div>
                       </div>
 
@@ -262,6 +279,11 @@ export const ProductDetailPage: React.FC = () => {
                       >
                         <div className="text-[10px] font-bold opacity-80">1 Dus ({q3}+)</div>
                         <div className="text-sm font-black mt-0.5">¥{p3.toLocaleString()}</div>
+                        {language === 'ID' && (
+                          <div className="text-[10px] font-bold opacity-90 text-emerald-600">
+                            ≈ {formatIdr(convertJpyToIdr(p3, exchangeRate))}
+                          </div>
+                        )}
                         <div className="text-[9px] opacity-75">Termurah</div>
                       </div>
                     </div>
