@@ -3,10 +3,28 @@ import { Link } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useAdmin } from '../../context/AdminContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useExchangeRate, convertJpyToIdr, formatIdr } from '../../utils/currency';
 
 export const AdminDashboardPage: React.FC = () => {
   const { products, orders, posTransactions, purchaseOrders } = useAdmin();
   const { language } = useLanguage();
+  const exchangeRate = useExchangeRate();
+
+  // Currency Formatter according to active language (ID -> Rupiah, JP/EN -> Yen)
+  const formatMoney = (jpyAmount: number): string => {
+    if (language === 'ID') {
+      return formatIdr(convertJpyToIdr(jpyAmount, exchangeRate));
+    }
+    return `¥${jpyAmount.toLocaleString('ja-JP')}`;
+  };
+
+  const formatProfit = (jpyAmount: number): string => {
+    if (language === 'ID') {
+      const idr = convertJpyToIdr(jpyAmount, exchangeRate);
+      return `+${formatIdr(idr)}`;
+    }
+    return `+¥${jpyAmount.toLocaleString('ja-JP')}`;
+  };
 
   // Financial & Operational Computations
   const totalPosRevenue = posTransactions.reduce((acc, curr) => acc + curr.totalAmount, 0);
@@ -204,7 +222,7 @@ export const AdminDashboardPage: React.FC = () => {
         bsStatus: 'Status: 100% Balanced',
         dailyTitle: 'Omzet Harian',
         dailySub: 'Tren 14 Hari & Peak',
-        dailyPerDay: (amt: number) => `¥${amt.toLocaleString('ja-JP')}/hari`,
+        dailyPerDay: (amt: number) => `${formatIdr(convertJpyToIdr(amt, exchangeRate))}/hari`,
         itemsTitle: 'Penjualan per Item',
         itemsSkuCount: (cnt: number) => `${cnt} SKU Analisis`,
         itemsSub: 'Fast/Slow Moving SKU',
@@ -244,7 +262,7 @@ export const AdminDashboardPage: React.FC = () => {
         statusProcessing: 'Diproses'
       };
     }
-  }, [language]);
+  }, [language, exchangeRate]);
 
   const getOrderStatusLabel = (status: string) => {
     switch (status) {
@@ -280,7 +298,7 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
             </div>
             <div className="text-2xl font-bold text-stone-900 font-mono">
-              ¥{totalGrossRevenue.toLocaleString('ja-JP')}
+              {formatMoney(totalGrossRevenue)}
             </div>
             <div className="flex items-center gap-1.5 mt-2 text-[11px] text-stone-500 font-medium">
               <span className="material-symbols-outlined text-xs text-emerald-600">
@@ -301,7 +319,7 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
             </div>
             <div className="text-2xl font-bold text-stone-900 font-mono">
-              ¥{totalPosRevenue.toLocaleString('ja-JP')}
+              {formatMoney(totalPosRevenue)}
             </div>
             <p className="text-[11px] text-stone-500 mt-2">
               {txt.posTxToday(posTransactions.length)}
@@ -317,7 +335,7 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
             </div>
             <div className="text-2xl font-bold text-stone-900 font-mono">
-              ¥{totalOnlineRevenue.toLocaleString('ja-JP')}
+              {formatMoney(totalOnlineRevenue)}
             </div>
             <p className="text-[11px] text-stone-500 mt-2">
               {txt.webOrders(orders.length, pendingOrders.length)}
@@ -390,7 +408,7 @@ export const AdminDashboardPage: React.FC = () => {
                 </span>
               </div>
               <div className="text-xl font-bold font-mono text-emerald-400">
-                +¥{grossProfit.toLocaleString('ja-JP')}
+                {formatProfit(grossProfit)}
               </div>
               <div className="text-[11px] text-stone-300 mt-1 flex items-center justify-between">
                 <span>{txt.pnlMargin(grossMarginPercent)}</span>
@@ -410,7 +428,7 @@ export const AdminDashboardPage: React.FC = () => {
                 </span>
               </div>
               <div className="text-xl font-bold font-mono text-blue-300">
-                ¥{totalEstimatedAssets.toLocaleString('ja-JP')}
+                {formatMoney(totalEstimatedAssets)}
               </div>
               <div className="text-[11px] text-stone-300 mt-1 flex items-center justify-between">
                 <span>{txt.bsStatus}</span>
@@ -505,7 +523,7 @@ export const AdminDashboardPage: React.FC = () => {
                 <div className="flex justify-between text-xs font-semibold mb-1">
                   <span className="text-stone-700">{txt.compWebLabel}</span>
                   <span className="text-blue-600 font-mono">
-                    ¥{totalOnlineRevenue.toLocaleString('ja-JP')} (
+                    {formatMoney(totalOnlineRevenue)} (
                     {totalGrossRevenue > 0
                       ? Math.round((totalOnlineRevenue / totalGrossRevenue) * 100)
                       : 0}
@@ -530,7 +548,7 @@ export const AdminDashboardPage: React.FC = () => {
                 <div className="flex justify-between text-xs font-semibold mb-1">
                   <span className="text-stone-700">{txt.compPosLabel}</span>
                   <span className="text-[#c41230] font-mono">
-                    ¥{totalPosRevenue.toLocaleString('ja-JP')} (
+                    {formatMoney(totalPosRevenue)} (
                     {totalGrossRevenue > 0
                       ? Math.round((totalPosRevenue / totalGrossRevenue) * 100)
                       : 0}
@@ -557,10 +575,11 @@ export const AdminDashboardPage: React.FC = () => {
               <div className="bg-stone-50 p-3 rounded-xl">
                 <span className="text-[10px] text-stone-500 block">{txt.aovLabel}</span>
                 <span className="text-sm font-bold text-stone-900 font-mono">
-                  ¥
-                  {totalTransactionsCount > 0
-                    ? Math.round(totalGrossRevenue / totalTransactionsCount).toLocaleString('ja-JP')
-                    : 0}
+                  {formatMoney(
+                    totalTransactionsCount > 0
+                      ? Math.round(totalGrossRevenue / totalTransactionsCount)
+                      : 0
+                  )}
                 </span>
               </div>
               <div className="bg-stone-50 p-3 rounded-xl">
@@ -603,7 +622,7 @@ export const AdminDashboardPage: React.FC = () => {
                         <div className="font-bold text-stone-900 truncate max-w-[140px]">
                           {language === 'JP' ? p.nameJp || p.name : language === 'EN' ? p.nameEn || p.name : p.name}
                         </div>
-                        <div className="text-[10px] text-stone-400">¥{p.price.toLocaleString('ja-JP')}</div>
+                        <div className="text-[10px] text-stone-400">{formatMoney(p.price)}</div>
                       </div>
                     </div>
                     <span className="px-2 py-1 bg-amber-100 text-amber-800 font-bold rounded-md text-[11px]">
@@ -671,7 +690,7 @@ export const AdminDashboardPage: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-stone-900 font-mono">¥{ord.totalAmount.toLocaleString('ja-JP')}</div>
+                    <div className="font-bold text-stone-900 font-mono">{formatMoney(ord.totalAmount)}</div>
                     <div className="text-[10px] text-stone-400 font-mono">{ord.trackingNumber}</div>
                   </div>
                 </div>
@@ -709,7 +728,7 @@ export const AdminDashboardPage: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-stone-900 font-mono">¥{tx.totalAmount.toLocaleString('ja-JP')}</div>
+                    <div className="font-bold text-stone-900 font-mono">{formatMoney(tx.totalAmount)}</div>
                     <div className="text-[10px] text-emerald-600 font-medium">{txt.paidStatus}</div>
                   </div>
                 </div>
