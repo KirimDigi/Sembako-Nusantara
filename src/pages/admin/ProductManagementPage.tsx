@@ -35,6 +35,10 @@ export const ProductManagementPage: React.FC = () => {
   const [quickImageUrlInput, setQuickImageUrlInput] = useState<string>('');
   const [inlineEditingImageId, setInlineEditingImageId] = useState<string | null>(null);
   const [inlineImageUrl, setInlineImageUrl] = useState<string>('');
+  
+  // Direct Inline Photo URL Editing states (Tanpa klik, langsung ketik/paste & tombol simpan)
+  const [imageDrafts, setImageDrafts] = useState<Record<string, string>>({});
+  const [savedImageSuccessIds, setSavedImageSuccessIds] = useState<Record<string, boolean>>({});
 
   // Inline Price & HPP Editing states
   const [inlineEditingHpp, setInlineEditingHpp] = useState<{ id: string; value: string } | null>(null);
@@ -393,6 +397,35 @@ export const ProductManagementPage: React.FC = () => {
     setInlineImageUrl('');
   };
 
+  // Direct Inline Photo URL Save & Reset (Tanpa klik sebelumnya)
+  const handleSaveDirectImage = (productId: string, newUrl: string) => {
+    const trimmed = newUrl.trim();
+    if (!trimmed) return;
+    
+    updateProduct(productId, { image: trimmed });
+    
+    // Clear draft for this product
+    setImageDrafts((prev) => {
+      const copy = { ...prev };
+      delete copy[productId];
+      return copy;
+    });
+
+    // Show temporary saved indicator for 2.5 seconds
+    setSavedImageSuccessIds((prev) => ({ ...prev, [productId]: true }));
+    setTimeout(() => {
+      setSavedImageSuccessIds((prev) => ({ ...prev, [productId]: false }));
+    }, 2500);
+  };
+
+  const handleResetDirectImage = (productId: string) => {
+    setImageDrafts((prev) => {
+      const copy = { ...prev };
+      delete copy[productId];
+      return copy;
+    });
+  };
+
   const handleExportCSV = () => {
     const headers = [
       'SKU',
@@ -659,7 +692,13 @@ export const ProductManagementPage: React.FC = () => {
                   <tr className="bg-stone-50 border-b border-stone-200 text-stone-600 font-bold uppercase tracking-wider text-[10px]">
                     <th className="py-3 px-3 w-12 text-center">#</th>
                     <th className="py-3 px-4 min-w-[220px]">Item / SKU / Merek</th>
-                    <th className="py-3 px-3 min-w-[170px]">Foto & URL</th>
+                    <th className="py-3 px-3 min-w-[280px]">
+                      <div className="flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[13px]">image</span>
+                        <span>Foto & URL</span>
+                      </div>
+                      <span className="text-[9px] text-stone-400 font-normal lowercase">input URL langsung & simpan</span>
+                    </th>
                     <th className="py-3 px-3">Kategori</th>
                     <th className="py-3 px-4 text-right min-w-[150px] bg-amber-50/40 border-x border-amber-100">
                       <div className="flex items-center justify-end gap-1 text-amber-900">
@@ -692,9 +731,14 @@ export const ProductManagementPage: React.FC = () => {
                     const itemIndex = (currentPage - 1) * itemsPerPage + idx + 1;
                     const isLow = p.stock > 0 && p.stock < 10;
                     const isOut = p.stock <= 0;
-                    const isEditingImage = inlineEditingImageId === p.id;
                     const isEditingHpp = inlineEditingHpp?.id === p.id;
                     const isEditingPrice = inlineEditingPrice?.id === p.id;
+
+                    // Direct Image URL values & states (Tanpa klik sebelumnya)
+                    const draftUrl = imageDrafts[p.id];
+                    const currentImageUrl = draftUrl !== undefined ? draftUrl : p.image;
+                    const isImageChanged = draftUrl !== undefined && draftUrl.trim() !== p.image.trim();
+                    const isSavedImageSuccess = !!savedImageSuccessIds[p.id];
 
                     // Margin calculation
                     const hpp = p.costPrice || 0;
@@ -723,69 +767,86 @@ export const ProductManagementPage: React.FC = () => {
                           </div>
                         </td>
 
-                        {/* Image Preview & URL */}
+                        {/* Foto & Direct URL Input (Tanpa klik, langsung isi & tombol simpan) */}
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2">
+                            {/* Live Thumbnail Preview */}
                             <div
                               onClick={() => handleOpenQuickImageModal(p)}
-                              className="relative group cursor-pointer shrink-0 w-10 h-10 rounded-xl overflow-hidden border border-stone-200 bg-stone-100"
-                              title="Klik untuk Ganti URL Gambar"
+                              className="relative group cursor-pointer shrink-0 w-10 h-10 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 shadow-2xs"
+                              title="Klik untuk Pratinjau Gambar Besar"
                             >
                               <img
-                                src={resolveProductImage(p.image, language)}
+                                src={resolveProductImage(currentImageUrl, language)}
                                 alt={p.name}
-                                className="w-full h-full object-cover group-hover:opacity-75 transition-opacity"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src = getPlaceholderImage(language);
                                 }}
                               />
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
-                                <span className="material-symbols-outlined text-[13px]">edit</span>
+                                <span className="material-symbols-outlined text-[13px]">zoom_in</span>
                               </div>
                             </div>
 
-                            {isEditingImage ? (
-                              <div className="flex items-center gap-1">
+                            {/* Direct URL Input Field & Save Button */}
+                            <div className="flex flex-col gap-1 min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
                                 <input
-                                  type="url"
-                                  value={inlineImageUrl}
-                                  onChange={(e) => setInlineImageUrl(e.target.value)}
+                                  type="text"
+                                  value={currentImageUrl}
+                                  onChange={(e) =>
+                                    setImageDrafts((prev) => ({
+                                      ...prev,
+                                      [p.id]: e.target.value
+                                    }))
+                                  }
                                   onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleSaveInlineImage(p.id);
-                                    if (e.key === 'Escape') setInlineEditingImageId(null);
+                                    if (e.key === 'Enter') {
+                                      handleSaveDirectImage(p.id, currentImageUrl);
+                                    } else if (e.key === 'Escape') {
+                                      handleResetDirectImage(p.id);
+                                    }
                                   }}
-                                  placeholder="URL gambar..."
-                                  autoFocus
-                                  className="w-32 px-1.5 py-1 text-[11px] bg-white border border-[#c41230] rounded font-mono focus:outline-none"
+                                  placeholder="Ketik / paste URL foto..."
+                                  className={`w-full min-w-[150px] max-w-[220px] text-xs font-mono px-2 py-1.5 rounded-lg border transition-all ${
+                                    isImageChanged
+                                      ? 'bg-amber-50/70 border-amber-400 text-stone-900 ring-2 ring-amber-300/50 focus:outline-none'
+                                      : 'bg-stone-50 hover:bg-white focus:bg-white border-stone-200 focus:border-[#c41230] text-stone-700 focus:outline-none'
+                                  }`}
+                                  title={currentImageUrl}
                                 />
-                                <button
-                                  onClick={() => handleSaveInlineImage(p.id)}
-                                  className="p-1 bg-emerald-600 text-white rounded cursor-pointer"
-                                  title="Simpan"
-                                >
-                                  <span className="material-symbols-outlined text-xs">check</span>
-                                </button>
-                                <button
-                                  onClick={() => setInlineEditingImageId(null)}
-                                  className="p-1 bg-stone-200 text-stone-700 rounded cursor-pointer"
-                                  title="Batal"
-                                >
-                                  <span className="material-symbols-outlined text-xs">close</span>
-                                </button>
+
+                                {isImageChanged && (
+                                  <div className="flex items-center gap-1 shrink-0 animate-fadeIn">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveDirectImage(p.id, currentImageUrl)}
+                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-xs transition-all cursor-pointer"
+                                      title="Simpan perubahan URL foto produk ini"
+                                    >
+                                      <span className="material-symbols-outlined text-xs">save</span>
+                                      <span>Simpan</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleResetDirectImage(p.id)}
+                                      className="p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-200 rounded-md transition-colors cursor-pointer"
+                                      title="Batalkan perubahan"
+                                    >
+                                      <span className="material-symbols-outlined text-xs">close</span>
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setInlineEditingImageId(p.id);
-                                  setInlineImageUrl(p.image);
-                                }}
-                                className="text-[10px] text-stone-400 hover:text-[#c41230] font-mono truncate max-w-[100px] flex items-center gap-0.5 cursor-pointer"
-                                title={p.image}
-                              >
-                                <span className="truncate">URL Foto</span>
-                                <span className="material-symbols-outlined text-[11px]">edit</span>
-                              </button>
-                            )}
+
+                              {isSavedImageSuccess && (
+                                <div className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
+                                  <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                                  <span>URL Foto berhasil disimpan!</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
 
