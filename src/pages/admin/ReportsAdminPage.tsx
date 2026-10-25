@@ -709,7 +709,7 @@ export const ReportsAdminPage: React.FC = () => {
                 <div className="p-5 space-y-5 text-xs">
                   {/* Aset Lancar */}
                   <div>
-                    <h4 className="font-bold text-stone-800 uppercase text-[11px] pb-1 border-b border-stone-200 text-blue-700 flex items-center justify-between">
+                    <h4 className="font-bold uppercase text-[11px] pb-1 border-b border-stone-200 text-blue-700 flex items-center justify-between">
                       <span>Aset Lancar (Current Assets)</span>
                       <span className="text-[10px] text-stone-400 font-normal">Kas, Bank & Persediaan</span>
                     </h4>
@@ -762,7 +762,7 @@ export const ReportsAdminPage: React.FC = () => {
 
                   {/* Aset Tetap (Fixed Assets from Jurnal Aset) */}
                   <div>
-                    <h4 className="font-bold text-stone-800 uppercase text-[11px] pb-1 border-b border-stone-200 text-purple-700 flex items-center justify-between">
+                    <h4 className="font-bold uppercase text-[11px] pb-1 border-b border-stone-200 text-purple-700 flex items-center justify-between">
                       <span>Aset Tetap (Fixed Assets)</span>
                       <span className="text-[10px] text-purple-600 font-normal">Sinkronisasi Jurnal Aset</span>
                     </h4>
@@ -824,7 +824,7 @@ export const ReportsAdminPage: React.FC = () => {
                 <div className="p-5 space-y-5 text-xs">
                   {/* Kewajiban / Hutang */}
                   <div>
-                    <h4 className="font-bold text-stone-800 uppercase text-[11px] pb-1 border-b border-stone-200 text-rose-700 flex items-center justify-between">
+                    <h4 className="font-bold uppercase text-[11px] pb-1 border-b border-stone-200 text-rose-700 flex items-center justify-between">
                       <span>Kewajiban Jangka Pendek (Liabilities)</span>
                       <span className="text-[10px] text-stone-400 font-normal">Hutang & Beban Terutang</span>
                     </h4>
@@ -856,7 +856,7 @@ export const ReportsAdminPage: React.FC = () => {
 
                   {/* Ekuitas / Modal */}
                   <div>
-                    <h4 className="font-bold text-stone-800 uppercase text-[11px] pb-1 border-b border-stone-200 text-emerald-700 flex items-center justify-between">
+                    <h4 className="font-bold uppercase text-[11px] pb-1 border-b border-stone-200 text-emerald-700 flex items-center justify-between">
                       <span>Ekuitas Pemilik (Equity)</span>
                       <span className="text-[10px] text-emerald-600 font-normal">Modal Awal & Laba Berjalan</span>
                     </h4>
