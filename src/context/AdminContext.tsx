@@ -330,6 +330,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             taxAmount: Number(d.tax_amount) || 0,
             paymentMethod: d.payment_method || 'jpqr',
             customerName: d.customer_name || 'Willy Pratama',
+            userEmail: d.customer_email || '',
+            phone: d.customer_phone || '',
             shippingAddress: d.shipping_address || '',
             date: d.order_date || new Date(d.created_at).toLocaleDateString('id-ID'),
             items: (d.order_items || []).map((it: any) => ({
