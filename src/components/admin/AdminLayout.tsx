@@ -51,6 +51,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
     latencyMs: 45
   });
 
+  const headerRef = React.useRef<HTMLElement>(null);
+
+  React.useEffect(() => {
+    const updateHeaderHeight = () => {
+      if (headerRef.current) {
+        const h = headerRef.current.offsetHeight;
+        document.documentElement.style.setProperty('--admin-header-height', `${h}px`);
+      }
+    };
+    updateHeaderHeight();
+    window.addEventListener('resize', updateHeaderHeight);
+    return () => window.removeEventListener('resize', updateHeaderHeight);
+  }, []);
+
   React.useEffect(() => {
     checkSupabaseConnection().then((res) => {
       setSupabaseStatus({ connected: res.connected, latencyMs: res.latencyMs });
@@ -1182,7 +1196,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         {/* Top Header */}
-        <header className="bg-white border-b border-stone-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-30 shadow-xs">
+        <header
+          ref={headerRef}
+          className="bg-white border-b border-stone-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-30 shadow-xs"
+        >
           <div>
             <h2 className="text-xl font-bold text-stone-900 tracking-tight flex items-center gap-2">
               <span>{title}</span>

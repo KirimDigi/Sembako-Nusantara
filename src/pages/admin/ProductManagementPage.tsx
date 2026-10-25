@@ -566,8 +566,8 @@ export const ProductManagementPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Filters & Search Toolbar */}
-        <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs space-y-3">
+        {/* Filters & Search Toolbar (Freeze / Sticky saat di-scroll) */}
+        <div className="sticky top-[var(--admin-header-height,78px)] z-20 bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-stone-200/90 shadow-md space-y-3 transition-all">
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             {/* Search */}
             <div className="relative flex-1">
