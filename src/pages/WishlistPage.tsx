@@ -109,7 +109,7 @@ export const WishlistPage: React.FC = () => {
         </div>
       ) : (
         /* Empty State */
-        <div className="bg-white rounded-3xl border border-[#EBE5DF] p-8 sm:p-14 text-center space-y-5 shadow-xs max-w-2xl mx-auto">
+        <div className="py-10 sm:py-14 text-center space-y-5 max-w-2xl mx-auto bg-transparent">
           {/* Animated Greeting Mascot (GIF-like Waving Sticker with Speech Bubble) */}
           <div className="relative w-36 h-40 sm:w-44 sm:h-48 mx-auto flex flex-col items-center justify-end pb-2">
             {/* Cute Floating Greeting Speech Bubble */}

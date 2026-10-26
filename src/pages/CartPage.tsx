@@ -64,8 +64,8 @@ export const CartPage: React.FC = () => {
       </div>
 
       {cart.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-[#EBE5DF] p-10 sm:p-14 text-center shadow-sm space-y-4 max-w-lg mx-auto">
-          <div className="w-28 h-28 sm:w-36 sm:h-36 mx-auto relative flex items-center justify-center">
+        <div className="py-12 sm:py-16 text-center space-y-5 max-w-lg mx-auto bg-transparent">
+          <div className="w-32 h-32 sm:w-40 sm:h-40 mx-auto relative flex items-center justify-center">
             <img
               src={assetUrl('mascot-belanja.png')}
               alt="Mascot Belanja Sembako Nusantara"
@@ -75,12 +75,12 @@ export const CartPage: React.FC = () => {
           <h2 className="text-xl sm:text-2xl font-heading font-bold text-stone-800">
             {t('cart_empty_title')}
           </h2>
-          <p className="text-xs text-stone-500 max-w-sm mx-auto">
+          <p className="text-xs sm:text-sm text-stone-500 max-w-sm mx-auto leading-relaxed">
             {t('cart_empty_desc')}
           </p>
           <Link
             to="/"
-            className="inline-flex items-center gap-2 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold px-8 py-3 rounded-full text-sm shadow-md transition-all"
+            className="inline-flex items-center gap-2 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold px-8 py-3.5 rounded-full text-sm shadow-md hover:shadow-lg active:scale-95 transition-all cursor-pointer"
           >
             <span>{t('shop_now')}</span>
             <span className="material-symbols-outlined text-sm">arrow_forward</span>
