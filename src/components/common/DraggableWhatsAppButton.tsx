@@ -71,7 +71,7 @@ export const DraggableWhatsAppButton: React.FC = () => {
       onDrag={handleDrag}
       onDragEnd={handleDragEnd}
       whileDrag={{ scale: 1.05, cursor: 'grabbing' }}
-      className="fixed bottom-20 right-4 sm:right-6 z-50 select-none cursor-grab touch-none flex flex-col items-center gap-2"
+      className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 select-none cursor-grab touch-none flex flex-col items-center gap-2"
       style={{ touchAction: 'none' }}
     >
       {/* Scroll to Top Hook Arrow Button (Directly ABOVE WhatsApp Button) */}

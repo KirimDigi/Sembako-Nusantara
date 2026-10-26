@@ -210,7 +210,7 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
   // Minimized Floating Pill Mode
   if (isMinimized) {
     return (
-      <div className="fixed bottom-20 left-4 sm:left-6 z-40 animate-bounce-slow">
+      <div className="fixed bottom-20 md:bottom-6 left-4 sm:left-6 z-40 animate-bounce-slow">
         <button
           type="button"
           onClick={() => setIsMinimized(false)}
@@ -237,7 +237,7 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
 
   // Expanded Full Live Banner Mode
   return (
-    <div className="fixed bottom-20 left-4 right-4 sm:right-auto sm:left-6 z-40 max-w-md w-[calc(100vw-2rem)] sm:w-[420px] transition-all duration-300 animate-in fade-in slide-in-from-bottom-4">
+    <div className="fixed bottom-20 md:bottom-6 left-4 right-4 sm:right-auto sm:left-6 z-40 max-w-md w-[calc(100vw-2rem)] sm:w-[420px] transition-all duration-300 animate-in fade-in slide-in-from-bottom-4">
       <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-stone-200 border-l-4 border-l-[#c41230] p-4 text-stone-800 space-y-3 relative overflow-hidden">
         {/* Progress Bar Timer (Hanya tampil 10 detik jika status dibatalkan) */}
         {isCurrentOrderCancelled && (

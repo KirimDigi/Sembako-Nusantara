@@ -87,9 +87,9 @@ export const BottomBar: React.FC = () => {
   return (
     <nav
       aria-label="Bottom Navigation Bar"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom,0px)]"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom,0px)]"
     >
-      <div className="max-w-xl mx-auto h-16 grid grid-cols-5 items-center px-1">
+      <div className="w-full max-w-md mx-auto h-16 grid grid-cols-5 items-center px-1">
         {navItems.map((item) => {
           const content = (
             <div className="flex flex-col items-center justify-center w-full h-full py-1.5 transition-all select-none">
