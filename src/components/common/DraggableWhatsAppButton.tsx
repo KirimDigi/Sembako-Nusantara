@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { motion } from 'framer-motion';
+import React, { useRef, useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { assetUrl } from '../../utils/assets';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -7,6 +7,27 @@ export const DraggableWhatsAppButton: React.FC = () => {
   const { language } = useLanguage();
   const isDraggingRef = useRef<boolean>(false);
   const dragDistanceRef = useRef<number>(0);
+  const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
+
+  // Monitor scroll position to show/hide the Scroll-To-Top arrow
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 200);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleScrollToTop = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
 
   const handleDragStart = () => {
     isDraggingRef.current = true;
@@ -49,17 +70,50 @@ export const DraggableWhatsAppButton: React.FC = () => {
       onDragStart={handleDragStart}
       onDrag={handleDrag}
       onDragEnd={handleDragEnd}
-      whileHover={{ scale: 1.05 }}
-      whileDrag={{ scale: 1.1, cursor: 'grabbing' }}
-      className="fixed bottom-6 right-6 z-50 select-none cursor-grab touch-none"
+      whileDrag={{ scale: 1.05, cursor: 'grabbing' }}
+      className="fixed bottom-20 right-4 sm:right-6 z-50 select-none cursor-grab touch-none flex flex-col items-center gap-2"
       style={{ touchAction: 'none' }}
     >
+      {/* Scroll to Top Hook Arrow Button (Directly ABOVE WhatsApp Button) */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            key="scroll-top-btn"
+            initial={{ opacity: 0, scale: 0.5, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.5, y: 10 }}
+            whileHover={{ scale: 1.12 }}
+            whileTap={{ scale: 0.9 }}
+            type="button"
+            onClick={handleScrollToTop}
+            aria-label="Kembali ke atas"
+            title={
+              language === 'JP'
+                ? 'トップへ戻る'
+                : language === 'EN'
+                ? 'Back to Top'
+                : 'Kembali ke Atas'
+            }
+            className="flex items-center justify-center w-11 h-11 bg-white hover:bg-stone-50 text-stone-700 hover:text-[#c41230] rounded-full shadow-xl border-2 border-stone-200/90 cursor-pointer pointer-events-auto backdrop-blur-sm group transition-colors"
+          >
+            <span className="material-symbols-outlined text-2xl font-black group-hover:-translate-y-0.5 transition-transform text-[#c41230]">
+              arrow_upward
+            </span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* WhatsApp Floating Button Container */}
       <div className="relative group flex items-center gap-2">
         {/* Subtle desktop hover tooltip (Non-intrusive, no auto popups) */}
         <div className="hidden sm:flex items-center gap-2 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-2xl shadow-lg border border-emerald-100 text-[11px] font-bold text-stone-800 pointer-events-none transform translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-200">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           <span>
-            {language === 'JP' ? 'WhatsAppでお問い合わせ' : language === 'EN' ? 'Chat WhatsApp CS' : 'Chat WhatsApp CS'}
+            {language === 'JP'
+              ? 'WhatsAppでお問い合わせ'
+              : language === 'EN'
+              ? 'Chat WhatsApp CS'
+              : 'Chat WhatsApp CS'}
           </span>
         </div>
 

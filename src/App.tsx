@@ -11,6 +11,7 @@ import { SplashScreen } from './components/common/SplashScreen';
 import { FloatingCartToast } from './components/common/FloatingCartToast';
 import { CustomerLiveOrderStatusBanner } from './components/common/CustomerLiveOrderStatusBanner';
 import { DraggableWhatsAppButton } from './components/common/DraggableWhatsAppButton';
+import { BottomBar } from './components/common/BottomBar';
 import { ProtectedRoute } from './components/admin/ProtectedRoute';
 import { assetUrl } from './utils/assets';
 
@@ -265,6 +266,9 @@ const AppContent: React.FC = () => {
 
       {/* Global Footer */}
       <Footer />
+
+      {/* Modern Bottom Navigation Bar (Home, Katalog, Chat CS, Keranjang, Akun) */}
+      <BottomBar />
 
       {/* Draggable WhatsApp Live Chat Widget with Scheduled Drag Hints */}
       <DraggableWhatsAppButton />

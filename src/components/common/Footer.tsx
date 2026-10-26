@@ -232,8 +232,8 @@ export const Footer: React.FC = () => {
         </div>
       </div>
 
-      {/* Copyright */}
-      <div className="bg-[#EBE5DF]/60 py-4 px-4 text-center text-xs text-stone-600">
+      {/* Copyright with ample bottom padding so fixed bottom bar never covers footer text */}
+      <div className="bg-[#EBE5DF]/60 pt-4 pb-24 sm:pb-24 px-4 text-center text-xs text-stone-600">
         <p>© 2026 Sembako Nusantara Jepang (sembako-nusantara.jp). All Rights Reserved.</p>
       </div>
     </footer>
