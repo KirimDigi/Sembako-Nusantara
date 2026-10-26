@@ -46,6 +46,33 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
   const [isPOSSidebarExpanded, setIsPOSSidebarExpanded] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [isSidebarPinned, setIsSidebarPinned] = useState(true);
+  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleSidebarMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setIsSidebarHovered(true);
+  };
+
+  const handleSidebarMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsSidebarHovered(false);
+    }, 150);
+  };
+
+  React.useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const [supabaseStatus, setSupabaseStatus] = useState<{ connected: boolean; latencyMs?: number }>({
     connected: true,
     latencyMs: 45
@@ -558,21 +585,27 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
           pendingOrdersCount={pendingOrdersCount}
           onExpandSidebar={() => setIsPOSSidebarExpanded(true)}
           onLogout={handleLogout}
+          onMouseEnter={handleSidebarMouseEnter}
+          onMouseLeave={handleSidebarMouseLeave}
         />
       )}
 
-      {/* 2. Full Sidebar Navigation (For standard admin pages, or when expanded in POS, or on mobile drawer) */}
+      {/* 2. Full Sidebar Navigation (For standard admin pages, or when expanded in POS, or on hover in POS, or on mobile drawer) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-[100] w-72 max-w-[85vw] md:w-64 bg-[#141414] text-stone-200 flex flex-col transition-all duration-300 ease-in-out overflow-y-auto shadow-2xl h-screen shrink-0 ${
+        onMouseEnter={isPOSPage && !isPOSSidebarExpanded ? handleSidebarMouseEnter : undefined}
+        onMouseLeave={isPOSPage && !isPOSSidebarExpanded ? handleSidebarMouseLeave : undefined}
+        className={`fixed inset-y-0 left-0 w-72 max-w-[85vw] md:w-64 bg-[#141414] text-stone-200 flex flex-col transition-all duration-200 ease-out overflow-y-auto no-scrollbar shadow-2xl h-screen shrink-0 ${
           isPOSPage
             ? isPOSSidebarExpanded
-              ? 'translate-x-0 md:static md:shadow-none'
+              ? 'z-[100] translate-x-0 md:static md:shadow-none'
+              : isSidebarHovered
+              ? 'z-[150] translate-x-0 shadow-[0_0_50px_rgba(0,0,0,0.85)]'
               : mobileMenuOpen
-              ? 'translate-x-0 md:hidden'
-              : '-translate-x-full md:hidden'
+              ? 'z-[100] translate-x-0 md:hidden'
+              : 'z-[100] -translate-x-full pointer-events-none'
             : mobileMenuOpen
-            ? 'translate-x-0'
-            : '-translate-x-full md:translate-x-0 md:static md:shadow-none'
+            ? 'z-[100] translate-x-0'
+            : 'z-[100] -translate-x-full md:translate-x-0 md:static md:shadow-none'
         }`}
       >
         <div className="px-5 pt-5 pb-2">
@@ -593,15 +626,35 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
               </div>
             </div>
             {isPOSPage && (
-              <button
-                type="button"
-                onClick={() => setIsPOSSidebarExpanded(false)}
-                className="hidden md:flex text-stone-400 hover:text-white p-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 transition-colors cursor-pointer text-[10px] items-center gap-1 border border-stone-700/80"
-                title="Ciutkan Sidebar ke Mode Ikon (Collapsed)"
-              >
-                <span className="material-symbols-outlined text-sm">dock_to_left</span>
-                <span>Ciutkan</span>
-              </button>
+              <div className="hidden md:flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsPOSSidebarExpanded(!isPOSSidebarExpanded)}
+                  className={`p-1.5 rounded-lg transition-colors cursor-pointer text-[10px] flex items-center gap-1 border ${
+                    isPOSSidebarExpanded
+                      ? 'bg-[#c41230] text-white border-rose-500 hover:bg-[#a80f28]'
+                      : 'bg-stone-800 text-stone-300 hover:text-white hover:bg-stone-700 border-stone-700/80'
+                  }`}
+                  title={isPOSSidebarExpanded ? 'Lepas Pin / Otomatis Ciutkan' : 'Kunci Sidebar Terbuka (Pin)'}
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    {isPOSSidebarExpanded ? 'push_pin' : 'keep'}
+                  </span>
+                  <span>{isPOSSidebarExpanded ? 'Terkunci' : 'Kunci (Pin)'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPOSSidebarExpanded(false);
+                    setIsSidebarHovered(false);
+                  }}
+                  className="text-stone-400 hover:text-white p-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 transition-colors cursor-pointer text-[10px] flex items-center gap-1 border border-stone-700/80"
+                  title="Ciutkan Sidebar ke Mode Ikon (Collapsed)"
+                >
+                  <span className="material-symbols-outlined text-sm">dock_to_left</span>
+                  <span>Ciutkan</span>
+                </button>
+              </div>
             )}
             <button
               onClick={() => setMobileMenuOpen(false)}

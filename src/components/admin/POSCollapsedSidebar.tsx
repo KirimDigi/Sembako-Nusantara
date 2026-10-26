@@ -11,6 +11,8 @@ export interface POSCollapsedSidebarProps {
   pendingOrdersCount: number;
   onExpandSidebar: () => void;
   onLogout: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 interface NavItemDef {
@@ -32,7 +34,9 @@ export const POSCollapsedSidebar: React.FC<POSCollapsedSidebarProps> = ({
   lowStockCount,
   pendingOrdersCount,
   onExpandSidebar,
-  onLogout
+  onLogout,
+  onMouseEnter,
+  onMouseLeave
 }) => {
   const location = useLocation();
   const { language, t } = useLanguage();
@@ -147,7 +151,9 @@ export const POSCollapsedSidebar: React.FC<POSCollapsedSidebarProps> = ({
 
   return (
     <aside
-      className="hidden md:flex flex-col items-center justify-between w-16 lg:w-[68px] bg-[#121212] border-r border-stone-800/90 text-stone-200 py-3.5 h-screen shrink-0 sticky top-0 z-[100] shadow-2xl select-none"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className="hidden md:flex flex-col items-center justify-between w-16 lg:w-[68px] bg-[#121212] border-r border-stone-800/90 text-stone-200 py-3.5 h-screen shrink-0 sticky top-0 z-[100] shadow-2xl select-none overflow-x-hidden"
       aria-label="POS Mini Sidebar Navigation"
     >
       {/* 1. Header / Top Brand Icon */}
@@ -169,7 +175,7 @@ export const POSCollapsedSidebar: React.FC<POSCollapsedSidebarProps> = ({
           </Link>
 
           {/* Tooltip on Hover */}
-          <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-[160] pointer-events-none opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto transition-all duration-200 ease-out">
+          <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-40 pointer-events-none opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto transition-all duration-200 ease-out">
             <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-0 h-0 border-y-[6px] border-y-transparent border-r-[7px] border-r-[#18181b]" />
             <div className="bg-[#18181b]/95 backdrop-blur-md text-white border border-stone-700/80 shadow-[0_12px_32px_rgba(0,0,0,0.7)] rounded-xl px-3.5 py-2.5 min-w-[200px]">
               <div className="flex items-center justify-between gap-2">
@@ -195,7 +201,7 @@ export const POSCollapsedSidebar: React.FC<POSCollapsedSidebarProps> = ({
       </div>
 
       {/* 2. Middle Navigation Items */}
-      <nav className="flex-1 flex flex-col items-center justify-center gap-2 my-auto py-2 overflow-y-auto no-scrollbar w-full px-2">
+      <nav className="flex-1 flex flex-col items-center justify-center gap-2 my-auto py-2 overflow-y-auto overflow-x-hidden no-scrollbar w-full px-2">
         {navItems.map((item) => {
           const isAllowed = item.allowedRoles.includes(activeRole);
           const active = item.isActive;
@@ -205,7 +211,7 @@ export const POSCollapsedSidebar: React.FC<POSCollapsedSidebarProps> = ({
               {/* Active Indicator Bar on Left Edge */}
               {active && (
                 <span
-                  className="absolute -left-2 top-1/2 -translate-y-1/2 w-1.5 h-7 bg-[#c41230] rounded-r-full shadow-[0_0_10px_rgba(196,18,48,0.8)]"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-7 bg-[#c41230] rounded-r-full shadow-[0_0_10px_rgba(196,18,48,0.8)]"
                   aria-hidden="true"
                 />
               )}
@@ -314,7 +320,7 @@ export const POSCollapsedSidebar: React.FC<POSCollapsedSidebarProps> = ({
       </nav>
 
       {/* 3. Bottom Utility & Action Buttons */}
-      <div className="flex flex-col items-center gap-2 pt-1 border-t border-stone-800/80 w-full px-2">
+      <div className="flex flex-col items-center gap-2 pt-1 w-full px-2">
         {/* Customer Display TV Screen (Dual Monitor) */}
         <div className="group relative flex items-center justify-center w-full">
           <Link
@@ -327,7 +333,7 @@ export const POSCollapsedSidebar: React.FC<POSCollapsedSidebarProps> = ({
             <span className="material-symbols-outlined text-[20px]">tv</span>
           </Link>
 
-          <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-[160] pointer-events-none opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto transition-all duration-200 ease-out">
+          <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-40 pointer-events-none opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto transition-all duration-200 ease-out">
             <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-0 h-0 border-y-[6px] border-y-transparent border-r-[7px] border-r-[#18181b]" />
             <div className="bg-[#18181b]/95 backdrop-blur-md text-white border border-stone-700/80 shadow-[0_12px_32px_rgba(0,0,0,0.7)] rounded-xl px-3.5 py-2 min-w-[210px]">
               <div className="flex items-center justify-between gap-2">
@@ -351,7 +357,7 @@ export const POSCollapsedSidebar: React.FC<POSCollapsedSidebarProps> = ({
             <span className="material-symbols-outlined text-[20px]">storefront</span>
           </Link>
 
-          <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-[160] pointer-events-none opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto transition-all duration-200 ease-out">
+          <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-40 pointer-events-none opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto transition-all duration-200 ease-out">
             <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-0 h-0 border-y-[6px] border-y-transparent border-r-[7px] border-r-[#18181b]" />
             <div className="bg-[#18181b]/95 backdrop-blur-md text-white border border-stone-700/80 shadow-[0_12px_32px_rgba(0,0,0,0.7)] rounded-xl px-3.5 py-2 min-w-[190px]">
               <span className="font-bold text-xs text-white block">Website Sembako</span>
@@ -371,7 +377,7 @@ export const POSCollapsedSidebar: React.FC<POSCollapsedSidebarProps> = ({
             <span className="material-symbols-outlined text-[20px]">dock_to_right</span>
           </button>
 
-          <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-[160] pointer-events-none opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto transition-all duration-200 ease-out">
+          <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-40 pointer-events-none opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto transition-all duration-200 ease-out">
             <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-0 h-0 border-y-[6px] border-y-transparent border-r-[7px] border-r-[#18181b]" />
             <div className="bg-[#18181b]/95 backdrop-blur-md text-white border border-stone-700/80 shadow-[0_12px_32px_rgba(0,0,0,0.7)] rounded-xl px-3.5 py-2 min-w-[180px]">
               <span className="font-bold text-xs text-white block">Buka Menu Penuh</span>
@@ -391,7 +397,7 @@ export const POSCollapsedSidebar: React.FC<POSCollapsedSidebarProps> = ({
             <span className="material-symbols-outlined text-[20px]">logout</span>
           </button>
 
-          <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-[160] pointer-events-none opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto transition-all duration-200 ease-out">
+          <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-40 pointer-events-none opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto transition-all duration-200 ease-out">
             <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-0 h-0 border-y-[6px] border-y-transparent border-r-[7px] border-r-[#18181b]" />
             <div className="bg-[#18181b]/95 backdrop-blur-md text-white border border-stone-700/80 shadow-[0_12px_32px_rgba(0,0,0,0.7)] rounded-xl px-3.5 py-2 min-w-[160px]">
               <span className="font-bold text-xs text-rose-300 block">Keluar / Logout</span>
