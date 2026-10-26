@@ -552,12 +552,12 @@ export const ProfilePage: React.FC = () => {
 
               <div className="relative flex py-2 items-center">
                 <div className="flex-grow border-t border-stone-200"></div>
-                <span className="shrink mx-3 text-[11px] text-stone-400 font-medium uppercase tracking-wider">
+                <span className="shrink mx-3 text-[11px] text-stone-500 font-semibold uppercase tracking-wider">
                   {language === 'JP'
                     ? 'まだアカウントをお持ちでない方'
                     : language === 'EN'
-                    ? "don't have an account?"
-                    : 'belum punya akun?'}
+                    ? "Don't have an account?"
+                    : 'Belum Punya Akun?'}
                 </span>
                 <div className="flex-grow border-t border-stone-200"></div>
               </div>
@@ -711,12 +711,12 @@ export const ProfilePage: React.FC = () => {
 
               <div className="relative flex py-2 items-center">
                 <div className="flex-grow border-t border-stone-200"></div>
-                <span className="shrink mx-3 text-[11px] text-stone-400 font-medium uppercase tracking-wider">
+                <span className="shrink mx-3 text-[11px] text-stone-500 font-semibold uppercase tracking-wider">
                   {language === 'JP'
                     ? 'すでにアカウントをお持ちの方'
                     : language === 'EN'
-                    ? 'already have an account?'
-                    : 'sudah punya akun?'}
+                    ? 'Already have an account?'
+                    : 'Sudah Punya Akun?'}
                 </span>
                 <div className="flex-grow border-t border-stone-200"></div>
               </div>

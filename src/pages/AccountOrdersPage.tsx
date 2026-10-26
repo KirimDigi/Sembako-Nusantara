@@ -257,8 +257,8 @@ export const AccountOrdersPage: React.FC = () => {
             {/* Divider */}
             <div className="relative flex py-2 items-center">
               <div className="flex-grow border-t border-stone-200"></div>
-              <span className="shrink mx-3 text-[11px] text-stone-400 font-medium uppercase tracking-wider">
-                belum punya akun?
+              <span className="shrink mx-3 text-[11px] text-stone-500 font-semibold uppercase tracking-wider">
+                Belum Punya Akun?
               </span>
               <div className="flex-grow border-t border-stone-200"></div>
             </div>
