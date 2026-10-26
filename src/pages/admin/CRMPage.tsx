@@ -71,7 +71,7 @@ export const CRMPage: React.FC = () => {
         tabVouchers: (cnt: number) => `🎟️ 割引クーポン＆プロモ (${cnt})`,
         btnCreateCustomer: '新規会員登録 (+)',
         btnCreateVoucher: '新規クーポン作成',
-        searchCustomerPlaceholder: '顧客名、電話番号、メール、市区町村を検索...',
+        searchCustomerPlaceholder: '顧客名、電話番号、市区町村を検索...',
         thCustomer: '顧客情報',
         thContactArea: '連絡先 & エリア',
         thTier: '会員ランク',
@@ -93,8 +93,6 @@ export const CRMPage: React.FC = () => {
         custNamePlaceholder: '例: Willy Pratama / 田中 太郎',
         custPhoneLabel: '電話番号 / WhatsApp:',
         custPhonePlaceholder: '例: +81 80-1234-5678',
-        custEmailLabel: 'メールアドレス:',
-        custEmailPlaceholder: '例: customer@gmail.com',
         custCityLabel: '居住地・都道府県:',
         custCityPlaceholder: '例: Tokyo (Edogawa) / 大阪市',
         custTierLabel: '初期会員ランク:',
@@ -125,7 +123,7 @@ export const CRMPage: React.FC = () => {
         tabVouchers: (cnt: number) => `🎟️ Coupons & Promo Vouchers (${cnt})`,
         btnCreateCustomer: 'Add New Customer (+)',
         btnCreateVoucher: 'Create New Voucher',
-        searchCustomerPlaceholder: 'Search customer name, phone, email, or city...',
+        searchCustomerPlaceholder: 'Search customer name, phone, or city...',
         thCustomer: 'Customer',
         thContactArea: 'Contact & Prefecture',
         thTier: 'Member Tier',
@@ -147,8 +145,6 @@ export const CRMPage: React.FC = () => {
         custNamePlaceholder: 'e.g. Willy Pratama',
         custPhoneLabel: 'Phone / WhatsApp:',
         custPhonePlaceholder: 'e.g. +81 80-1234-5678',
-        custEmailLabel: 'Email Address:',
-        custEmailPlaceholder: 'e.g. customer@gmail.com',
         custCityLabel: 'City / Prefecture:',
         custCityPlaceholder: 'e.g. Tokyo (Edogawa), Osaka, etc.',
         custTierLabel: 'Initial Tier:',
@@ -180,7 +176,7 @@ export const CRMPage: React.FC = () => {
         tabVouchers: (cnt: number) => `🎟️ Kupon & Voucher Promo (${cnt})`,
         btnCreateCustomer: 'Tambah Pelanggan Baru (+)',
         btnCreateVoucher: 'Buat Voucher Baru',
-        searchCustomerPlaceholder: 'Cari nama pelanggan, nomor HP, email, atau kota...',
+        searchCustomerPlaceholder: 'Cari nama pelanggan, nomor HP, atau kota...',
         thCustomer: 'Pelanggan',
         thContactArea: 'Kontak & Wilayah',
         thTier: 'Tier Member',
@@ -202,8 +198,6 @@ export const CRMPage: React.FC = () => {
         custNamePlaceholder: 'Contoh: Willy Pratama / Budi Santoso',
         custPhoneLabel: 'Nomor HP / WhatsApp (Jepang/Indo):',
         custPhonePlaceholder: 'Contoh: +81 80-1234-5678',
-        custEmailLabel: 'Alamat Email:',
-        custEmailPlaceholder: 'Contoh: pelanggan@gmail.com',
         custCityLabel: 'Wilayah / Prefektur / Kota di Jepang:',
         custCityPlaceholder: 'Contoh: Tokyo (Edogawa), Osaka, Saitama, dll.',
         custTierLabel: 'Tier Loyalitas:',
@@ -340,8 +334,8 @@ export const CRMPage: React.FC = () => {
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.phone.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q) ||
-        c.city.toLowerCase().includes(q)
+        (c.id && c.id.toLowerCase().includes(q)) ||
+        (c.city && c.city.toLowerCase().includes(q))
     );
   }, [customers, customerSearchQuery]);
 

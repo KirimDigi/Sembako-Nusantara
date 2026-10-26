@@ -96,10 +96,17 @@ export const ProfilePage: React.FC = () => {
   // Edit Profile Form State
   const [editName, setEditName] = useState(currentUser?.name || '');
   const [editPhone, setEditPhone] = useState(currentUser?.phone || '');
-  const [editEmail, setEditEmail] = useState(currentUser?.email || '');
   const [editAddress, setEditAddress] = useState(currentUser?.address || '');
   const [profileSuccessMsg, setProfileSuccessMsg] = useState('');
   const [profileErrorMsg, setProfileErrorMsg] = useState('');
+
+  useEffect(() => {
+    if (currentUser) {
+      setEditName(currentUser.name || '');
+      setEditPhone(currentUser.phone || '');
+      setEditAddress(currentUser.address || '');
+    }
+  }, [currentUser]);
 
   // Change Password Form State
   const [currentPass, setCurrentPass] = useState('');
@@ -340,7 +347,6 @@ export const ProfilePage: React.FC = () => {
     const res = await updateProfile({
       name: editName.trim(),
       phone: editPhone.trim(),
-      email: editEmail.trim(),
       address: editAddress.trim()
     });
 
@@ -1327,9 +1333,9 @@ export const ProfilePage: React.FC = () => {
                   </div>
                   <div className="p-4 rounded-2xl bg-stone-50 border border-stone-100 space-y-1">
                     <span className="text-stone-400 font-bold block uppercase text-[10px]">
-                      {language === 'JP' ? '登録メールアドレス' : language === 'EN' ? 'Registered Email' : 'Email Terdaftar'}
+                      {language === 'JP' ? '会員ID (ID番号)' : language === 'EN' ? 'Member ID' : 'ID Pelanggan (Member ID)'}
                     </span>
-                    <span className="font-bold text-stone-800 text-sm truncate block">{currentUser?.email || `${currentUser?.id}@diaspora.jp`}</span>
+                    <span className="font-bold text-stone-800 text-sm font-mono truncate block">{currentUser?.id || 'cust-1'}</span>
                   </div>
                   <div className="sm:col-span-2 p-4 rounded-2xl bg-stone-50 border border-stone-100 space-y-1">
                     <span className="text-stone-400 font-bold block uppercase text-[10px]">
@@ -2296,22 +2302,7 @@ export const ProfilePage: React.FC = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    {language === 'JP' ? 'メールアドレス' : language === 'EN' ? 'Email Address' : 'Alamat Email'}
-                  </label>
-                  <input
-                    type="email"
-                    value={editEmail}
-                    onChange={(e) => setEditEmail(e.target.value)}
-                    placeholder={
-                      language === 'JP'
-                        ? 'れい: mail@example.com'
-                        : 'nama@email.com'
-                    }
-                    className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] outline-none transition-all"
-                  />
-                </div>
+
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">

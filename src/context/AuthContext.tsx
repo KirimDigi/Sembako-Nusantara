@@ -38,8 +38,7 @@ const DUMMY_CUSTOMER_CREDENTIALS = {
   tier: 'Anggota Diaspora Reguler',
   loyaltyPoints: 500,
   phone: '+81 80-9876-5432',
-  address: 'Tokyo-to, Shinjuku-ku, Hyakunincho 2-4-8',
-  email: 'budi.santoso@diaspora.jp'
+  address: 'Tokyo-to, Shinjuku-ku, Hyakunincho 2-4-8'
 };
 
 // Secondary Diaspora Customer Credentials (demo)
@@ -52,8 +51,7 @@ const CUSTOMER_CREDENTIALS = {
   tier: 'Anggota Diaspora VIP (Gold Member)',
   loyaltyPoints: 1245,
   phone: '+81 80-1122-3344',
-  address: 'Tokyo, Edogawa-ku, Nishi-Kasai 3-1-4',
-  email: 'willy.pratama@diaspora.jp'
+  address: 'Tokyo, Edogawa-ku, Nishi-Kasai 3-1-4'
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -72,7 +70,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.id) return parsed;
+        if (parsed && parsed.id) {
+          // If customer role, ensure email property is removed
+          if (parsed.role === 'Customer') {
+            delete parsed.email;
+          }
+          return parsed;
+        }
       } catch (e) {
         console.warn('Gagal membaca sesi customer:', e);
       }
