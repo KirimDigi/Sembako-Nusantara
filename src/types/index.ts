@@ -244,11 +244,15 @@ export interface CompetitorPrice {
 export type LoyaltyTier = 'Bronze' | 'Silver' | 'Gold' | 'VIP';
 
 export interface CustomerCRM {
-  id: string;
+  id: string; // ID Member / Customer ID untuk login
   name: string;
-  email: string;
   phone: string;
+  postalCode?: string;
+  prefecture?: string;
   city: string;
+  address?: string;
+  password?: string;
+  email?: string;
   totalOrders: number;
   totalSpent: number;
   loyaltyPoints: number;

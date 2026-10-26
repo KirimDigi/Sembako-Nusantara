@@ -977,6 +977,19 @@ export const AccountOrdersPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Kebijakan Toko Sembako Nusantara pada Nota Online */}
+            <div className="p-3 bg-amber-50/90 rounded-xl border border-amber-200 text-[11px] text-amber-950 space-y-1 text-left">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                <span className="material-symbols-outlined text-sm text-[#c41230]">policy</span>
+                <span>Kebijakan Toko Sembako Nusantara (店舗ポリシー):</span>
+              </div>
+              <ul className="list-disc list-inside space-y-0.5 text-stone-700 leading-relaxed text-[11px]">
+                <li>Komplain wajib dilaporkan max <strong>24 jam</strong> setelah barang diterima dengan bukti foto/video unboxing.</li>
+                <li>Produk makanan & minuman tidak dapat dikembalikan setelah kemasan dibuka (higienis sanitasi Jepang).</li>
+                <li>Pastikan alamat & penerima sudah benar sebelum pembayaran pesanan.</li>
+              </ul>
+            </div>
+
             <button
               onClick={() => window.print()}
               className="w-full py-3 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"

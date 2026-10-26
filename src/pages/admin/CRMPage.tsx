@@ -44,7 +44,9 @@ export const CRMPage: React.FC = () => {
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState<boolean>(false);
   const [cName, setCName] = useState<string>('');
   const [cPhone, setCPhone] = useState<string>('');
-  const [cEmail, setCEmail] = useState<string>('');
+  const [cPassword, setCPassword] = useState<string>('');
+  const [cPostalCode, setCPostalCode] = useState<string>('');
+  const [cAddress, setCAddress] = useState<string>('');
   const [cCity, setCCity] = useState<string>('Tokyo (Edogawa)');
   const [cTier, setCTier] = useState<LoyaltyTier>('Bronze');
   const [cPoints, setCPoints] = useState<number>(0);
@@ -236,8 +238,10 @@ export const CRMPage: React.FC = () => {
     addCustomer({
       name: cName.trim(),
       phone: cPhone.trim() || '-',
-      email: cEmail.trim() || '-',
       city: cCity.trim() || 'Tokyo (Edogawa)',
+      postalCode: cPostalCode.trim(),
+      address: cAddress.trim(),
+      password: cPassword.trim() || '123456',
       tier: cTier,
       loyaltyPoints: 0,
       preferredLanguage: cLang,
@@ -248,7 +252,9 @@ export const CRMPage: React.FC = () => {
     setIsNewCustomerOpen(false);
     setCName('');
     setCPhone('');
-    setCEmail('');
+    setCPassword('');
+    setCPostalCode('');
+    setCAddress('');
     setCCity('Tokyo (Edogawa)');
     setCTier('Bronze');
     setCPoints(0);
@@ -471,15 +477,17 @@ export const CRMPage: React.FC = () => {
                           </td>
 
                           <td className="px-4 py-3.5">
-                            <div className="text-stone-800 font-medium">{c.city}</div>
-                            <div className="text-[10px] text-stone-400 flex items-center gap-1">
+                            <div className="text-stone-800 font-medium">
+                              {c.prefecture ? `${c.prefecture}, ` : ''}{c.city}
+                            </div>
+                            {c.address && (
+                              <div className="text-[10px] text-stone-500 font-mono line-clamp-1">
+                                {c.postalCode ? `〒${c.postalCode} ` : ''}{c.address}
+                              </div>
+                            )}
+                            <div className="text-[10px] text-stone-600 font-bold flex items-center gap-1 mt-0.5">
+                              <span className="material-symbols-outlined text-[12px] text-emerald-600">call</span>
                               <span>{c.phone}</span>
-                              {c.email && c.email !== '-' && (
-                                <>
-                                  <span>•</span>
-                                  <span>{c.email}</span>
-                                </>
-                              )}
                             </div>
                           </td>
 
@@ -834,24 +842,47 @@ export const CRMPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-stone-700 block mb-1">{txt.custEmailLabel}</label>
+                  <label className="font-bold text-stone-700 block mb-1">Password Akun (Login):</label>
                   <input
-                    type="email"
-                    value={cEmail}
-                    onChange={(e) => setCEmail(e.target.value)}
-                    placeholder={txt.custEmailPlaceholder}
+                    type="password"
+                    value={cPassword}
+                    onChange={(e) => setCPassword(e.target.value)}
+                    placeholder="Min 4 karakter (default: 123456)"
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-[#c41230]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Kode Pos (〒):</label>
+                  <input
+                    type="text"
+                    value={cPostalCode}
+                    onChange={(e) => setCPostalCode(e.target.value)}
+                    placeholder="134-0088"
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-[#c41230]"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="font-bold text-stone-700 block mb-1">{txt.custCityLabel}</label>
+                  <input
+                    type="text"
+                    value={cCity}
+                    onChange={(e) => setCCity(e.target.value)}
+                    placeholder={txt.custCityPlaceholder}
                     className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-[#c41230]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="font-bold text-stone-700 block mb-1">{txt.custCityLabel}</label>
+                <label className="font-bold text-stone-700 block mb-1">Alamat Lengkap (Chome/Banchi/Apartemen):</label>
                 <input
                   type="text"
-                  value={cCity}
-                  onChange={(e) => setCCity(e.target.value)}
-                  placeholder={txt.custCityPlaceholder}
+                  value={cAddress}
+                  onChange={(e) => setCAddress(e.target.value)}
+                  placeholder="Contoh: Nishikasai 3-1-2, Mansion Sakura 201"
                   className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-[#c41230]"
                 />
               </div>

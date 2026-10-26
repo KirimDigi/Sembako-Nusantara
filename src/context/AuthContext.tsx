@@ -183,7 +183,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true, isAdmin: true, user };
     }
 
-    // 3. Check Dummy Customer 1 (customer01 / customer123 or 08123456789)
+    // 3. Check Registered Customers Database ('sn_customers_v1')
+    try {
+      const customersJson = localStorage.getItem('sn_customers_v1');
+      if (customersJson) {
+        const customersList: any[] = JSON.parse(customersJson);
+        const cleanDigitsInput = cleanId.replace(/\D/g, '');
+        const matched = customersList.find((c) => {
+          const matchId = c.id && c.id.toLowerCase() === cleanId.toLowerCase();
+          const cleanCustPhone = (c.phone || '').replace(/\D/g, '');
+          const matchPhone =
+            cleanDigitsInput.length >= 7 &&
+            (cleanCustPhone === cleanDigitsInput ||
+              cleanCustPhone.endsWith(cleanDigitsInput) ||
+              cleanDigitsInput.endsWith(cleanCustPhone));
+          return (matchId || matchPhone) && (c.password ? c.password === cleanPass : cleanPass.length >= 4);
+        });
+
+        if (matched) {
+          const user: AuthUser = {
+            id: matched.id,
+            name: matched.name || `Pelanggan ${matched.id}`,
+            role: 'Customer',
+            avatar: assetUrl('avatar-jangsan.png'),
+            tier: matched.tier ? `${matched.tier} Member` : 'Anggota Nusantara',
+            loyaltyPoints: matched.loyaltyPoints || 100,
+            phone: matched.phone || cleanId,
+            address: matched.address || (matched.city ? `${matched.city}, Jepang` : 'Tokyo-to, Jepang'),
+            postalCode: matched.postalCode,
+            prefecture: matched.prefecture,
+            city: matched.city,
+            loginAt: new Date().toISOString()
+          };
+          setCurrentUser(user);
+          return { success: true, isAdmin: false, user };
+        }
+      }
+    } catch (e) {
+      console.warn('Customer check error:', e);
+    }
+
+    // 4. Check Dummy Customer 1 (customer01 / customer123 or 08123456789)
     if (
       (cleanId.toLowerCase() === 'customer01' || cleanId.toLowerCase() === 'budi' || cleanId === '08123456789' || cleanId === '08098765432') &&
       (cleanPass === 'customer123' || cleanPass === 'password123' || cleanPass === '123456')
@@ -196,7 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true, isAdmin: false, user };
     }
 
-    // 4. Check Customer Credentials (willy / 123456 or phone 08011223344)
+    // 5. Check Customer Credentials (willy / 123456 or phone 08011223344)
     if (
       (cleanId.toLowerCase() === 'willy' || cleanId === '08011223344' || cleanId === '+818011223344') &&
       (cleanPass === '123456' || cleanPass === 'admin123' || cleanPass === 'willy123')
@@ -209,18 +249,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true, isAdmin: false, user };
     }
 
-    // 5. Any other new Customer Login / Signup (Strictly Role 'Customer')
+    // 6. Any other new Customer Login / Signup (Strictly Role 'Customer')
     if (cleanPass.length >= 4) {
+      const isPhone = cleanId.replace(/\D/g, '').length >= 7;
       const user: AuthUser = {
-        id: cleanId.toLowerCase(),
-        name: cleanId.includes('@') ? cleanId.split('@')[0] : `Pelanggan ${cleanId}`,
+        id: isPhone ? `cust-${cleanId.replace(/\D/g, '').slice(-6)}` : cleanId.toLowerCase(),
+        name: isPhone ? `Pelanggan (${cleanId})` : cleanId,
         role: 'Customer',
         avatar: assetUrl('avatar-jangsan.png'),
         tier: 'Anggota Baru Nusantara',
         loyaltyPoints: 100,
-        phone: cleanId.startsWith('080') || cleanId.startsWith('+81') || cleanId.startsWith('08') ? cleanId : '+81 80-1122-3344',
+        phone: isPhone ? cleanId : '+81 80-1122-3344',
         address: 'Tokyo-to, Jepang',
-        email: cleanId.includes('@') ? cleanId : `${cleanId}@diaspora.jp`,
         loginAt: new Date().toISOString()
       };
       setCurrentUser(user);
@@ -229,7 +269,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return {
       success: false,
-      error: 'Kredensial tidak valid. Silakan periksa kembali ID dan Password.'
+      error: 'Kredensial tidak valid. Silakan periksa kembali ID / No HP dan Password.'
     };
   };
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { assetUrl } from '../../utils/assets';
@@ -7,11 +7,14 @@ import { assetUrl } from '../../utils/assets';
 export const Footer: React.FC = () => {
   const { t, language } = useLanguage();
   const { isAdmin } = useAuth();
+  const { pathname } = useLocation();
+  const isCheckout = pathname === '/checkout';
 
   return (
     <footer className="w-full bg-white border-t border-[#EBE5DF] mt-16">
-      {/* 4 Pillars of Trust */}
-      <div className="border-b border-[#EBE5DF] bg-[#FDF8F0]/60">
+      {/* 4 Pillars of Trust (Hidden on checkout page) */}
+      {!isCheckout && (
+        <div className="border-b border-[#EBE5DF] bg-[#FDF8F0]/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
             <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-white border border-[#EBE5DF]/80 shadow-xs">
@@ -39,6 +42,7 @@ export const Footer: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Main Footer Links */}
       <div className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">

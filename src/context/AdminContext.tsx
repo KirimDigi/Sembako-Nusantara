@@ -79,7 +79,7 @@ interface AdminContextType {
   addSupplier: (supplierData: Omit<Supplier, 'id'>) => Supplier;
   updateSupplier: (id: string, updatedData: Partial<Supplier>) => void;
   deleteSupplier: (id: string) => void;
-  addCustomer: (customerData: Omit<CustomerCRM, 'id' | 'registeredDate'>) => CustomerCRM;
+  addCustomer: (customerData: Omit<CustomerCRM, 'id' | 'registeredDate'> & { id?: string }) => CustomerCRM;
   addVoucher: (voucher: Voucher) => void;
   toggleVoucher: (code: string) => void;
   deleteVoucher: (code: string) => void;
@@ -950,10 +950,11 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (e) {}
   };
 
-  const addCustomer = (customerData: Omit<CustomerCRM, 'id' | 'registeredDate'>): CustomerCRM => {
+  const addCustomer = (customerData: Omit<CustomerCRM, 'id' | 'registeredDate'> & { id?: string }): CustomerCRM => {
+    const custId = customerData.id || ('SN-' + Math.floor(100000 + Math.random() * 900000));
     const newCust: CustomerCRM = {
       ...customerData,
-      id: 'cust-' + (customers.length + 1),
+      id: custId,
       registeredDate: new Date().toISOString().substring(0, 10),
       totalOrders: customerData.totalOrders ?? 0,
       totalSpent: customerData.totalSpent ?? 0,
@@ -961,15 +962,42 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       tier: customerData.tier ?? 'Bronze',
       preferredLanguage: customerData.preferredLanguage ?? 'ID'
     };
-    setCustomers((prev) => [newCust, ...prev]);
+
+    setCustomers((prev) => {
+      const cleanPhone = (newCust.phone || '').replace(/\D/g, '');
+      const existingIdx = prev.findIndex((c) => 
+        c.id.toLowerCase() === newCust.id.toLowerCase() || 
+        (cleanPhone.length >= 7 && (c.phone || '').replace(/\D/g, '') === cleanPhone)
+      );
+
+      let updatedList: CustomerCRM[];
+      if (existingIdx >= 0) {
+        updatedList = [...prev];
+        updatedList[existingIdx] = {
+          ...updatedList[existingIdx],
+          ...newCust,
+          id: updatedList[existingIdx].id // Keep original ID
+        };
+      } else {
+        updatedList = [newCust, ...prev];
+      }
+
+      try {
+        localStorage.setItem('sn_customers_v1', JSON.stringify(updatedList));
+      } catch (e) {}
+
+      return updatedList;
+    });
 
     try {
       supabase.from('customers').upsert({
         id: newCust.id,
         name: newCust.name,
-        email: newCust.email || null,
         phone: newCust.phone || null,
         city: newCust.city || 'Tokyo',
+        address: newCust.address || null,
+        postal_code: newCust.postalCode || null,
+        prefecture: newCust.prefecture || null,
         total_orders: newCust.totalOrders,
         total_spent: newCust.totalSpent,
         loyalty_points: newCust.loyaltyPoints,

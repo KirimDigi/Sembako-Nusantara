@@ -83,57 +83,61 @@ export const CheckoutCrossSell: React.FC<CheckoutCrossSellProps> = ({
         </div>
       </div>
 
-      {/* Cards List / Grid */}
-      <div className="space-y-2.5">
-        {recommendations.map(({ product, badge, reason }) => {
-          const isJustAdded = addedItemIds[product.id];
-          const priceTax = product.priceTax || Math.round((product.price || 0) * 1.08);
-          const priceTaxIdr = convertJpyToIdr(priceTax, exchangeRate);
-          const badgeText = badge[language] || badge.ID;
-          const reasonText = reason[language] || reason.ID;
+      {/* Horizontal Scrollable Cards Slider */}
+      <div className="relative">
+        <div className="flex gap-3 overflow-x-auto pb-2 pt-1 scroll-smooth snap-x snap-mandatory overscroll-x-contain -mx-1 px-1">
+          {recommendations.map(({ product, badge, reason }) => {
+            const isJustAdded = addedItemIds[product.id];
+            const priceTax = product.priceTax || Math.round((product.price || 0) * 1.08);
+            const priceTaxIdr = convertJpyToIdr(priceTax, exchangeRate);
+            const badgeText = badge[language] || badge.ID;
+            const reasonText = reason[language] || reason.ID;
 
-          return (
-            <div
-              key={product.id}
-              className="group bg-white rounded-xl border border-stone-200/80 hover:border-amber-400 p-2.5 transition-all shadow-xs hover:shadow-md flex items-center justify-between gap-2.5"
-            >
-              {/* Product Image & Info */}
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                <div className="relative shrink-0">
-                  <img
-                    src={resolveProductImage(product.image, language)}
-                    alt={getLocalizedName(product)}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = getPlaceholderImage(language);
-                    }}
-                    className="w-12 h-12 rounded-lg object-contain p-0.5 bg-[#FAF8F5] border border-stone-200 group-hover:scale-105 transition-transform"
-                  />
-                  {product.isHalal && (
-                    <span className="absolute -top-1 -right-1 bg-emerald-600 text-[8px] text-white font-black px-1 rounded-full shadow-xs">
-                      HALAL
+            return (
+              <div
+                key={product.id}
+                className="group w-44 sm:w-52 shrink-0 snap-start bg-white rounded-xl border border-stone-200/90 hover:border-amber-400 p-3 transition-all shadow-xs hover:shadow-md flex flex-col justify-between"
+              >
+                <div>
+                  {/* Top: Badge rationale & Halal */}
+                  <div className="flex items-center justify-between gap-1 mb-2">
+                    <span className="inline-block text-[9px] font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/80 truncate max-w-[120px]">
+                      {badgeText}
                     </span>
-                  )}
-                </div>
+                    {product.isHalal && (
+                      <span className="bg-emerald-600 text-[8px] text-white font-black px-1.5 py-0.5 rounded-full shrink-0 shadow-xs">
+                        HALAL
+                      </span>
+                    )}
+                  </div>
 
-                <div className="min-w-0 flex-1">
-                  {/* Badge rationale */}
-                  <span className="inline-block text-[10px] font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/80 mb-0.5 max-w-full truncate">
-                    {badgeText}
-                  </span>
+                  {/* Product Image */}
+                  <div className="relative w-full h-24 sm:h-28 flex items-center justify-center bg-[#FAF8F5] rounded-lg p-1.5 border border-stone-100 group-hover:scale-102 transition-transform mb-2">
+                    <img
+                      src={resolveProductImage(product.image, language)}
+                      alt={getLocalizedName(product)}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = getPlaceholderImage(language);
+                      }}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
 
                   {/* Name */}
-                  <p className="font-bold text-xs text-stone-900 truncate group-hover:text-[#c41230] transition-colors">
+                  <p className="font-bold text-xs text-stone-900 line-clamp-2 min-h-[32px] group-hover:text-[#c41230] transition-colors leading-tight">
                     {getLocalizedName(product)}
                   </p>
 
                   {/* Short Reason */}
-                  <p className="text-[10px] text-stone-500 truncate leading-tight">
+                  <p className="text-[10px] text-stone-500 line-clamp-1 mt-0.5">
                     {reasonText}
                   </p>
+                </div>
 
+                <div className="mt-2.5 pt-2 border-t border-stone-100">
                   {/* Price */}
-                  <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className="font-extrabold text-xs text-stone-900">
+                  <div className="flex items-baseline justify-between mb-2">
+                    <span className="font-extrabold text-xs sm:text-sm text-stone-900">
                       {formatJpy(priceTax)}
                     </span>
                     {language === 'ID' && (
@@ -142,44 +146,40 @@ export const CheckoutCrossSell: React.FC<CheckoutCrossSellProps> = ({
                       </span>
                     )}
                   </div>
+
+                  {/* Add Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleAdd(product)}
+                    disabled={isJustAdded}
+                    className={`w-full py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-xs active:scale-95 ${
+                      isJustAdded
+                        ? 'bg-emerald-600 text-white shadow-emerald-200'
+                        : 'bg-stone-900 hover:bg-[#c41230] text-white hover:shadow-red-100'
+                    }`}
+                    title={language === 'JP' ? 'カートに追加' : language === 'EN' ? 'Add to cart' : 'Tambah ke pesanan'}
+                  >
+                    {isJustAdded ? (
+                      <>
+                        <span className="material-symbols-outlined text-xs">check</span>
+                        <span>{language === 'JP' ? '追加済' : language === 'EN' ? 'Added' : 'Ditambah'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-xs">add_shopping_cart</span>
+                        <span>{language === 'JP' ? '追加' : language === 'EN' ? 'Tambah' : '+ Tambah'}</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
-
-              {/* Add Button */}
-              <button
-                type="button"
-                onClick={() => handleAdd(product)}
-                disabled={isJustAdded}
-                className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-xs active:scale-95 ${
-                  isJustAdded
-                    ? 'bg-emerald-600 text-white shadow-emerald-200'
-                    : 'bg-stone-900 hover:bg-[#c41230] text-white hover:shadow-red-100'
-                }`}
-                title={language === 'JP' ? 'カートに追加' : language === 'EN' ? 'Add to cart' : 'Tambah ke pesanan'}
-              >
-                {isJustAdded ? (
-                  <>
-                    <span className="material-symbols-outlined text-xs">check</span>
-                    <span>
-                      {language === 'JP' ? '追加済' : language === 'EN' ? 'Added' : 'Ditambah'}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-xs">add_shopping_cart</span>
-                    <span>
-                      {language === 'JP' ? '追加' : language === 'EN' ? 'Add' : 'Tambah'}
-                    </span>
-                  </>
-                )}
-              </button>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
-      {/* Free Shipping Hint */}
-      <div className="pt-1 flex items-center justify-between text-[10px] text-stone-500">
+      {/* Free Shipping Hint & Swipe Indicator */}
+      <div className="pt-0.5 flex items-center justify-between text-[10px] text-stone-500">
         <span className="flex items-center gap-1 text-emerald-700 font-semibold">
           <span className="material-symbols-outlined text-xs">local_shipping</span>
           <span>
@@ -189,6 +189,10 @@ export const CheckoutCrossSell: React.FC<CheckoutCrossSellProps> = ({
               ? 'Brings you closer to Free Shipping (¥10,000)'
               : 'Makin dekat ke Gratis Ongkir (min. ¥10.000)'}
           </span>
+        </span>
+        <span className="text-stone-400 font-medium hidden sm:inline-flex items-center gap-0.5">
+          <span>Geser ke samping</span>
+          <span className="material-symbols-outlined text-xs">arrow_forward</span>
         </span>
       </div>
     </div>

@@ -65,7 +65,7 @@ export const ProfilePage: React.FC = () => {
   const { isAuthenticated, currentUser, login, loginWithGoogle, logout, updateProfile, changePassword, deleteAccount, isAdmin } = useAuth();
   const { wishlist, removeFromWishlist, clearWishlist, totalWishlistItems } = useWishlist();
   const { cart, totalItems, subtotalTax: totalPrice, removeFromCart, updateQuantity } = useCart();
-  const { orders } = useAdmin();
+  const { orders, addCustomer } = useAdmin();
   const { language } = useLanguage();
   const navigate = useNavigate();
 
@@ -88,7 +88,6 @@ export const ProfilePage: React.FC = () => {
   const [regPrefecture, setRegPrefecture] = useState('Tokyo-to (東京都)');
   const [regCity, setRegCity] = useState('');
   const [regAddress, setRegAddress] = useState('');
-  const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [regError, setRegError] = useState('');
@@ -265,14 +264,34 @@ export const ProfilePage: React.FC = () => {
 
     setIsRegLoading(true);
     try {
+      const cleanPhoneDigits = regPhone.trim().replace(/\D/g, '');
+      const newCustId = 'cust-' + (cleanPhoneDigits.length >= 6 ? cleanPhoneDigits.slice(-6) : Math.floor(100000 + Math.random() * 900000));
       const fullAddress = `〒${regPostalCode.trim()} ${regPrefecture.trim()} ${regCity.trim()} ${regAddress.trim()}`;
-      const identifier = regPhone.trim();
-      const res = await login(identifier, regPassword);
+
+      // Simpan langsung ke database table customers di CRM Admin
+      addCustomer({
+        id: newCustId,
+        name: regName.trim(),
+        phone: regPhone.trim(),
+        postalCode: regPostalCode.trim(),
+        prefecture: regPrefecture.trim(),
+        city: regCity.trim(),
+        address: regAddress.trim(),
+        password: regPassword,
+        totalOrders: 0,
+        totalSpent: 0,
+        loyaltyPoints: 100,
+        tier: 'Bronze',
+        preferredLanguage: language === 'JP' ? 'JP' : language === 'EN' ? 'EN' : 'ID'
+      });
+
+      // Login instan menggunakan ID Member baru atau Nomor HP
+      const res = await login(newCustId, regPassword);
       if (res.success && res.user) {
         await updateProfile({
+          id: newCustId,
           name: regName.trim(),
           phone: regPhone.trim(),
-          email: regEmail.trim() || undefined,
           address: fullAddress,
           postalCode: regPostalCode.trim(),
           prefecture: regPrefecture.trim(),
@@ -589,12 +608,12 @@ export const ProfilePage: React.FC = () => {
                   {language === 'JP'
                     ? '会員ID / 電話番号 / メールアドレス'
                     : language === 'EN'
-                    ? 'Member ID / Phone / Email'
-                    : 'ID Pelanggan / Nomor HP / Email'}
+                    ? 'Member ID or Phone Number'
+                    : 'ID Pelanggan (contoh: cust-1) atau Nomor HP di Jepang'}
                 </label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
-                    account_circle
+                    badge
                   </span>
                   <input
                     type="text"
@@ -602,10 +621,10 @@ export const ProfilePage: React.FC = () => {
                     onChange={(e) => setLoginId(e.target.value)}
                     placeholder={
                       language === 'JP'
-                        ? 'ユーザー名、メールアドレス、または電話番号'
+                        ? '例: cust-1 または 08011223344'
                         : language === 'EN'
-                        ? 'Username, email, or phone number'
-                        : 'Username, email terdaftar, atau no HP'
+                        ? 'e.g. cust-1 or 080-1122-3344'
+                        : 'Contoh: cust-1 atau 080-1122-3344'
                     }
                     className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
                     required
@@ -859,25 +878,6 @@ export const ProfilePage: React.FC = () => {
                       {showRegPassword ? 'visibility' : 'visibility_off'}
                     </span>
                   </button>
-                </div>
-              </div>
-
-              {/* Email (Opsional) */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  {language === 'JP' ? 'メールアドレス (任意)' : language === 'EN' ? 'Email Address (Optional)' : 'Alamat Email (Opsional)'}
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
-                    mail
-                  </span>
-                  <input
-                    type="email"
-                    value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    placeholder="Contoh: willy@example.com"
-                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
-                  />
                 </div>
               </div>
 
