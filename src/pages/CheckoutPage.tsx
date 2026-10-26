@@ -8,11 +8,12 @@ import { CurrencyType, getActiveExchangeRate, convertJpyToIdr, formatIdr, format
 import { FreeShippingProgressBar } from '../components/common/FreeShippingProgressBar';
 import { assetUrl } from '../utils/assets';
 import { resolveProductImage, getPlaceholderImage } from '../components/common/ProductImage';
+import { CheckoutCrossSell } from '../components/checkout/CheckoutCrossSell';
 
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
-  const { cart, subtotalTax, isFreeShipping, clearCart } = useCart();
-  const { applyVoucher, addOrder } = useAdmin();
+  const { cart, subtotalTax, isFreeShipping, clearCart, addToCart } = useCart();
+  const { applyVoucher, addOrder, products } = useAdmin();
   const { isAuthenticated, currentUser, loginAsCustomer } = useAuth();
   const { language } = useLanguage();
 
@@ -581,6 +582,13 @@ export const CheckoutPage: React.FC = () => {
                 </div>
               ))}
             </div>
+
+            {/* Smart Cross-Selling (Lengkapi Pesanan Anda / Sering Dibeli Bersama) */}
+            <CheckoutCrossSell
+              cart={cart}
+              allProducts={products}
+              onAddToCart={(product) => addToCart(product, 1)}
+            />
 
             {/* Voucher Box */}
             <div className="pt-2 border-t border-stone-100">
