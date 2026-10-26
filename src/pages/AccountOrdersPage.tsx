@@ -263,14 +263,14 @@ export const AccountOrdersPage: React.FC = () => {
               <div className="flex-grow border-t border-stone-200"></div>
             </div>
 
-            {/* Daftar Klik Disini Button */}
+            {/* Buat Akun / Daftar Klik Disini Button */}
             <button
               type="button"
               onClick={() => navigate('/profile')}
               className="w-full py-3 px-4 bg-white hover:bg-stone-50 text-[#c41230] hover:text-[#9a0021] font-bold text-xs sm:text-sm rounded-xl border-2 border-[#c41230] hover:border-[#9a0021] shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
             >
               <span className="material-symbols-outlined text-lg">person_add</span>
-              <span>Daftar Klik Disini</span>
+              <span>Buat Akun / Daftar Klik Disini</span>
             </button>
           </form>
         </div>

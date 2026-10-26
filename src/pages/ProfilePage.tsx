@@ -575,10 +575,10 @@ export const ProfilePage: React.FC = () => {
                 <span className="material-symbols-outlined text-lg">person_add</span>
                 <span>
                   {language === 'JP'
-                    ? '新規会員登録はこちらをクリック'
+                    ? '新規会員登録・アカウント作成はこちら'
                     : language === 'EN'
-                    ? 'Register Here (Click Here)'
-                    : 'Daftar Klik Disini'}
+                    ? 'Create Account / Register Click Here'
+                    : 'Buat Akun / Daftar Klik Disini'}
                 </span>
               </button>
             </form>
