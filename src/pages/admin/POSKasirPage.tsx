@@ -1444,7 +1444,7 @@ export const POSKasirPage: React.FC = () => {
                     }`}
                   >
                     <span className="material-symbols-outlined text-base">point_of_sale</span>
-                    <span>{reg.name}</span>
+                    <span>{txt.registerLabel(reg.id)}</span>
                     {regItemCount > 0 && (
                       <span
                         className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
@@ -1459,7 +1459,7 @@ export const POSKasirPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={(e) => handleCloseRegister(reg.id, e)}
-                      title="Tutup Mesin Kasir"
+                      title={txt.tabRegisterCloseTitle}
                       className={`ml-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-black cursor-pointer transition-colors ${
                         isActive
                           ? 'bg-red-800 text-white hover:bg-black'
@@ -1479,17 +1479,17 @@ export const POSKasirPage: React.FC = () => {
                 type="button"
                 onClick={handleAddRegister}
                 className="flex items-center gap-1 px-3 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
-                title="Buka Mesin Kasir Baru (Maksimal 3)"
+                title={txt.tabAddRegisterTitle}
               >
                 <span className="material-symbols-outlined text-sm font-bold">add</span>
-                <span>+ Buka Mesin Kasir ({registers.length}/3)</span>
+                <span>{txt.tabAddRegister(registers.length)}</span>
               </button>
             ) : (
               <span
                 className="text-[11px] font-bold text-stone-400 bg-stone-100 px-2.5 py-2 rounded-xl border border-stone-200"
-                title="Batas maksimal 3 mesin kasir aktif telah tercapai"
+                title={txt.tabMaxRegistersTitle}
               >
-                ✓ Maks. 3 Kasir
+                {txt.tabMaxRegisters}
               </span>
             )}
 
@@ -1548,10 +1548,10 @@ export const POSKasirPage: React.FC = () => {
                   );
                 }}
                 className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 hover:from-black hover:to-stone-950 text-amber-300 border border-amber-400/40 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-                title="Buka Layar Monitor Kedua / Tampilan Pelanggan (Customer-Facing Display)"
+                title={txt.btnDualDisplayTitle}
               >
                 <span className="material-symbols-outlined text-base text-amber-400">desktop_windows</span>
-                <span>🖥️ Layar Pelanggan (Dual Display)</span>
+                <span>{txt.btnDualDisplay}</span>
               </button>
             </div>
           )}
@@ -1949,10 +1949,10 @@ export const POSKasirPage: React.FC = () => {
                     type="button"
                     onClick={() => handleBarcodeScanOrSubmit(searchQuery)}
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#c41230] hover:bg-[#a80f28] text-white text-[10px] font-bold shadow-2xs transition-colors cursor-pointer"
-                    title="Scan Barcode / Tambah ke Keranjang"
+                    title={txt.btnScanTitle}
                   >
                     <span className="material-symbols-outlined text-xs">barcode_scanner</span>
-                    <span>Scan</span>
+                    <span>{txt.btnScan}</span>
                   </button>
                 </div>
               </div>
@@ -1983,29 +1983,29 @@ export const POSKasirPage: React.FC = () => {
                   <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-center gap-2.5">
                     <span className="material-symbols-outlined text-lg text-[#c41230] shrink-0">qr_code_scanner</span>
                     <div>
-                      <span className="font-bold text-stone-800 block text-[11px]">Scan Barcode</span>
-                      <span className="text-[10px] text-stone-500">Auto-add ke kasir</span>
+                      <span className="font-bold text-stone-800 block text-[11px]">{txt.cardScanTitle}</span>
+                      <span className="text-[10px] text-stone-500">{txt.cardScanSubtitle}</span>
                     </div>
                   </div>
                   <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-center gap-2.5">
                     <span className="material-symbols-outlined text-lg text-purple-600 shrink-0">pin</span>
                     <div>
-                      <span className="font-bold text-stone-800 block text-[11px]">Multi-Scan Qty</span>
-                      <span className="text-[10px] text-stone-500">Ketik 10*Barcode</span>
+                      <span className="font-bold text-stone-800 block text-[11px]">{txt.cardMultiTitle}</span>
+                      <span className="text-[10px] text-stone-500">{txt.cardMultiSubtitle}</span>
                     </div>
                   </div>
                   <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-center gap-2.5">
                     <span className="material-symbols-outlined text-lg text-amber-600 shrink-0">search</span>
                     <div>
-                      <span className="font-bold text-stone-800 block text-[11px]">Ketik Nama / SKU</span>
-                      <span className="text-[10px] text-stone-500">Tampilkan katalog</span>
+                      <span className="font-bold text-stone-800 block text-[11px]">{txt.cardSearchTitle}</span>
+                      <span className="text-[10px] text-stone-500">{txt.cardSearchSubtitle}</span>
                     </div>
                   </div>
                   <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-center gap-2.5">
                     <span className="material-symbols-outlined text-lg text-emerald-600 shrink-0">desktop_windows</span>
                     <div>
-                      <span className="font-bold text-stone-800 block text-[11px]">Layar Pelanggan</span>
-                      <span className="text-[10px] text-stone-500">Dual display siap</span>
+                      <span className="font-bold text-stone-800 block text-[11px]">{txt.cardDisplayTitle}</span>
+                      <span className="text-[10px] text-stone-500">{txt.cardDisplaySubtitle}</span>
                     </div>
                   </div>
                 </div>
