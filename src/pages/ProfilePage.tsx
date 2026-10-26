@@ -30,6 +30,17 @@ export const ProfilePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
+  // Auth Mode State: 'login' or 'register'
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [regName, setRegName] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regAddress, setRegAddress] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [regError, setRegError] = useState('');
+  const [isRegLoading, setIsRegLoading] = useState(false);
+
   // Edit Profile Form State
   const [editName, setEditName] = useState(currentUser?.name || '');
   const [editPhone, setEditPhone] = useState(currentUser?.phone || '');
@@ -115,6 +126,64 @@ export const ProfilePage: React.FC = () => {
       );
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleFormRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegError('');
+
+    if (!regName.trim()) {
+      setRegError(
+        language === 'JP'
+          ? 'お名前を入力してください。'
+          : language === 'EN'
+          ? 'Please enter your full name.'
+          : 'Silakan masukkan nama lengkap Anda.'
+      );
+      return;
+    }
+
+    const identifier = regPhone.trim() || regEmail.trim();
+    if (!identifier) {
+      setRegError(
+        language === 'JP'
+          ? '電話番号またはメールアドレスを入力してください。'
+          : language === 'EN'
+          ? 'Please enter phone or email.'
+          : 'Silakan masukkan nomor HP atau email Anda.'
+      );
+      return;
+    }
+
+    if (regPassword.length < 4) {
+      setRegError(
+        language === 'JP'
+          ? 'パスワードは4文字以上で設定してください。'
+          : language === 'EN'
+          ? 'Password must be at least 4 characters.'
+          : 'Kata sandi minimal 4 karakter.'
+      );
+      return;
+    }
+
+    setIsRegLoading(true);
+    try {
+      const res = await login(identifier, regPassword);
+      if (res.success && res.user) {
+        await updateProfile({
+          name: regName.trim(),
+          phone: regPhone.trim() || undefined,
+          email: regEmail.trim() || undefined,
+          address: regAddress.trim() || 'Tokyo-to, Jepang'
+        });
+      } else {
+        setRegError(res.error || 'Gagal mendaftar akun baru.');
+      }
+    } catch (err: any) {
+      setRegError(err?.message || 'Terjadi kesalahan saat mendaftar akun.');
+    } finally {
+      setIsRegLoading(false);
     }
   };
 
@@ -342,21 +411,39 @@ export const ProfilePage: React.FC = () => {
 
           <div className="max-w-md mx-auto space-y-2">
             <span className="inline-block px-3 py-1 bg-amber-50 text-amber-800 text-xs font-bold rounded-full border border-amber-200 uppercase tracking-wider">
-              {language === 'JP'
+              {authMode === 'register'
+                ? language === 'JP'
+                  ? 'ステータス: 新規会員登録'
+                  : language === 'EN'
+                  ? 'Status: New Member Registration'
+                  : 'Status: Pendaftaran Member Baru'
+                : language === 'JP'
                 ? 'ステータス: 未ログイン (ログインがひつよう です)'
                 : language === 'EN'
                 ? 'Status: Not Logged In (Login Required)'
                 : 'Status: Belum Masuk (Login Diperlukan)'}
             </span>
             <h1 className="font-heading font-black text-2xl sm:text-3xl text-stone-900 tracking-tight">
-              {language === 'JP'
+              {authMode === 'register'
+                ? language === 'JP'
+                  ? '新規会員登録'
+                  : language === 'EN'
+                  ? 'Register New Member'
+                  : 'Daftar Akun Member Baru'
+                : language === 'JP'
                 ? 'ユーザー プロフィール & アカウント'
                 : language === 'EN'
                 ? 'User Profile & Account'
                 : 'Profil & Akun Pengguna'}
             </h1>
             <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
-              {language === 'JP'
+              {authMode === 'register'
+                ? language === 'JP'
+                  ? '無料会員登録でデジタルVIP会員カード、特別割引、注文履歴管理をご利用いただけます。'
+                  : language === 'EN'
+                  ? 'Create a free account to unlock your digital VIP member card, member perks, and easy order tracking.'
+                  : 'Daftar gratis untuk mendapatkan Kartu Member Digital VIP, promo belanja, dan kemudahan lacak pesanan.'
+                : language === 'JP'
                 ? 'デジタル会員バーコード、お気に入り、買い物かご、注文履歴、セキュリティ設定をご利用いただくにはログインしてください。'
                 : language === 'EN'
                 ? 'Please sign in to access your digital member barcode, wishlist, cart, order history, and security settings.'
@@ -364,159 +451,296 @@ export const ProfilePage: React.FC = () => {
             </p>
           </div>
 
-          {loginError && (
+          {/* Form Error Alerts */}
+          {loginError && authMode === 'login' && (
             <div className="max-w-md mx-auto p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2 text-left">
               <span className="material-symbols-outlined text-base shrink-0 text-red-500">error</span>
               <span>{loginError}</span>
             </div>
           )}
 
-          <form onSubmit={handleFormLogin} className="max-w-md mx-auto space-y-4 text-left">
-            <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                {language === 'JP'
-                  ? '会員ID / 電話番号 / メールアドレス'
-                  : language === 'EN'
-                  ? 'Member ID / Phone / Email'
-                  : 'ID Pelanggan / Nomor HP / Email'}
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
-                  account_circle
-                </span>
-                <input
-                  type="text"
-                  value={loginId}
-                  onChange={(e) => setLoginId(e.target.value)}
-                  placeholder={
-                    language === 'JP'
-                      ? 'ユーザー名、メールアドレス、または電話番号'
-                      : language === 'EN'
-                      ? 'Username, email, or phone number'
-                      : 'Username, email terdaftar, atau no HP'
-                  }
-                  className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
-                  required
-                />
-              </div>
+          {regError && authMode === 'register' && (
+            <div className="max-w-md mx-auto p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2 text-left">
+              <span className="material-symbols-outlined text-base shrink-0 text-red-500">error</span>
+              <span>{regError}</span>
             </div>
+          )}
 
-            <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                {language === 'JP'
-                  ? 'パスワード'
-                  : language === 'EN'
-                  ? 'Password'
-                  : 'Kata Sandi / Password'}
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg pointer-events-none">
-                  lock
-                </span>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={
-                    language === 'JP'
-                      ? '•••••••• (パスワード を にゅうりょく)'
-                      : '••••••••'
-                  }
-                  className="w-full pl-10 pr-11 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
-                  title={
-                    showPassword
-                      ? (language === 'JP' ? 'パスワードを隠す' : language === 'EN' ? 'Hide password' : 'Sembunyikan password')
-                      : (language === 'JP' ? 'パスワードを表示' : language === 'EN' ? 'Show password' : 'Lihat password')
-                  }
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 transition-colors p-1 rounded-lg hover:bg-stone-200/50 flex items-center justify-center cursor-pointer"
-                >
-                  <span className={`material-symbols-outlined text-lg transition-transform duration-200 ${showPassword ? 'text-[#c41230]' : 'text-stone-400'}`}>
-                    {showPassword ? 'visibility' : 'visibility_off'}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 disabled:opacity-50"
-            >
-              {isLoading ? (
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              ) : (
-                <span className="material-symbols-outlined text-base">login</span>
-              )}
-              <span>
-                {language === 'JP'
-                  ? 'アカウントにログイン'
-                  : language === 'EN'
-                  ? 'Sign In to Account'
-                  : 'Masuk ke Akun Profil'}
-              </span>
-            </button>
-
-            <div className="relative flex py-2 items-center">
-              <div className="flex-grow border-t border-stone-200"></div>
-              <span className="shrink mx-3 text-[11px] text-stone-400 font-medium uppercase tracking-wider">
-                {language === 'JP'
-                  ? 'または 次のアカウントでログイン'
-                  : language === 'EN'
-                  ? 'or continue with'
-                  : 'atau masuk dengan'}
-              </span>
-              <div className="flex-grow border-t border-stone-200"></div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={isGoogleLoading}
-              className="w-full py-3 px-4 bg-white hover:bg-stone-50 text-stone-800 font-bold text-xs sm:text-sm rounded-xl border border-stone-300 hover:border-stone-400 shadow-xs hover:shadow transition-all flex items-center justify-center gap-3 cursor-pointer active:scale-98"
-            >
-              {isGoogleLoading ? (
-                <span className="w-4 h-4 border-2 border-stone-400 border-t-transparent rounded-full animate-spin"></span>
-              ) : (
-                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                  />
-                </svg>
-              )}
-              <span>
-                {isGoogleLoading
-                  ? language === 'JP'
-                    ? 'Googleに接続中...'
+          {/* MODE 1: LOGIN FORM */}
+          {authMode === 'login' && (
+            <form onSubmit={handleFormLogin} className="max-w-md mx-auto space-y-4 text-left">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                  {language === 'JP'
+                    ? '会員ID / 電話番号 / メールアドレス'
                     : language === 'EN'
-                    ? 'Connecting to Google...'
-                    : 'Menghubungkan ke Google...'
-                  : language === 'JP'
-                  ? 'Google (Gmail) でログイン'
-                  : language === 'EN'
-                  ? 'Sign in with Google (Gmail)'
-                  : 'Masuk dengan Google (Gmail)'}
-              </span>
-            </button>
-          </form>
+                    ? 'Member ID / Phone / Email'
+                    : 'ID Pelanggan / Nomor HP / Email'}
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
+                    account_circle
+                  </span>
+                  <input
+                    type="text"
+                    value={loginId}
+                    onChange={(e) => setLoginId(e.target.value)}
+                    placeholder={
+                      language === 'JP'
+                        ? 'ユーザー名、メールアドレス、または電話番号'
+                        : language === 'EN'
+                        ? 'Username, email, or phone number'
+                        : 'Username, email terdaftar, atau no HP'
+                    }
+                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                  {language === 'JP'
+                    ? 'パスワード'
+                    : language === 'EN'
+                    ? 'Password'
+                    : 'Kata Sandi / Password'}
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg pointer-events-none">
+                    lock
+                  </span>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-11 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 transition-colors p-1 rounded-lg hover:bg-stone-200/50 flex items-center justify-center cursor-pointer"
+                  >
+                    <span className={`material-symbols-outlined text-lg transition-transform duration-200 ${showPassword ? 'text-[#c41230]' : 'text-stone-400'}`}>
+                      {showPassword ? 'visibility' : 'visibility_off'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                ) : (
+                  <span className="material-symbols-outlined text-base">login</span>
+                )}
+                <span>
+                  {language === 'JP'
+                    ? 'アカウントにログイン'
+                    : language === 'EN'
+                    ? 'Sign In to Account'
+                    : 'Masuk ke Akun Profil'}
+                </span>
+              </button>
+
+              <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-stone-200"></div>
+                <span className="shrink mx-3 text-[11px] text-stone-400 font-medium uppercase tracking-wider">
+                  {language === 'JP'
+                    ? 'まだアカウントをお持ちでない方'
+                    : language === 'EN'
+                    ? "don't have an account?"
+                    : 'belum punya akun?'}
+                </span>
+                <div className="flex-grow border-t border-stone-200"></div>
+              </div>
+
+              {/* Ganti Masuk dengan Google menjadi Daftar Klik Disini */}
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('register');
+                  setLoginError('');
+                  setRegError('');
+                }}
+                className="w-full py-3 px-4 bg-white hover:bg-stone-50 text-[#c41230] hover:text-[#9a0021] font-bold text-xs sm:text-sm rounded-xl border-2 border-[#c41230] hover:border-[#9a0021] shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              >
+                <span className="material-symbols-outlined text-lg">person_add</span>
+                <span>
+                  {language === 'JP'
+                    ? '新規会員登録はこちらをクリック'
+                    : language === 'EN'
+                    ? 'Register Here (Click Here)'
+                    : 'Daftar Klik Disini'}
+                </span>
+              </button>
+            </form>
+          )}
+
+          {/* MODE 2: REGISTER FORM */}
+          {authMode === 'register' && (
+            <form onSubmit={handleFormRegister} className="max-w-md mx-auto space-y-3.5 text-left animate-in fade-in duration-200">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {language === 'JP' ? 'お名前 (氏名)' : language === 'EN' ? 'Full Name' : 'Nama Lengkap'} <span className="text-[#c41230]">*</span>
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
+                    badge
+                  </span>
+                  <input
+                    type="text"
+                    value={regName}
+                    onChange={(e) => setRegName(e.target.value)}
+                    placeholder={language === 'JP' ? '例: Willy Pratama' : 'Contoh: Willy Pratama'}
+                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {language === 'JP' ? '電話番号 / WhatsApp' : language === 'EN' ? 'Phone / WhatsApp' : 'Nomor HP / WhatsApp di Jepang'} <span className="text-[#c41230]">*</span>
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
+                    call
+                  </span>
+                  <input
+                    type="tel"
+                    value={regPhone}
+                    onChange={(e) => setRegPhone(e.target.value)}
+                    placeholder="Contoh: +81 80-1122-3344 atau 08011223344"
+                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {language === 'JP' ? 'メールアドレス (任意)' : language === 'EN' ? 'Email Address' : 'Alamat Email'}
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
+                    mail
+                  </span>
+                  <input
+                    type="email"
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    placeholder="Contoh: willy@example.com"
+                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {language === 'JP' ? 'お届け先住所 (任意)' : language === 'EN' ? 'Address in Japan' : 'Alamat di Jepang (Opsional)'}
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
+                    home_pin
+                  </span>
+                  <input
+                    type="text"
+                    value={regAddress}
+                    onChange={(e) => setRegAddress(e.target.value)}
+                    placeholder="Contoh: Tokyo-to, Edogawa-ku, Nishi-Kasai 3-1-4"
+                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {language === 'JP' ? 'パスワード' : language === 'EN' ? 'Create Password' : 'Buat Kata Sandi / Password Baru'} <span className="text-[#c41230]">*</span>
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg pointer-events-none">
+                    lock
+                  </span>
+                  <input
+                    type={showRegPassword ? 'text' : 'password'}
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    placeholder="Minimal 4 karakter"
+                    className="w-full pl-10 pr-11 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegPassword(!showRegPassword)}
+                    aria-label={showRegPassword ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 transition-colors p-1 rounded-lg hover:bg-stone-200/50 flex items-center justify-center cursor-pointer"
+                  >
+                    <span className={`material-symbols-outlined text-lg transition-transform duration-200 ${showRegPassword ? 'text-[#c41230]' : 'text-stone-400'}`}>
+                      {showRegPassword ? 'visibility' : 'visibility_off'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isRegLoading}
+                className="w-full py-3 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 disabled:opacity-50 mt-2"
+              >
+                {isRegLoading ? (
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                ) : (
+                  <span className="material-symbols-outlined text-base">how_to_reg</span>
+                )}
+                <span>
+                  {language === 'JP'
+                    ? '会員登録してアカウントを作成'
+                    : language === 'EN'
+                    ? 'Create Account Now'
+                    : 'Daftar & Buat Akun Sekarang'}
+                </span>
+              </button>
+
+              <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-stone-200"></div>
+                <span className="shrink mx-3 text-[11px] text-stone-400 font-medium uppercase tracking-wider">
+                  {language === 'JP'
+                    ? 'すでにアカウントをお持ちの方'
+                    : language === 'EN'
+                    ? 'already have an account?'
+                    : 'sudah punya akun?'}
+                </span>
+                <div className="flex-grow border-t border-stone-200"></div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('login');
+                  setRegError('');
+                  setLoginError('');
+                }}
+                className="w-full py-2.5 px-4 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              >
+                <span className="material-symbols-outlined text-base">login</span>
+                <span>
+                  {language === 'JP'
+                    ? 'ログイン画面に戻る'
+                    : language === 'EN'
+                    ? 'Back to Sign In'
+                    : 'Sudah Punya Akun? Masuk Disini'}
+                </span>
+              </button>
+            </form>
+          )}
         </div>
       </div>
     );
