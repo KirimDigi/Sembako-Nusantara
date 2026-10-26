@@ -11,6 +11,56 @@ import { getMemberId, getCode39BarcodeBars, downloadMemberCardPng } from '../uti
 
 type ActiveTab = 'overview' | 'barcode' | 'orders' | 'wishlist' | 'cart' | 'security' | 'edit_profile';
 
+const JAPAN_PREFECTURES = [
+  'Tokyo-to (東京都)',
+  'Kanagawa (神奈川県)',
+  'Osaka-fu (大阪府)',
+  'Aichi (愛知県)',
+  'Saitama (埼玉県)',
+  'Chiba (千葉県)',
+  'Hyogo (兵庫県)',
+  'Hokkaido (北海道)',
+  'Fukuoka (福岡県)',
+  'Shizuoka (静岡県)',
+  'Ibaraki (茨城県)',
+  'Hiroshima (広島県)',
+  'Kyoto-fu (京都府)',
+  'Miyagi (宮城県)',
+  'Niigata (新潟県)',
+  'Nagano (長野県)',
+  'Gifu (岐阜県)',
+  'Gunma (群馬県)',
+  'Tochigi (栃木県)',
+  'Okayama (岡山県)',
+  'Mie (三重県)',
+  'Kumamoto (熊本県)',
+  'Kagoshima (鹿児島県)',
+  'Okinawa (沖縄県)',
+  'Shiga (滋賀県)',
+  'Nara (奈良県)',
+  'Wakayama (和歌山県)',
+  'Yamaguchi (山口県)',
+  'Ehime (愛媛県)',
+  'Nagasaki (長崎県)',
+  'Oita (大分県)',
+  'Ishikawa (石川県)',
+  'Fukushima (福島県)',
+  'Aomori (青森県)',
+  'Iwate (岩手県)',
+  'Akita (秋田県)',
+  'Yamagata (山形県)',
+  'Toyama (富山県)',
+  'Fukui (福井県)',
+  'Yamanashi (山梨県)',
+  'Tottori (鳥取県)',
+  'Shimane (島根県)',
+  'Tokushima (徳島県)',
+  'Kagawa (香川県)',
+  'Kochi (高知県)',
+  'Saga (佐賀県)',
+  'Miyazaki (宮崎県)'
+];
+
 export const ProfilePage: React.FC = () => {
   const { isAuthenticated, currentUser, login, loginWithGoogle, logout, updateProfile, changePassword, deleteAccount, isAdmin } = useAuth();
   const { wishlist, removeFromWishlist, clearWishlist, totalWishlistItems } = useWishlist();
@@ -34,9 +84,12 @@ export const ProfilePage: React.FC = () => {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [regName, setRegName] = useState('');
   const [regPhone, setRegPhone] = useState('');
+  const [regPostalCode, setRegPostalCode] = useState('');
+  const [regPrefecture, setRegPrefecture] = useState('Tokyo-to (東京都)');
+  const [regCity, setRegCity] = useState('');
+  const [regAddress, setRegAddress] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [regAddress, setRegAddress] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [regError, setRegError] = useState('');
   const [isRegLoading, setIsRegLoading] = useState(false);
@@ -144,14 +197,57 @@ export const ProfilePage: React.FC = () => {
       return;
     }
 
-    const identifier = regPhone.trim() || regEmail.trim();
-    if (!identifier) {
+    if (!regPhone.trim()) {
       setRegError(
         language === 'JP'
-          ? '電話番号またはメールアドレスを入力してください。'
+          ? '電話番号を入力してください。'
           : language === 'EN'
-          ? 'Please enter phone or email.'
-          : 'Silakan masukkan nomor HP atau email Anda.'
+          ? 'Please enter your phone number.'
+          : 'Silakan masukkan nomor telepon / WhatsApp Anda.'
+      );
+      return;
+    }
+
+    if (!regPostalCode.trim()) {
+      setRegError(
+        language === 'JP'
+          ? '郵便番号を入力してください。'
+          : language === 'EN'
+          ? 'Please enter your postal code.'
+          : 'Silakan masukkan kode pos di Jepang (misal: 134-0088).'
+      );
+      return;
+    }
+
+    if (!regPrefecture.trim()) {
+      setRegError(
+        language === 'JP'
+          ? '都道府県を選択してください。'
+          : language === 'EN'
+          ? 'Please select your prefecture.'
+          : 'Silakan pilih prefektur tempat tinggal di Jepang.'
+      );
+      return;
+    }
+
+    if (!regCity.trim()) {
+      setRegError(
+        language === 'JP'
+          ? '市区町村を入力してください。'
+          : language === 'EN'
+          ? 'Please enter your city/district.'
+          : 'Silakan masukkan kota / distrik tempat tinggal Anda.'
+      );
+      return;
+    }
+
+    if (!regAddress.trim()) {
+      setRegError(
+        language === 'JP'
+          ? '番地・建物名を入力してください。'
+          : language === 'EN'
+          ? 'Please enter your street address / apartment.'
+          : 'Silakan masukkan alamat lengkap (nomor rumah, gedung, apartemen).'
       );
       return;
     }
@@ -169,14 +265,33 @@ export const ProfilePage: React.FC = () => {
 
     setIsRegLoading(true);
     try {
+      const fullAddress = `〒${regPostalCode.trim()} ${regPrefecture.trim()} ${regCity.trim()} ${regAddress.trim()}`;
+      const identifier = regPhone.trim();
       const res = await login(identifier, regPassword);
       if (res.success && res.user) {
         await updateProfile({
           name: regName.trim(),
-          phone: regPhone.trim() || undefined,
+          phone: regPhone.trim(),
           email: regEmail.trim() || undefined,
-          address: regAddress.trim() || 'Tokyo-to, Jepang'
+          address: fullAddress,
+          postalCode: regPostalCode.trim(),
+          prefecture: regPrefecture.trim(),
+          city: regCity.trim()
         });
+
+        try {
+          localStorage.setItem(
+            'sn_registered_customer_address',
+            JSON.stringify({
+              name: regName.trim(),
+              phone: regPhone.trim(),
+              postalCode: regPostalCode.trim(),
+              prefecture: regPrefecture.trim(),
+              city: regCity.trim(),
+              address: regAddress.trim()
+            })
+          );
+        } catch (err) {}
       } else {
         setRegError(res.error || 'Gagal mendaftar akun baru.');
       }
@@ -587,9 +702,10 @@ export const ProfilePage: React.FC = () => {
           {/* MODE 2: REGISTER FORM */}
           {authMode === 'register' && (
             <form onSubmit={handleFormRegister} className="max-w-md mx-auto space-y-3.5 text-left animate-in fade-in duration-200">
+              {/* 1. Nama Lengkap */}
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
-                  {language === 'JP' ? 'お名前 (氏名)' : language === 'EN' ? 'Full Name' : 'Nama Lengkap'} <span className="text-[#c41230]">*</span>
+                  1. {language === 'JP' ? 'お名前 (氏名)' : language === 'EN' ? 'Full Name' : 'Nama Lengkap'} <span className="text-[#c41230]">*</span>
                 </label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
@@ -600,15 +716,16 @@ export const ProfilePage: React.FC = () => {
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
                     placeholder={language === 'JP' ? '例: Willy Pratama' : 'Contoh: Willy Pratama'}
-                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all font-medium"
                     required
                   />
                 </div>
               </div>
 
+              {/* 2. No Telfon */}
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
-                  {language === 'JP' ? '電話番号 / WhatsApp' : language === 'EN' ? 'Phone / WhatsApp' : 'Nomor HP / WhatsApp di Jepang'} <span className="text-[#c41230]">*</span>
+                  2. {language === 'JP' ? '電話番号 / WhatsApp' : language === 'EN' ? 'Phone / WhatsApp in Japan' : 'No Telepon / WhatsApp di Jepang'} <span className="text-[#c41230]">*</span>
                 </label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
@@ -618,52 +735,107 @@ export const ProfilePage: React.FC = () => {
                     type="tel"
                     value={regPhone}
                     onChange={(e) => setRegPhone(e.target.value)}
-                    placeholder="Contoh: +81 80-1122-3344 atau 08011223344"
-                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                    placeholder="Contoh: 080-1122-3344 atau +81 80-1122-3344"
+                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all font-mono"
                     required
                   />
                 </div>
               </div>
 
+              {/* Grid 2 Kolom: 4. Kode Pos & 5. Prefektur */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 4. Kode Pos */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    4. {language === 'JP' ? '郵便番号 (〒)' : 'Kode Pos (〒 郵便番号)'} <span className="text-[#c41230]">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
+                      pin_drop
+                    </span>
+                    <input
+                      type="text"
+                      value={regPostalCode}
+                      onChange={(e) => setRegPostalCode(e.target.value)}
+                      placeholder="134-0088"
+                      className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all font-mono font-medium"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* 5. Prefektur */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    5. {language === 'JP' ? '都道府県' : 'Prefektur (都道府県)'} <span className="text-[#c41230]">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg pointer-events-none">
+                      map
+                    </span>
+                    <select
+                      value={regPrefecture}
+                      onChange={(e) => setRegPrefecture(e.target.value)}
+                      className="w-full pl-10 pr-7 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all font-medium appearance-none cursor-pointer"
+                      required
+                    >
+                      {JAPAN_PREFECTURES.map((pref) => (
+                        <option key={pref} value={pref}>
+                          {pref}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 text-base pointer-events-none">
+                      expand_more
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 6. Kota / Distrik */}
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
-                  {language === 'JP' ? 'メールアドレス (任意)' : language === 'EN' ? 'Email Address' : 'Alamat Email'}
+                  6. {language === 'JP' ? '市区町村' : 'Kota / Distrik (市区町村)'} <span className="text-[#c41230]">*</span>
                 </label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
-                    mail
+                    location_city
                   </span>
                   <input
-                    type="email"
-                    value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    placeholder="Contoh: willy@example.com"
-                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                    type="text"
+                    value={regCity}
+                    onChange={(e) => setRegCity(e.target.value)}
+                    placeholder="Contoh: Edogawa-ku, Shinjuku-ku, Osaka-shi"
+                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all font-medium"
+                    required
                   />
                 </div>
               </div>
 
+              {/* 3. Alamat Lengkap */}
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
-                  {language === 'JP' ? 'お届け先住所 (任意)' : language === 'EN' ? 'Address in Japan' : 'Alamat di Jepang (Opsional)'}
+                  3. {language === 'JP' ? '番地・建物名・部屋番号' : 'Alamat Lengkap (Nomor Rumah, Gedung, No Kamar)'} <span className="text-[#c41230]">*</span>
                 </label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
-                    home_pin
+                    home
                   </span>
                   <input
                     type="text"
                     value={regAddress}
                     onChange={(e) => setRegAddress(e.target.value)}
-                    placeholder="Contoh: Tokyo-to, Edogawa-ku, Nishi-Kasai 3-1-4"
-                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                    placeholder="Contoh: Nishi-Kasai 3-1-4, Mansion Sakura #302"
+                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all font-medium"
+                    required
                   />
                 </div>
               </div>
 
+              {/* Kata Sandi / Password Baru */}
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
-                  {language === 'JP' ? 'パスワード' : language === 'EN' ? 'Create Password' : 'Buat Kata Sandi / Password Baru'} <span className="text-[#c41230]">*</span>
+                  {language === 'JP' ? 'パスワード' : language === 'EN' ? 'Create Password' : 'Kata Sandi / Password Akun'} <span className="text-[#c41230]">*</span>
                 </label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg pointer-events-none">
@@ -673,7 +845,7 @@ export const ProfilePage: React.FC = () => {
                     type={showRegPassword ? 'text' : 'password'}
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
-                    placeholder="Minimal 4 karakter"
+                    placeholder="Minimal 4 karakter untuk login"
                     className="w-full pl-10 pr-11 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
                     required
                   />
@@ -687,6 +859,25 @@ export const ProfilePage: React.FC = () => {
                       {showRegPassword ? 'visibility' : 'visibility_off'}
                     </span>
                   </button>
+                </div>
+              </div>
+
+              {/* Email (Opsional) */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {language === 'JP' ? 'メールアドレス (任意)' : language === 'EN' ? 'Email Address (Optional)' : 'Alamat Email (Opsional)'}
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-lg">
+                    mail
+                  </span>
+                  <input
+                    type="email"
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    placeholder="Contoh: willy@example.com"
+                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                  />
                 </div>
               </div>
 

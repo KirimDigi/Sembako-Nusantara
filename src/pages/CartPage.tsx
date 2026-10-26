@@ -6,6 +6,7 @@ import { useAdmin } from '../context/AdminContext';
 import { FreeShippingProgressBar } from '../components/common/FreeShippingProgressBar';
 import { assetUrl } from '../utils/assets';
 import { resolveProductImage, getPlaceholderImage } from '../components/common/ProductImage';
+import { useExchangeRate, convertJpyToIdr, formatIdr } from '../utils/currency';
 
 export const CartPage: React.FC = () => {
   const {
@@ -21,6 +22,7 @@ export const CartPage: React.FC = () => {
 
   const { t, language } = useLanguage();
   const { applyVoucher } = useAdmin();
+  const exchangeRate = useExchangeRate();
 
   const [voucherInput, setVoucherInput] = useState<string>('');
   const [appliedVoucherCode, setAppliedVoucherCode] = useState<string>('');
@@ -230,30 +232,42 @@ export const CartPage: React.FC = () => {
                 )}
               </div>
 
-              <div className="space-y-2 text-xs text-stone-600">
-                <div className="flex justify-between">
+              <div className="space-y-2.5 text-xs text-stone-600">
+                <div className="flex justify-between items-baseline">
                   <span>{t('subtotal_label')}:</span>
-                  <span>¥{subtotal.toLocaleString()}</span>
+                  <div className="text-right">
+                    <span className="font-semibold text-stone-900">¥{subtotal.toLocaleString()}</span>
+                    <span className="text-[11px] text-stone-500 font-medium block">≈ {formatIdr(convertJpyToIdr(subtotal, exchangeRate))}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-baseline">
                   <span>{t('tax_label')}:</span>
-                  <span>¥{(subtotalTax - subtotal).toLocaleString()}</span>
+                  <div className="text-right">
+                    <span className="font-semibold text-stone-900">¥{(subtotalTax - subtotal).toLocaleString()}</span>
+                    <span className="text-[11px] text-stone-500 font-medium block">≈ {formatIdr(convertJpyToIdr(subtotalTax - subtotal, exchangeRate))}</span>
+                  </div>
                 </div>
                 {discountVal > 0 && (
-                  <div className="flex justify-between text-emerald-700 font-bold">
+                  <div className="flex justify-between items-baseline text-emerald-700 font-bold">
                     <span>Diskon Voucher ({appliedVoucherCode}):</span>
-                    <span>-¥{discountVal.toLocaleString()}</span>
+                    <div className="text-right">
+                      <span>-¥{discountVal.toLocaleString()}</span>
+                      <span className="text-[11px] block">≈ -{formatIdr(convertJpyToIdr(discountVal, exchangeRate))}</span>
+                    </div>
                   </div>
                 )}
-                <div className="flex justify-between">
+                <div className="flex justify-between items-baseline">
                   <span>{t('shipping_fee_label')}:</span>
-                  <span>
+                  <div className="text-right">
                     {isFreeShipping ? (
                       <span className="text-[#15803D] font-bold">{t('free_badge')}</span>
                     ) : (
-                      `¥${shippingFee.toLocaleString()}`
+                      <>
+                        <span className="font-semibold text-stone-900">¥{shippingFee.toLocaleString()}</span>
+                        <span className="text-[11px] text-stone-500 font-medium block">≈ {formatIdr(convertJpyToIdr(shippingFee, exchangeRate))}</span>
+                      </>
                     )}
-                  </span>
+                  </div>
                 </div>
               </div>
 
@@ -263,13 +277,21 @@ export const CartPage: React.FC = () => {
                 <span className="font-bold font-mono">+{Math.floor(finalTotal / 100)} Poin</span>
               </div>
 
-              <div className="border-t border-stone-200 pt-3 flex justify-between items-baseline">
-                <span className="font-bold text-sm text-stone-900">{t('grand_total_label')}:</span>
+              <div className="border-t border-stone-200 pt-3.5 flex justify-between items-start">
+                <div>
+                  <span className="font-bold text-sm text-stone-900 block">{t('grand_total_label')}:</span>
+                  <span className="text-[10px] text-stone-400 block">{t('tax_included')}</span>
+                  <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md font-mono">
+                    <span>Kurs: 1 JPY ≈ Rp {exchangeRate}</span>
+                  </div>
+                </div>
                 <div className="text-right">
-                  <div className="font-bold text-2xl text-[#c41230]">
+                  <div className="font-black text-2xl text-[#c41230] tracking-tight">
                     ¥{finalTotal.toLocaleString()}
                   </div>
-                  <span className="text-[10px] text-stone-400">{t('tax_included')}</span>
+                  <div className="font-bold text-sm text-emerald-700 mt-0.5">
+                    ≈ {formatIdr(convertJpyToIdr(finalTotal, exchangeRate))}
+                  </div>
                 </div>
               </div>
 

@@ -24,9 +24,9 @@ export const CheckoutPage: React.FC = () => {
   const [formData, setFormData] = useState({
     fullName: currentUser?.name || 'Willy Pratama',
     phone: currentUser?.phone || '+81 80-1122-3344',
-    postalCode: '134-0088',
-    prefecture: 'Tokyo-to (東京都)',
-    city: 'Edogawa-ku (江戸川区)',
+    postalCode: currentUser?.postalCode || '134-0088',
+    prefecture: currentUser?.prefecture || 'Tokyo-to (東京都)',
+    city: currentUser?.city || 'Edogawa-ku (江戸川区)',
     address: currentUser?.address || 'Nishi-Kasai 3-1-4, Mansion Sakura #302',
     deliveryTime: 'bebas'
   });
@@ -37,6 +37,9 @@ export const CheckoutPage: React.FC = () => {
         ...prev,
         fullName: currentUser.name || prev.fullName,
         phone: currentUser.phone || prev.phone,
+        postalCode: currentUser.postalCode || prev.postalCode,
+        prefecture: currentUser.prefecture || prev.prefecture,
+        city: currentUser.city || prev.city,
         address: currentUser.address || prev.address
       }));
     }
@@ -671,7 +674,10 @@ export const CheckoutPage: React.FC = () => {
                       <span className="text-[10px] text-stone-400">({formatJpy(subtotalTax)})</span>
                     </>
                   ) : (
-                    <span>{formatJpy(subtotalTax)}</span>
+                    <>
+                      <strong className="text-stone-900">{formatJpy(subtotalTax)}</strong>{' '}
+                      <span className="text-[10px] text-stone-500 font-medium">({formatIdr(subtotalTaxIdr)})</span>
+                    </>
                   )}
                 </span>
               </div>
@@ -681,7 +687,7 @@ export const CheckoutPage: React.FC = () => {
                   <span>
                     {selectedCurrency === 'IDR'
                       ? `-${formatIdr(discountValIdr)}`
-                      : `-${formatJpy(discountVal)}`}
+                      : `-${formatJpy(discountVal)} (${formatIdr(discountValIdr)})`}
                   </span>
                 </div>
               )}
@@ -696,7 +702,10 @@ export const CheckoutPage: React.FC = () => {
                       <span className="text-[10px] text-stone-400">({formatJpy(shippingFee)})</span>
                     </>
                   ) : (
-                    formatJpy(shippingFee)
+                    <>
+                      <strong className="text-stone-900">{formatJpy(shippingFee)}</strong>{' '}
+                      <span className="text-[10px] text-stone-500 font-medium">({formatIdr(shippingFeeIdr)})</span>
+                    </>
                   )}
                 </span>
               </div>
@@ -709,11 +718,11 @@ export const CheckoutPage: React.FC = () => {
                     {selectedCurrency === 'IDR' ? formatIdr(grandTotalIdr) : formatJpy(grandTotal)}
                   </span>
                 </div>
-                <div className="text-[11px] text-stone-400 text-right mt-0.5">
+                <div className="text-[11px] text-stone-500 text-right mt-0.5">
                   {selectedCurrency === 'IDR' ? (
                     <span>Ekuivalen: {formatJpy(grandTotal)} • Kurs 1 JPY = Rp {exchangeRate}</span>
                   ) : (
-                    <span>Ekuivalen: {formatIdr(grandTotalIdr)} (Rp)</span>
+                    <span className="font-bold text-emerald-700">≈ {formatIdr(grandTotalIdr)} • Kurs 1 JPY = Rp {exchangeRate}</span>
                   )}
                 </div>
               </div>

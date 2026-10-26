@@ -337,6 +337,9 @@ export interface AuthUser {
   email?: string;
   phone?: string;
   address?: string;
+  postalCode?: string;
+  prefecture?: string;
+  city?: string;
   loyaltyPoints?: number;
   tier?: string;
 }
