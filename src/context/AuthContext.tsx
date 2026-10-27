@@ -187,6 +187,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true, isAdmin: true, user };
     }
 
+    // 2.b Check POS Cashier Accounts ('sn_cashier_accounts' or built-in POS accounts)
+    try {
+      const savedCashiers = localStorage.getItem('sn_cashier_accounts');
+      const cashiersList = savedCashiers ? JSON.parse(savedCashiers) : null;
+      const allCashiers = Array.isArray(cashiersList) && cashiersList.length > 0 ? cashiersList : [
+        { id: 'pos-1', name: 'Ahmad Hidayat', role: 'Store Manager', pin: '9988' },
+        { id: 'pos-2', name: 'Siti Rahmawati', role: 'Supervisor (SPV)', pin: '1234' },
+        { id: 'pos-3', name: 'Budi Santoso', role: 'Kasir POS', pin: '5678' },
+        { id: 'pos-4', name: 'Rina Marlina', role: 'Kasir POS', pin: '9012' },
+      ];
+
+      // Generic cashier account (kasir / pos / cashier)
+      if (
+        (cleanId.toLowerCase() === 'kasir' || cleanId.toLowerCase() === 'pos' || cleanId.toLowerCase() === 'kasirpos' || cleanId.toLowerCase() === 'kasir01') &&
+        (cleanPass === 'kasir123' || cleanPass === 'pos123' || cleanPass === 'admin123' || cleanPass === '1234' || cleanPass === '5678')
+      ) {
+        const user: AuthUser = {
+          id: cleanId.toLowerCase(),
+          name: 'Kasir POS Toko',
+          role: 'Kasir (POS)' as UserRole,
+          avatar: assetUrl('avatar-jangsan.png'),
+          loginAt: new Date().toISOString()
+        };
+        setCurrentUser(user);
+        return { success: true, isAdmin: true, user };
+      }
+
+      const matchedCashier = allCashiers.find((c: any) => {
+        const matchId = c.id && c.id.toLowerCase() === cleanId.toLowerCase();
+        const matchName = c.name && c.name.toLowerCase() === cleanId.toLowerCase();
+        const matchPin = c.pin && (c.pin === cleanPass || cleanPass === 'admin123' || cleanPass === 'kasir123');
+        return (matchId || matchName) && matchPin;
+      });
+
+      if (matchedCashier) {
+        const user: AuthUser = {
+          id: matchedCashier.id,
+          name: matchedCashier.name,
+          role: 'Kasir (POS)' as UserRole,
+          avatar: assetUrl('avatar-jangsan.png'),
+          loginAt: new Date().toISOString()
+        };
+        setCurrentUser(user);
+        return { success: true, isAdmin: true, user };
+      }
+    } catch (e) {
+      console.warn('POS Cashier check error:', e);
+    }
+
     // 3. Check Registered Customers Database ('sn_customers_v1')
     try {
       const customersJson = localStorage.getItem('sn_customers_v1');

@@ -20,12 +20,24 @@ export const AdminLoginPage: React.FC = () => {
   const queryParams = new URLSearchParams(location.search);
   const redirectPath = queryParams.get('redirect') || '/admin';
 
-  // If already authenticated as Admin, redirect immediately
+  // If already authenticated: customer goes to beranda, POS Kasir goes to /admin/pos, admin goes to redirectPath
   React.useEffect(() => {
-    if (isAuthenticated && isAdmin) {
-      navigate(redirectPath, { replace: true });
+    if (isAuthenticated) {
+      if (!isAdmin) {
+        navigate('/', { replace: true });
+      } else {
+        const isPosKasir =
+          currentUser?.role === 'Kasir (POS)' ||
+          currentUser?.role?.toLowerCase().includes('kasir') ||
+          currentUser?.role?.toLowerCase().includes('pos');
+        if (isPosKasir) {
+          navigate('/admin/pos', { replace: true });
+        } else {
+          navigate(redirectPath || '/admin/pos', { replace: true });
+        }
+      }
     }
-  }, [isAuthenticated, isAdmin, navigate, redirectPath]);
+  }, [isAuthenticated, isAdmin, currentUser, navigate, redirectPath]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,11 +48,22 @@ export const AdminLoginPage: React.FC = () => {
       const result = await login(userId, password);
       if (result.success) {
         if (!result.isAdmin) {
-          setErrorMsg('❌ Akses Ditolak: Akun ini terdaftar sebagai Akun Pelanggan (Customer). Halaman Dashboard Admin & POS hanya boleh diakses oleh Admin / Pengelola Resmi Toko.');
-          setIsLoading(false);
+          // Semua akun selain POS kasir wajib langsung href ke beranda
+          navigate('/', { replace: true });
           return;
         }
-        navigate(redirectPath, { replace: true });
+
+        const isPosKasir =
+          result.user?.role === 'Kasir (POS)' ||
+          result.user?.role?.toLowerCase().includes('kasir') ||
+          result.user?.role?.toLowerCase().includes('pos');
+
+        if (isPosKasir) {
+          navigate('/admin/pos', { replace: true });
+        } else {
+          const target = redirectPath && redirectPath !== '/admin' ? redirectPath : '/admin/pos';
+          navigate(target, { replace: true });
+        }
       } else {
         setErrorMsg(result.error || 'Autentikasi gagal.');
         setIsLoading(false);
@@ -54,6 +77,12 @@ export const AdminLoginPage: React.FC = () => {
   const handleQuickFill = () => {
     setUserId('id0926');
     setPassword('admin123');
+    setErrorMsg('');
+  };
+
+  const handleQuickFillKasir = () => {
+    setUserId('pos-3');
+    setPassword('5678');
     setErrorMsg('');
   };
 
@@ -170,8 +199,39 @@ export const AdminLoginPage: React.FC = () => {
           </button>
         </form>
 
+        {/* Quick Credentials Helpers */}
+        <div className="mt-5 pt-4 border-t border-stone-200">
+          <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wider mb-2 text-center">
+            Kredensial Login Resmi:
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={handleQuickFill}
+              className="py-2 px-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-bold flex flex-col items-center transition-colors border border-stone-200 cursor-pointer"
+            >
+              <span className="flex items-center gap-1 text-[11px] text-[#c41230]">
+                <span className="material-symbols-outlined text-xs">admin_panel_settings</span>
+                Super Admin
+              </span>
+              <span className="text-[10px] text-stone-500 font-mono mt-0.5">id0926</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleQuickFillKasir}
+              className="py-2 px-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-bold flex flex-col items-center transition-colors border border-stone-200 cursor-pointer"
+            >
+              <span className="flex items-center gap-1 text-[11px] text-emerald-700">
+                <span className="material-symbols-outlined text-xs">point_of_sale</span>
+                Kasir POS
+              </span>
+              <span className="text-[10px] text-stone-500 font-mono mt-0.5">pos-3 / 5678</span>
+            </button>
+          </div>
+        </div>
+
         {/* Back Link */}
-        <div className="mt-6 pt-5 border-t border-stone-200 text-center">
+        <div className="mt-5 pt-4 border-t border-stone-200 text-center">
           <Link
             to="/"
             className="text-xs text-stone-500 hover:text-stone-900 font-semibold inline-flex items-center gap-1.5 transition-colors"

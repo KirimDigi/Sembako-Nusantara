@@ -140,6 +140,8 @@ export const ProfilePage: React.FC = () => {
       const res = await loginWithGoogle();
       if (!res.success && res.error) {
         setLoginError(res.error);
+      } else if (res.success) {
+        navigate('/', { replace: true });
       }
     } catch (err: any) {
       setLoginError(
@@ -162,8 +164,22 @@ export const ProfilePage: React.FC = () => {
     try {
       const res = await login(loginId, password);
       if (res.success) {
-        if (loginId.trim() === 'id0926') {
-          navigate('/admin');
+        const isPosKasir =
+          res.user?.role === 'Kasir (POS)' ||
+          res.user?.role?.toLowerCase().includes('kasir') ||
+          res.user?.role?.toLowerCase().includes('pos');
+        const isAdminAccount =
+          res.isAdmin ||
+          loginId.trim().toLowerCase() === 'id0926' ||
+          res.user?.role === 'Super Admin (Owner)';
+
+        if (isPosKasir) {
+          navigate('/admin/pos', { replace: true });
+        } else if (isAdminAccount) {
+          navigate('/admin/pos', { replace: true });
+        } else {
+          // Semua akun selain akun POS kasir wajib langsung ke beranda
+          navigate('/', { replace: true });
         }
       } else {
         setLoginError(
@@ -318,6 +334,9 @@ export const ProfilePage: React.FC = () => {
             })
           );
         } catch (err) {}
+
+        // Semua akun pelanggan baru setelah login langsung href ke beranda
+        navigate('/', { replace: true });
       } else {
         setRegError(res.error || 'Gagal mendaftar akun baru.');
       }
