@@ -31,7 +31,7 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
   const urlQuery = searchParams.get('q') || '';
 
   const [selectedCategory, setSelectedCategory] = useState<string>('cat_all');
-  const [sortBy, setSortBy] = useState<'popular' | 'price_asc' | 'price_desc' | 'rating' | 'name'>('popular');
+  const [sortBy, setSortBy] = useState<'name' | 'popular' | 'price_asc' | 'price_desc' | 'rating'>('name');
   const [filterFrozenOnly, setFilterFrozenOnly] = useState(false);
   const [filterHalalOnly, setFilterHalalOnly] = useState(false);
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
@@ -643,11 +643,11 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
               }}
               className="bg-white border border-stone-300 rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-stone-800 font-semibold focus:outline-none focus:ring-2 focus:ring-[#c41230] shadow-sm cursor-pointer"
             >
+              <option value="name">{language === 'JP' ? '🔤 商品名 (A-Z)' : language === 'EN' ? '🔤 Product Name (A-Z)' : '🔤 Nama Produk (A-Z Abjad)'}</option>
               <option value="popular">{language === 'JP' ? '人気順 / おすすめ' : language === 'EN' ? 'Most Popular' : 'Paling Populer'}</option>
               <option value="price_asc">{language === 'JP' ? '価格が安い順' : language === 'EN' ? 'Price: Low to High' : 'Harga: Rendah ke Tinggi'}</option>
               <option value="price_desc">{language === 'JP' ? '価格が高い順' : language === 'EN' ? 'Price: High to Low' : 'Harga: Tinggi ke Rendah'}</option>
               <option value="rating">{language === 'JP' ? '評価が高い順' : language === 'EN' ? 'Highest Rating' : 'Rating Tertinggi'}</option>
-              <option value="name">{language === 'JP' ? '商品名 (A-Z)' : language === 'EN' ? 'Product Name (A-Z)' : 'Nama Produk (A-Z)'}</option>
             </select>
           </div>
         </div>

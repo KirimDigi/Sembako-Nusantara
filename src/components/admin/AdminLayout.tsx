@@ -625,37 +625,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
                 <p className="text-[10px] text-stone-400">Integrated ERP & POS Hub</p>
               </div>
             </div>
-            {isPOSPage && (
-              <div className="hidden md:flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setIsPOSSidebarExpanded(!isPOSSidebarExpanded)}
-                  className={`p-1.5 rounded-lg transition-colors cursor-pointer text-[10px] flex items-center gap-1 border ${
-                    isPOSSidebarExpanded
-                      ? 'bg-[#c41230] text-white border-rose-500 hover:bg-[#a80f28]'
-                      : 'bg-stone-800 text-stone-300 hover:text-white hover:bg-stone-700 border-stone-700/80'
-                  }`}
-                  title={isPOSSidebarExpanded ? 'Lepas Pin / Otomatis Ciutkan' : 'Kunci Sidebar Terbuka (Pin)'}
-                >
-                  <span className="material-symbols-outlined text-sm">
-                    {isPOSSidebarExpanded ? 'push_pin' : 'keep'}
-                  </span>
-                  <span>{isPOSSidebarExpanded ? 'Terkunci' : 'Kunci (Pin)'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsPOSSidebarExpanded(false);
-                    setIsSidebarHovered(false);
-                  }}
-                  className="text-stone-400 hover:text-white p-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 transition-colors cursor-pointer text-[10px] flex items-center gap-1 border border-stone-700/80"
-                  title="Ciutkan Sidebar ke Mode Ikon (Collapsed)"
-                >
-                  <span className="material-symbols-outlined text-sm">dock_to_left</span>
-                  <span>Ciutkan</span>
-                </button>
-              </div>
-            )}
             <button
               onClick={() => setMobileMenuOpen(false)}
               className="md:hidden text-stone-400 hover:text-white p-1 rounded-lg bg-stone-800 hover:bg-stone-700 transition-colors cursor-pointer"

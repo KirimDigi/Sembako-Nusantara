@@ -15,6 +15,7 @@ export const ProductManagementPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [stockFilter, setStockFilter] = useState<'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'>('ALL');
+  const [sortBy, setSortBy] = useState<'NAME_ASC' | 'NAME_DESC' | 'PRICE_ASC' | 'PRICE_DESC' | 'STOCK_ASC' | 'STOCK_DESC'>('NAME_ASC');
   const [viewMode, setViewMode] = useState<'TABLE' | 'GRID'>('TABLE');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -38,7 +39,8 @@ export const ProductManagementPage: React.FC = () => {
   
   // Direct Inline Photo URL Editing states (Tanpa klik, langsung ketik/paste & tombol simpan)
   const [imageDrafts, setImageDrafts] = useState<Record<string, string>>({});
-  const [savedImageSuccessIds, setSavedImageSuccessIds] = useState<Record<string, boolean>>({});
+  const [savingImageIds, setSavingImageIds] = useState<Record<string, boolean>>({});
+  const [savedImageSuccessIds, setSavedImageSuccessIds] = useState<Record<string, { success: boolean; message: string }>>({});
 
   // Inline Price & HPP Editing states
   const [inlineEditingHpp, setInlineEditingHpp] = useState<{ id: string; value: string } | null>(null);
@@ -116,8 +118,16 @@ export const ProductManagementPage: React.FC = () => {
       if (stockFilter === 'OUT_OF_STOCK') matchStock = p.stock <= 0;
 
       return matchQuery && matchCat && matchStock;
+    }).sort((a, b) => {
+      if (sortBy === 'NAME_ASC') return a.name.localeCompare(b.name, 'id', { sensitivity: 'base' });
+      if (sortBy === 'NAME_DESC') return b.name.localeCompare(a.name, 'id', { sensitivity: 'base' });
+      if (sortBy === 'PRICE_ASC') return a.price - b.price;
+      if (sortBy === 'PRICE_DESC') return b.price - a.price;
+      if (sortBy === 'STOCK_ASC') return a.stock - b.stock;
+      if (sortBy === 'STOCK_DESC') return b.stock - a.stock;
+      return a.name.localeCompare(b.name, 'id', { sensitivity: 'base' });
     });
-  }, [products, searchQuery, selectedCategory, stockFilter]);
+  }, [products, searchQuery, selectedCategory, stockFilter, sortBy]);
 
   // Paginated Products
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
@@ -397,12 +407,16 @@ export const ProductManagementPage: React.FC = () => {
     setInlineImageUrl('');
   };
 
-  // Direct Inline Photo URL Save & Reset (Tanpa klik sebelumnya)
-  const handleSaveDirectImage = (productId: string, newUrl: string) => {
+  // Direct Inline Photo URL Save & Reset (Tersinkronisasi otomatis ke Supabase Cloud & LocalStorage)
+  const handleSaveDirectImage = async (productId: string, newUrl: string) => {
     const trimmed = newUrl.trim();
     if (!trimmed) return;
     
-    updateProduct(productId, { image: trimmed });
+    setSavingImageIds((prev) => ({ ...prev, [productId]: true }));
+
+    const res = await updateProduct(productId, { image: trimmed });
+
+    setSavingImageIds((prev) => ({ ...prev, [productId]: false }));
     
     // Clear draft for this product
     setImageDrafts((prev) => {
@@ -411,11 +425,24 @@ export const ProductManagementPage: React.FC = () => {
       return copy;
     });
 
-    // Show temporary saved indicator for 2.5 seconds
-    setSavedImageSuccessIds((prev) => ({ ...prev, [productId]: true }));
+    // Show temporary feedback indicator for 3.5 seconds
+    const isCloudSuccess = res && typeof res === 'object' && res.success;
+    const msg = isCloudSuccess
+      ? 'URL Foto berhasil disimpan & sinkron ke Supabase Cloud!'
+      : 'URL Foto tersimpan di Local Storage (Cloud Supabase offline)';
+
+    setSavedImageSuccessIds((prev) => ({
+      ...prev,
+      [productId]: { success: true, message: msg }
+    }));
+
     setTimeout(() => {
-      setSavedImageSuccessIds((prev) => ({ ...prev, [productId]: false }));
-    }, 2500);
+      setSavedImageSuccessIds((prev) => {
+        const copy = { ...prev };
+        delete copy[productId];
+        return copy;
+      });
+    }, 3500);
   };
 
   const handleResetDirectImage = (productId: string) => {
@@ -619,6 +646,35 @@ export const ProductManagementPage: React.FC = () => {
               ))}
             </select>
 
+            {/* Sort Dropdown */}
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value as any);
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none cursor-pointer"
+            >
+              <option value="NAME_ASC">
+                {language === 'JP' ? '🔤 商品名 (A-Z 昇順)' : language === 'EN' ? '🔤 Name (A-Z)' : '🔤 Nama (A-Z Abjad)'}
+              </option>
+              <option value="NAME_DESC">
+                {language === 'JP' ? '🔤 商品名 (Z-A 降順)' : language === 'EN' ? '🔤 Name (Z-A)' : '🔤 Nama (Z-A)'}
+              </option>
+              <option value="PRICE_ASC">
+                {language === 'JP' ? '💰 価格 (安い順)' : language === 'EN' ? '💰 Price (Low to High)' : '💰 Harga (Termurah)'}
+              </option>
+              <option value="PRICE_DESC">
+                {language === 'JP' ? '💰 価格 (高い順)' : language === 'EN' ? '💰 Price (High to Low)' : '💰 Harga (Termahal)'}
+              </option>
+              <option value="STOCK_DESC">
+                {language === 'JP' ? '📦 在庫 (多い順)' : language === 'EN' ? '📦 Stock (High to Low)' : '📦 Stok (Terbanyak)'}
+              </option>
+              <option value="STOCK_ASC">
+                {language === 'JP' ? '📦 在庫 (少ない順)' : language === 'EN' ? '📦 Stock (Low to High)' : '📦 Stok (Tersedikit)'}
+              </option>
+            </select>
+
             {/* Stock Filter */}
             <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl">
               {(['ALL', 'IN_STOCK', 'LOW_STOCK', 'OUT_OF_STOCK'] as const).map((filter) => (
@@ -738,7 +794,7 @@ export const ProductManagementPage: React.FC = () => {
                     const draftUrl = imageDrafts[p.id];
                     const currentImageUrl = draftUrl !== undefined ? draftUrl : p.image;
                     const isImageChanged = draftUrl !== undefined && draftUrl.trim() !== p.image.trim();
-                    const isSavedImageSuccess = !!savedImageSuccessIds[p.id];
+                    const savedImageInfo = savedImageSuccessIds[p.id];
 
                     // Margin calculation
                     const hpp = p.costPrice || 0;
@@ -821,12 +877,22 @@ export const ProductManagementPage: React.FC = () => {
                                   <div className="flex items-center gap-1 shrink-0 animate-fadeIn">
                                     <button
                                       type="button"
+                                      disabled={savingImageIds[p.id]}
                                       onClick={() => handleSaveDirectImage(p.id, currentImageUrl)}
-                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-xs transition-all cursor-pointer"
-                                      title="Simpan perubahan URL foto produk ini"
+                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                                      title="Simpan perubahan URL foto produk ini ke Supabase"
                                     >
-                                      <span className="material-symbols-outlined text-xs">save</span>
-                                      <span>Simpan</span>
+                                      {savingImageIds[p.id] ? (
+                                        <>
+                                          <span className="material-symbols-outlined text-xs animate-spin">sync</span>
+                                          <span>Menyimpan...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span className="material-symbols-outlined text-xs">cloud_upload</span>
+                                          <span>Simpan</span>
+                                        </>
+                                      )}
                                     </button>
                                     <button
                                       type="button"
@@ -840,10 +906,10 @@ export const ProductManagementPage: React.FC = () => {
                                 )}
                               </div>
 
-                              {isSavedImageSuccess && (
-                                <div className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
-                                  <span className="material-symbols-outlined text-[12px]">check_circle</span>
-                                  <span>URL Foto berhasil disimpan!</span>
+                              {savedImageInfo && (
+                                <div className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 animate-fadeIn">
+                                  <span className="material-symbols-outlined text-[13px]">cloud_done</span>
+                                  <span>{savedImageInfo.message}</span>
                                 </div>
                               )}
                             </div>

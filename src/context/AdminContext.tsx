@@ -45,6 +45,7 @@ interface AdminContextType {
   deleteDirectPurchase: (id: string) => void;
   stockMovements: StockMovement[];
   posTransactions: POSTransaction[];
+  deletePOSTransaction: (id: string) => Promise<{ success: boolean; error?: string }> | void;
   orders: Order[];
   customers: CustomerCRM[];
   vouchers: Voucher[];
@@ -100,7 +101,10 @@ interface AdminContextType {
   toggleWholesalePrice: (id: string) => void;
   deleteWholesalePrice: (id: string) => void;
   addNewProduct: (product: Product) => void;
-  updateProduct: (id: string, updatedData: Partial<Product>) => void;
+  updateProduct: (
+    id: string,
+    updatedData: Partial<Product>
+  ) => Promise<{ success: boolean; error?: string }> | void;
   deleteProduct: (id: string) => void;
   clearAllTransactions: () => void;
   batchApplyStockOpname: (
@@ -670,6 +674,28 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return newTx;
   };
 
+  const deletePOSTransaction = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    setPosTransactions((prev) => {
+      const updated = prev.filter((tx) => tx.id !== id);
+      try {
+        localStorage.setItem('sn_pos_tx_v2', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    try {
+      const { error } = await supabase.from('pos_transactions').delete().eq('id', id);
+      if (error) {
+        console.warn('[AdminContext] Supabase delete pos_transaction notice:', error.message);
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    } catch (e: any) {
+      console.warn('[AdminContext] Exception deleting pos_transaction:', e);
+      return { success: false, error: e?.message || 'Gagal menghapus transaksi dari cloud' };
+    }
+  };
+
   const createPurchaseOrder = (
     poData: Omit<PurchaseOrder, 'id' | 'poNumber' | 'dateCreated'>
   ): PurchaseOrder => {
@@ -1198,10 +1224,27 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (e) {}
   };
 
-  const updateProduct = (id: string, updatedData: Partial<Product>) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updatedData } : p))
-    );
+  const updateProduct = async (
+    id: string,
+    updatedData: Partial<Product>
+  ): Promise<{ success: boolean; error?: string }> => {
+    let targetProduct: Product | undefined;
+    setProducts((prev) => {
+      const updatedList = prev.map((p) => {
+        if (p.id === id || (p.sku && p.sku === id)) {
+          targetProduct = { ...p, ...updatedData };
+          return targetProduct;
+        }
+        return p;
+      });
+
+      // Synchronize immediately to persistent LocalStorage
+      try {
+        localStorage.setItem('sn_products_v7', JSON.stringify(updatedList));
+      } catch (err) {}
+
+      return updatedList;
+    });
 
     try {
       const mapped: any = { updated_at: new Date().toISOString() };
@@ -1220,8 +1263,51 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (updatedData.barcode !== undefined) mapped.barcode = updatedData.barcode;
       if (updatedData.description !== undefined) mapped.description = updatedData.description;
 
-      supabase.from('products').update(mapped).eq('id', id).then(() => {}, () => {});
-    } catch (e) {}
+      // 1. Try update by id or sku in Supabase
+      const { data, error } = await supabase
+        .from('products')
+        .update(mapped)
+        .or(`id.eq.${id},sku.eq.${id}`)
+        .select();
+
+      // 2. If row did not exist yet in Supabase products table, upsert full product record
+      if ((error || !data || data.length === 0) && targetProduct) {
+        const prod = targetProduct as Product;
+        const { error: upsertErr } = await supabase.from('products').upsert({
+          id: prod.id,
+          sku: prod.sku || prod.id,
+          name: prod.name,
+          name_jp: prod.nameJp || prod.name,
+          name_en: prod.nameEn || prod.name,
+          category: prod.category,
+          price: prod.price || 0,
+          cost_price: prod.costPrice || 0,
+          stock: prod.stock || 0,
+          unit: prod.unit || 'pcs',
+          image: prod.image || '/placeholder-upload.svg',
+          is_halal: prod.isHalal ?? true,
+          is_frozen: prod.isFrozen ?? false,
+          barcode: prod.barcode || null,
+          description: prod.description || '',
+          ...mapped
+        });
+
+        if (upsertErr) {
+          console.warn('[AdminContext] Supabase upsert notice:', upsertErr.message);
+          return { success: false, error: upsertErr.message };
+        }
+      }
+
+      if (error) {
+        console.warn('[AdminContext] Supabase update notice:', error.message);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (e: any) {
+      console.warn('[AdminContext] Network/Supabase update exception:', e);
+      return { success: false, error: e?.message || 'Gagal sinkron ke Supabase' };
+    }
   };
 
   const deleteProduct = (id: string) => {
@@ -1393,6 +1479,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setActiveRole,
         updateProductStock,
         addPOSTransaction,
+        deletePOSTransaction,
         createPurchaseOrder,
         receivePurchaseOrder,
         updatePurchaseOrder,

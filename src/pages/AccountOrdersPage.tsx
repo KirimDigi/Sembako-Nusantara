@@ -572,23 +572,66 @@ export const AccountOrdersPage: React.FC = () => {
                             <span>Pesanan ini dibatalkan. Seluruh stok produk telah dikembalikan ke inventaris gudang.</span>
                           </div>
                         ) : (
-                          /* Interactive 4-Node Stepper Progress Bar */
+                          /* Interactive 4-Node Stepper Progress Bar with Animated Connecting Lines */
                           <div className="relative pt-2 pb-1">
-                            {/* Connecting Line */}
-                            <div className="absolute top-5 left-6 right-6 h-1 bg-stone-200 -z-0">
+                            {/* Segmented Connecting Lines ("Garis Lintang Proses") */}
+                            <div className="absolute top-[26px] left-[12.5%] right-[12.5%] h-1.5 -z-0">
+                              {/* Background Base Track */}
+                              <div className="absolute inset-0 bg-stone-200 rounded-full"></div>
+
+                              {/* Segment 1: Step 1 (Dikemas) -> Step 2 (Siap Pickup) */}
                               <div
-                                className="h-full bg-[#c41230] transition-all duration-500"
-                                style={{
-                                  width:
-                                    stepNum === 1
-                                      ? '0%'
-                                      : stepNum === 2
-                                      ? '33.33%'
-                                      : stepNum === 3
-                                      ? '66.66%'
-                                      : '100%'
-                                }}
-                              ></div>
+                                className={`absolute top-0 bottom-0 left-0 w-[33.33%] rounded-l-full transition-all duration-500 overflow-hidden ${
+                                  stepNum > 1
+                                    ? 'bg-[#c41230]'
+                                    : stepNum === 1
+                                    ? 'bg-gradient-to-r from-[#c41230] via-amber-400 to-amber-500 tracking-stripe-animated shadow-xs'
+                                    : 'bg-stone-200'
+                                }`}
+                              >
+                                {stepNum === 1 && (
+                                  <div className="absolute top-1/2 -translate-y-1/2 right-0.5 w-2.5 h-2.5 bg-amber-300 border border-white rounded-full animate-ping"></div>
+                                )}
+                              </div>
+
+                              {/* Segment 2: Step 2 (Siap Pickup) -> Step 3 (Dikirim) */}
+                              <div
+                                className={`absolute top-0 bottom-0 left-[33.33%] w-[33.33%] transition-all duration-500 overflow-hidden ${
+                                  stepNum > 2
+                                    ? 'bg-[#c41230]'
+                                    : stepNum === 2
+                                    ? 'bg-gradient-to-r from-[#c41230] via-purple-500 to-blue-500 tracking-stripe-animated shadow-xs'
+                                    : 'bg-stone-200'
+                                }`}
+                              >
+                                {stepNum === 2 && (
+                                  <div className="absolute top-1/2 -translate-y-1/2 right-0.5 w-2.5 h-2.5 bg-blue-400 border border-white rounded-full animate-ping"></div>
+                                )}
+                              </div>
+
+                              {/* Segment 3: Step 3 (Dikirim) -> Step 4 (Rumah Alamat) */}
+                              <div
+                                className={`absolute top-0 bottom-0 left-[66.66%] w-[33.34%] rounded-r-full transition-all duration-500 ${
+                                  stepNum === 4
+                                    ? 'bg-emerald-600'
+                                    : stepNum === 3
+                                    ? 'bg-gradient-to-r from-blue-600 via-amber-400 to-emerald-500 tracking-stripe-animated shadow-sm ring-1 ring-blue-300/60'
+                                    : 'bg-stone-200'
+                                }`}
+                              >
+                                {stepNum === 3 && (
+                                  <>
+                                    {/* Floating Traveling Delivery Courier Indicator along Garis Lintang */}
+                                    <div className="absolute -top-3.5 animate-travel-courier z-20 pointer-events-none">
+                                      <div className="flex items-center gap-1 bg-white border border-blue-400 px-1.5 py-0.5 rounded-full shadow-md text-[10px] font-bold text-blue-800 whitespace-nowrap animate-pulse">
+                                        <span className="text-xs">🚚</span>
+                                        <span className="hidden sm:inline text-[9px] text-blue-700 font-extrabold">Menuju Rumah 🏠</span>
+                                      </div>
+                                    </div>
+                                    <div className="absolute top-1/2 -translate-y-1/2 right-0.5 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full animate-ping"></div>
+                                  </>
+                                )}
+                              </div>
                             </div>
 
                             {/* 4 Steps */}
@@ -640,7 +683,7 @@ export const AccountOrdersPage: React.FC = () => {
                                 <div
                                   className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shadow-xs transition-all ${
                                     stepNum >= 3
-                                      ? 'bg-[#c41230] text-white ring-4 ring-[#c41230]/20'
+                                      ? 'bg-[#c41230] text-white ring-4 ring-blue-300'
                                       : 'bg-white border-2 border-stone-300 text-stone-400'
                                   }`}
                                 >
@@ -653,26 +696,57 @@ export const AccountOrdersPage: React.FC = () => {
                                 <span className={`text-[11px] font-bold mt-1.5 ${stepNum >= 3 ? 'text-stone-900' : 'text-stone-400'}`}>
                                   3. Dikirim
                                 </span>
-                                <span className="text-[9px] text-stone-400 hidden sm:block">Resi Terbit</span>
+                                <span className="text-[9px] text-stone-400 hidden sm:block">
+                                  {stepNum === 3 ? 'Dalam Perjalanan' : 'Resi Terbit'}
+                                </span>
                               </div>
 
-                              {/* Step 4: Selesai */}
+                              {/* Step 4: Rumah Alamat (Selesai) */}
                               <div className="flex flex-col items-center">
                                 <div
                                   className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shadow-xs transition-all ${
                                     stepNum === 4
                                       ? 'bg-emerald-600 text-white ring-4 ring-emerald-600/20'
+                                      : stepNum === 3
+                                      ? 'bg-white border-2 border-blue-500 text-blue-600 ring-4 ring-blue-100 animate-pulse'
                                       : 'bg-white border-2 border-stone-300 text-stone-400'
                                   }`}
                                 >
-                                  <span className="material-symbols-outlined text-sm">task_alt</span>
+                                  {stepNum === 4 ? (
+                                    <span className="material-symbols-outlined text-sm">task_alt</span>
+                                  ) : (
+                                    <span className="material-symbols-outlined text-sm">home</span>
+                                  )}
                                 </div>
-                                <span className={`text-[11px] font-bold mt-1.5 ${stepNum === 4 ? 'text-emerald-700' : 'text-stone-400'}`}>
-                                  4. Selesai
+                                <span className={`text-[11px] font-bold mt-1.5 ${stepNum === 4 ? 'text-emerald-700' : stepNum === 3 ? 'text-blue-900' : 'text-stone-400'}`}>
+                                  4. Rumah Alamat
                                 </span>
-                                <span className="text-[9px] text-stone-400 hidden sm:block">Tiba di Tujuan</span>
+                                <span className="text-[9px] text-stone-400 hidden sm:block">
+                                  {stepNum === 4 ? 'Tiba di Tujuan' : 'Tujuan Pengiriman'}
+                                </span>
                               </div>
                             </div>
+
+                            {/* In-Transit Active Process Banner for Step 3 (Menuju Rumah Alamat) */}
+                            {stepNum === 3 && (
+                              <div className="mt-3 px-3 py-2 bg-gradient-to-r from-blue-50 via-sky-50 to-emerald-50 rounded-xl border border-blue-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span className="flex h-2.5 w-2.5 relative">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600"></span>
+                                  </span>
+                                  <span className="text-blue-900 font-semibold text-[11px]">
+                                    Paket sedang dalam perjalanan kurir <strong>{order.courier || 'Ekspedisi'}</strong> menuju <strong>Rumah Alamat Anda</strong>:
+                                  </span>
+                                </div>
+                                <span className="text-[11px] font-medium text-stone-700 bg-white/95 px-2.5 py-0.5 rounded-lg border border-blue-200 flex items-center gap-1 shadow-2xs">
+                                  <span className="material-symbols-outlined text-xs text-blue-600">home_pin</span>
+                                  <span className="font-bold text-stone-900 truncate max-w-[200px] sm:max-w-[340px]">
+                                    {order.shippingAddress || 'Alamat Tujuan Pengiriman'}
+                                  </span>
+                                </span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

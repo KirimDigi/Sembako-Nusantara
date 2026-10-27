@@ -436,6 +436,234 @@ export const TrackingPage: React.FC = () => {
             </div>
           )}
 
+          {/* Horizontal 4-Node Visual Stepper with Animated Garis Lintang Proses */}
+          {(() => {
+            const stepNum =
+              orderStatus === 'Selesai'
+                ? 4
+                : orderStatus === 'Dikirim'
+                ? 3
+                : orderStatus === 'Selesai Packing'
+                ? 2
+                : 1;
+
+            return (
+              <div className="bg-stone-50/90 rounded-2xl p-4 sm:p-5 border border-stone-200/80 space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold text-stone-600">
+                  <span className="flex items-center gap-1.5 uppercase tracking-wider text-[11px] text-stone-500">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>
+                      {language === 'JP'
+                        ? '配送プロセス進捗 (4ステップ):'
+                        : language === 'EN'
+                        ? 'Delivery Progress (4 Steps):'
+                        : 'Alur Tahapan Pengiriman (4 Tahap):'}
+                    </span>
+                  </span>
+                  <span className="text-[11px] font-bold text-stone-800">
+                    {stepNum === 1
+                      ? language === 'JP' ? 'ステップ 1/4: 倉庫での梱包作業中' : language === 'EN' ? 'Step 1/4: Warehouse Packing' : 'Tahap 1 / 4: Sedang Dikemas di Gudang'
+                      : stepNum === 2
+                      ? language === 'JP' ? 'ステップ 2/4: 集荷手配中' : language === 'EN' ? 'Step 2/4: Packed & Ready for Pickup' : 'Tahap 2 / 4: Selesai Packing & Menunggu Kurir'
+                      : stepNum === 3
+                      ? language === 'JP' ? 'ステップ 3/4: 配送中 (お届け先へ輸送中)' : language === 'EN' ? 'Step 3/4: In Transit to Destination' : 'Tahap 3 / 4: Paket Diserahkan ke Ekspedisi'
+                      : language === 'JP' ? 'ステップ 4/4: 配達完了' : language === 'EN' ? 'Step 4/4: Delivered' : 'Tahap 4 / 4: Paket Berhasil Diterima'}
+                  </span>
+                </div>
+
+                <div className="relative pt-2 pb-1">
+                  {/* Segmented Connecting Lines ("Garis Lintang Proses") */}
+                  <div className="absolute top-[26px] left-[12.5%] right-[12.5%] h-1.5 -z-0">
+                    {/* Background Base Track */}
+                    <div className="absolute inset-0 bg-stone-200 rounded-full"></div>
+
+                    {/* Segment 1: Step 1 (Dikemas) -> Step 2 (Siap Pickup) */}
+                    <div
+                      className={`absolute top-0 bottom-0 left-0 w-[33.33%] rounded-l-full transition-all duration-500 overflow-hidden ${
+                        stepNum > 1
+                          ? 'bg-[#c41230]'
+                          : stepNum === 1
+                          ? 'bg-gradient-to-r from-[#c41230] via-amber-400 to-amber-500 tracking-stripe-animated shadow-xs'
+                          : 'bg-stone-200'
+                      }`}
+                    >
+                      {stepNum === 1 && (
+                        <div className="absolute top-1/2 -translate-y-1/2 right-0.5 w-2.5 h-2.5 bg-amber-300 border border-white rounded-full animate-ping"></div>
+                      )}
+                    </div>
+
+                    {/* Segment 2: Step 2 (Siap Pickup) -> Step 3 (Dikirim) */}
+                    <div
+                      className={`absolute top-0 bottom-0 left-[33.33%] w-[33.33%] transition-all duration-500 overflow-hidden ${
+                        stepNum > 2
+                          ? 'bg-[#c41230]'
+                          : stepNum === 2
+                          ? 'bg-gradient-to-r from-[#c41230] via-purple-500 to-blue-500 tracking-stripe-animated shadow-xs'
+                          : 'bg-stone-200'
+                      }`}
+                    >
+                      {stepNum === 2 && (
+                        <div className="absolute top-1/2 -translate-y-1/2 right-0.5 w-2.5 h-2.5 bg-blue-400 border border-white rounded-full animate-ping"></div>
+                      )}
+                    </div>
+
+                    {/* Segment 3: Step 3 (Dikirim) -> Step 4 (Rumah Alamat) */}
+                    <div
+                      className={`absolute top-0 bottom-0 left-[66.66%] w-[33.34%] rounded-r-full transition-all duration-500 ${
+                        stepNum === 4
+                          ? 'bg-emerald-600'
+                          : stepNum === 3
+                          ? 'bg-gradient-to-r from-blue-600 via-amber-400 to-emerald-500 tracking-stripe-animated shadow-sm ring-1 ring-blue-300/60'
+                          : 'bg-stone-200'
+                      }`}
+                    >
+                      {stepNum === 3 && (
+                        <>
+                          {/* Floating Traveling Delivery Courier Indicator along Garis Lintang */}
+                          <div className="absolute -top-3.5 animate-travel-courier z-20 pointer-events-none">
+                            <div className="flex items-center gap-1 bg-white border border-blue-400 px-1.5 py-0.5 rounded-full shadow-md text-[10px] font-bold text-blue-800 whitespace-nowrap animate-pulse">
+                              <span className="text-xs">🚚</span>
+                              <span className="hidden sm:inline text-[9px] text-blue-700 font-extrabold">
+                                {language === 'JP' ? 'お届け先へ配送中 🏠' : language === 'EN' ? 'Towards Home 🏠' : 'Menuju Rumah 🏠'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="absolute top-1/2 -translate-y-1/2 right-0.5 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full animate-ping"></div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 4 Steps */}
+                  <div className="grid grid-cols-4 relative z-10 text-center gap-1">
+                    {/* Step 1: Dikemas */}
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shadow-xs transition-all ${
+                          stepNum >= 1
+                            ? 'bg-[#c41230] text-white ring-4 ring-[#c41230]/20'
+                            : 'bg-white border-2 border-stone-300 text-stone-400'
+                        }`}
+                      >
+                        {stepNum > 1 ? (
+                          <span className="material-symbols-outlined text-sm">check</span>
+                        ) : (
+                          <span className="material-symbols-outlined text-sm">inventory_2</span>
+                        )}
+                      </div>
+                      <span className={`text-[11px] font-bold mt-1.5 ${stepNum >= 1 ? 'text-stone-900' : 'text-stone-400'}`}>
+                        {language === 'JP' ? '1. 梱包作業' : language === 'EN' ? '1. Packing' : '1. Dikemas'}
+                      </span>
+                      <span className="text-[9px] text-stone-400 hidden sm:block">
+                        {language === 'JP' ? '倉庫準備' : language === 'EN' ? 'Warehouse' : 'Packing Gudang'}
+                      </span>
+                    </div>
+
+                    {/* Step 2: Selesai Packing */}
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shadow-xs transition-all ${
+                          stepNum >= 2
+                            ? 'bg-[#c41230] text-white ring-4 ring-[#c41230]/20'
+                            : 'bg-white border-2 border-stone-300 text-stone-400'
+                        }`}
+                      >
+                        {stepNum > 2 ? (
+                          <span className="material-symbols-outlined text-sm">check</span>
+                        ) : (
+                          <span className="material-symbols-outlined text-sm">checklist</span>
+                        )}
+                      </div>
+                      <span className={`text-[11px] font-bold mt-1.5 ${stepNum >= 2 ? 'text-stone-900' : 'text-stone-400'}`}>
+                        {language === 'JP' ? '2. 集荷待ち' : language === 'EN' ? '2. Ready' : '2. Siap Pickup'}
+                      </span>
+                      <span className="text-[9px] text-stone-400 hidden sm:block">
+                        {language === 'JP' ? '梱包完了' : language === 'EN' ? 'Packed' : 'Selesai Packing'}
+                      </span>
+                    </div>
+
+                    {/* Step 3: Dikirim */}
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shadow-xs transition-all ${
+                          stepNum >= 3
+                            ? 'bg-[#c41230] text-white ring-4 ring-blue-300'
+                            : 'bg-white border-2 border-stone-300 text-stone-400'
+                        }`}
+                      >
+                        {stepNum > 3 ? (
+                          <span className="material-symbols-outlined text-sm">check</span>
+                        ) : (
+                          <span className="material-symbols-outlined text-sm">local_shipping</span>
+                        )}
+                      </div>
+                      <span className={`text-[11px] font-bold mt-1.5 ${stepNum >= 3 ? 'text-stone-900' : 'text-stone-400'}`}>
+                        {language === 'JP' ? '3. 配送中' : language === 'EN' ? '3. Shipped' : '3. Dikirim'}
+                      </span>
+                      <span className="text-[9px] text-stone-400 hidden sm:block">
+                        {stepNum === 3
+                          ? (language === 'JP' ? '輸送中' : language === 'EN' ? 'In Transit' : 'Dalam Perjalanan')
+                          : (language === 'JP' ? '伝票番号' : language === 'EN' ? 'Dispatched' : 'Resi Terbit')}
+                      </span>
+                    </div>
+
+                    {/* Step 4: Rumah Alamat (Selesai) */}
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shadow-xs transition-all ${
+                          stepNum === 4
+                            ? 'bg-emerald-600 text-white ring-4 ring-emerald-600/20'
+                            : stepNum === 3
+                            ? 'bg-white border-2 border-blue-500 text-blue-600 ring-4 ring-blue-100 animate-pulse'
+                            : 'bg-white border-2 border-stone-300 text-stone-400'
+                        }`}
+                      >
+                        {stepNum === 4 ? (
+                          <span className="material-symbols-outlined text-sm">task_alt</span>
+                        ) : (
+                          <span className="material-symbols-outlined text-sm">home</span>
+                        )}
+                      </div>
+                      <span className={`text-[11px] font-bold mt-1.5 ${stepNum === 4 ? 'text-emerald-700' : stepNum === 3 ? 'text-blue-900' : 'text-stone-400'}`}>
+                        {language === 'JP' ? '4. お届け先' : language === 'EN' ? '4. Home Address' : '4. Rumah Alamat'}
+                      </span>
+                      <span className="text-[9px] text-stone-400 hidden sm:block">
+                        {stepNum === 4
+                          ? (language === 'JP' ? '配達完了' : language === 'EN' ? 'Delivered' : 'Tiba di Tujuan')
+                          : (language === 'JP' ? 'お届け先住所' : language === 'EN' ? 'Destination' : 'Tujuan Pengiriman')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* In-Transit Active Process Banner for Step 3 (Menuju Rumah Alamat) */}
+                  {stepNum === 3 && (
+                    <div className="mt-3 px-3 py-2 bg-gradient-to-r from-blue-50 via-sky-50 to-emerald-50 rounded-xl border border-blue-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-2.5 w-2.5 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600"></span>
+                        </span>
+                        <span className="text-blue-900 font-semibold text-[11px]">
+                          {language === 'JP'
+                            ? `お荷物は現在 ${courierName} によってお客様のお届け先へ配送中です:`
+                            : language === 'EN'
+                            ? `Package is currently on delivery by ${courierName} towards your home address:`
+                            : `Paket sedang dalam perjalanan kurir ${courierName} menuju Rumah Alamat Anda:`}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-medium text-stone-700 bg-white/95 px-2.5 py-0.5 rounded-lg border border-blue-200 flex items-center gap-1 shadow-2xs">
+                        <span className="material-symbols-outlined text-xs text-blue-600">home_pin</span>
+                        <span className="font-bold text-stone-900 truncate max-w-[200px] sm:max-w-[340px]">
+                          {destinationAddress || 'Alamat Tujuan Pengiriman di Jepang'}
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Timeline Items */}
           <div className="relative border-l-2 border-stone-200 ml-4 space-y-8 pl-6 pt-2">
             {timelineSteps.map((step, idx) => (

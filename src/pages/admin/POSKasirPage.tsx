@@ -14,7 +14,7 @@ export const POSKasirPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') === 'history' || searchParams.get('tab') === 'sales' ? 'history' : 'pos';
 
-  const { products, addPOSTransaction, posTransactions, customers, addCustomer } = useAdmin();
+  const { products, addPOSTransaction, deletePOSTransaction, posTransactions, customers, addCustomer } = useAdmin();
   const { language } = useLanguage();
 
   // POS Multi-Register State (Maksimal 3 Mesin Kasir Aktif)
@@ -168,6 +168,21 @@ export const POSKasirPage: React.FC = () => {
 
   // Completed / Inspected Receipt Modal State
   const [completedTx, setCompletedTx] = useState<POSTransaction | null>(null);
+  const [txToDelete, setTxToDelete] = useState<POSTransaction | null>(null);
+  const [isDeletingTx, setIsDeletingTx] = useState(false);
+
+  const handleConfirmDeleteTx = async () => {
+    if (!txToDelete) return;
+    setIsDeletingTx(true);
+    try {
+      await deletePOSTransaction(txToDelete.id);
+    } catch (e) {
+      console.warn('Error deleting transaction:', e);
+    } finally {
+      setIsDeletingTx(false);
+      setTxToDelete(null);
+    }
+  };
 
   // Thermal Printer Settings State (Sinkron otomatis dengan menu Pengaturan)
   const [printerSettings, setPrinterSettings] = useState<ThermalPrinterSettings>(() => {
@@ -1852,6 +1867,14 @@ export const POSKasirPage: React.FC = () => {
                                 <span className="material-symbols-outlined text-xs">receipt</span>
                                 <span>{txt.btnViewReceipt}</span>
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => setTxToDelete(tx)}
+                                className="p-1 hover:bg-rose-50 text-stone-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                                title={language === 'JP' ? '伝票・取引を削除' : language === 'EN' ? 'Delete Transaction' : 'Hapus Transaksi Kasir'}
+                              >
+                                <span className="material-symbols-outlined text-sm">delete</span>
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -2966,6 +2989,95 @@ export const POSKasirPage: React.FC = () => {
               >
                 <span className="material-symbols-outlined text-sm">close</span>
                 <span>Tutup</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2ND CONFIRMATION MODAL: HAPUS TRANSAKSI PENJUALAN KASIR */}
+      {txToDelete && (
+        <div className="fixed inset-0 z-[250] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-200 animate-scaleUp">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4 shadow-xs">
+              <span className="material-symbols-outlined text-2xl">delete_forever</span>
+            </div>
+
+            <h3 className="font-heading font-black text-center text-lg text-stone-900 mb-1">
+              {language === 'JP'
+                ? '取引伝票を削除しますか？'
+                : language === 'EN'
+                ? 'Delete This Transaction?'
+                : 'Hapus Transaksi Penjualan Ini?'}
+            </h3>
+
+            <p className="text-xs text-stone-500 text-center mb-4 leading-relaxed">
+              {language === 'JP'
+                ? 'この操作を実行すると、伝票データおよび売上履歴から完全に削除されます。'
+                : language === 'EN'
+                ? 'This action will permanently remove this transaction from the cashier sales history and database.'
+                : 'Konfirmasi kedua: Apakah Anda yakin ingin menghapus data transaksi ini? Transaksi yang dihapus tidak dapat dipulihkan kembali.'}
+            </p>
+
+            {/* Transaction Brief Card */}
+            <div className="bg-stone-50 rounded-xl p-3 border border-stone-200/80 mb-5 space-y-1.5 text-xs">
+              <div className="flex justify-between items-center text-stone-600">
+                <span className="text-stone-400">No. Struk:</span>
+                <span className="font-mono font-bold text-stone-900">{txToDelete.receiptNumber}</span>
+              </div>
+              <div className="flex justify-between items-center text-stone-600">
+                <span className="text-stone-400">Tanggal & Waktu:</span>
+                <span className="font-medium text-stone-800">{txToDelete.date}</span>
+              </div>
+              <div className="flex justify-between items-center text-stone-600">
+                <span className="text-stone-400">Kasir:</span>
+                <span className="font-medium text-stone-800">{txToDelete.cashierName}</span>
+              </div>
+              <div className="flex justify-between items-center text-stone-600">
+                <span className="text-stone-400">Pelanggan:</span>
+                <span className="font-medium text-stone-800">{txToDelete.customerName || 'Walk-in Customer'}</span>
+              </div>
+              <div className="flex justify-between items-center text-stone-600">
+                <span className="text-stone-400">Metode Bayar:</span>
+                <span className="font-bold text-stone-800">{txToDelete.paymentMethod}</span>
+              </div>
+              <div className="pt-1.5 border-t border-stone-200 flex justify-between items-center">
+                <span className="font-bold text-stone-700">Total Transaksi:</span>
+                <span className="font-black text-sm text-[#c41230]">
+                  {txToDelete.currency === 'IDR'
+                    ? formatIdr(txToDelete.amountPaidOriginal || convertJpyToIdr(txToDelete.totalAmount))
+                    : formatJpy(txToDelete.totalAmount)}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                disabled={isDeletingTx}
+                onClick={() => setTxToDelete(null)}
+                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                {language === 'JP' ? 'キャンセル' : language === 'EN' ? 'Cancel' : 'Batal'}
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingTx}
+                onClick={handleConfirmDeleteTx}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-950/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingTx ? (
+                  <>
+                    <span className="material-symbols-outlined text-sm animate-spin">sync</span>
+                    <span>Menghapus...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-sm">delete</span>
+                    <span>{language === 'JP' ? 'はい、削除する' : language === 'EN' ? 'Yes, Delete' : 'Ya, Hapus'}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
