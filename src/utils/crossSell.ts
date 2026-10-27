@@ -69,7 +69,7 @@ export function getCrossSellRecommendations(
 
   // Available candidate pool (exclude items already in cart, must have price > 0 and active status)
   const available = allProducts.filter(
-    (p) => !cartProductIds.has(p.id) && (p.priceTax > 0 || p.price > 0) && p.status !== 'INACTIVE'
+    (p) => !cartProductIds.has(p.id) && (p.priceTax > 0 || p.price > 0) && (p.status as string) !== 'INACTIVE'
   );
 
   const recommendations: CrossSellItem[] = [];

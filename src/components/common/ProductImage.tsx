@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { Language } from '../../types';
+import { assetUrl } from '../../utils/assets';
 
 export const getPlaceholderImage = (language?: Language): string => {
-  if (language === 'JP') return '/placeholder-upload-jp.svg';
-  if (language === 'EN') return '/placeholder-upload-en.svg';
-  return '/placeholder-upload.svg';
+  if (language === 'JP') return assetUrl('placeholder-upload-jp.svg');
+  if (language === 'EN') return assetUrl('placeholder-upload-en.svg');
+  return assetUrl('placeholder-upload.svg');
 };
 
 export const resolveProductImage = (src?: string, language?: Language): string => {
   if (!src || src.includes('placeholder-upload')) {
     return getPlaceholderImage(language);
   }
-  return src;
+  return assetUrl(src);
 };
 
 interface ProductImageProps {
@@ -36,11 +37,12 @@ export const ProductImage: React.FC<ProductImageProps> = ({
   const [imageError, setImageError] = useState(false);
   const placeholderUrl = getPlaceholderImage(language);
   const isPlaceholder = !src || src.includes('placeholder-upload') || imageError;
+  const imageSource = isPlaceholder ? placeholderUrl : assetUrl(src);
 
   return (
     <div className={`relative overflow-hidden ${containerClassName}`}>
       <img
-        src={isPlaceholder ? placeholderUrl : src}
+        src={imageSource}
         alt={alt}
         loading={loading}
         onError={() => setImageError(true)}

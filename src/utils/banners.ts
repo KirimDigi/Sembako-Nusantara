@@ -49,7 +49,10 @@ export function getStoredPromoBanners(): PromoBanner[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length >= 3) {
-        return parsed.slice(0, 3);
+        return parsed.slice(0, 3).map((p: PromoBanner, idx: number) => ({
+          ...p,
+          imageUrl: p.imageUrl ? assetUrl(p.imageUrl) : DEFAULT_PROMO_BANNERS[idx]?.imageUrl || assetUrl(`banner-promo-${idx + 1}.jpg`)
+        }));
       }
     }
   } catch (e) {
@@ -70,11 +73,11 @@ export async function fetchRemotePromoBanners(): Promise<PromoBanner[]> {
       .order('id', { ascending: true });
 
     if (!error && data && data.length >= 3) {
-      const formatted: PromoBanner[] = data.slice(0, 3).map((d: any) => ({
+      const formatted: PromoBanner[] = data.slice(0, 3).map((d: any, idx: number) => ({
         id: d.id,
-        imageUrl: d.image_url,
-        title: d.title,
-        subtitle: d.subtitle,
+        imageUrl: d.image_url ? assetUrl(d.image_url) : DEFAULT_PROMO_BANNERS[idx]?.imageUrl || assetUrl(`banner-promo-${idx + 1}.jpg`),
+        title: d.title || DEFAULT_PROMO_BANNERS[idx]?.title,
+        subtitle: d.subtitle || DEFAULT_PROMO_BANNERS[idx]?.subtitle,
         linkUrl: d.link_url || '/catalog',
         badge: d.badge || 'PROMO'
       }));

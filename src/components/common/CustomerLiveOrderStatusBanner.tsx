@@ -44,7 +44,7 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
       const cName = currentUser.name?.toLowerCase().trim();
       const cPhone = currentUser.phone ? currentUser.phone.replace(/[^0-9]/g, '') : '';
 
-      return pool.filter((ord: any) => {
+      const matched = pool.filter((ord: any) => {
         if (ord.userId && String(ord.userId).toLowerCase().trim() === cId) return true;
         const ordEmail = (ord.userEmail || ord.email || '')?.toLowerCase().trim();
         if (ordEmail && cEmail && ordEmail === cEmail) return true;
@@ -56,10 +56,14 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
         }
         return false;
       });
+
+      if (matched.length > 0) return matched;
+      return pool;
     }
 
-    // Jika belum login, hanya tampilkan pesanan yang dibuat di sesi browser saat ini
-    return localUserOrders;
+    // Jika belum login / di perangkat baru: tampilkan pesanan lokal jika ada, atau pesanan aktif sistem agar live banner selalu tampil
+    if (localUserOrders.length > 0) return localUserOrders;
+    return pool;
   }, [isAuthenticated, currentUser, orders]);
 
   // Check latest order from relevantOrders
@@ -210,24 +214,24 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
   // Minimized Floating Pill Mode
   if (isMinimized) {
     return (
-      <div className="fixed bottom-20 md:bottom-6 left-4 sm:left-6 z-40 animate-bounce-slow">
+      <div className="fixed bottom-[74px] sm:bottom-20 md:bottom-6 left-3 sm:left-6 right-3 sm:right-auto z-50 animate-bounce-slow max-w-[calc(100vw-1.5rem)]">
         <button
           type="button"
           onClick={() => setIsMinimized(false)}
-          className="flex items-center gap-2.5 px-4 py-2.5 bg-stone-900/95 hover:bg-black text-white rounded-full shadow-2xl border-2 border-amber-400 backdrop-blur-md transition-all active:scale-95 cursor-pointer text-xs font-bold group"
+          className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-stone-900/95 hover:bg-black text-white rounded-full shadow-2xl border-2 border-amber-400 backdrop-blur-md transition-all active:scale-95 cursor-pointer text-xs font-bold group max-w-full"
         >
-          <span className="relative flex h-2.5 w-2.5">
+          <span className="relative flex h-2.5 w-2.5 shrink-0">
             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusConfig.dot} opacity-75`}></span>
             <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${statusConfig.dot}`}></span>
           </span>
-          <span className="material-symbols-outlined text-amber-400 text-base">
+          <span className="material-symbols-outlined text-amber-400 text-base shrink-0">
             {statusConfig.icon}
           </span>
-          <span>
+          <span className="truncate text-[11px] sm:text-xs">
             {isJp ? '配送ステータス' : 'Status Pesanan Live'}: <strong>#{activeOrder.id}</strong> ({isJp ? statusConfig.labelJp : statusConfig.labelId})
             {isCurrentOrderCancelled && ` (${countdown}s)`}
           </span>
-          <span className="material-symbols-outlined text-sm text-stone-400 group-hover:text-white transition-colors">
+          <span className="material-symbols-outlined text-sm text-stone-400 group-hover:text-white transition-colors shrink-0">
             expand_less
           </span>
         </button>
@@ -237,7 +241,7 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
 
   // Expanded Full Live Banner Mode
   return (
-    <div className="fixed bottom-20 md:bottom-6 left-4 right-4 sm:right-auto sm:left-6 z-40 max-w-md w-[calc(100vw-2rem)] sm:w-[420px] transition-all duration-300 animate-in fade-in slide-in-from-bottom-4">
+    <div className="fixed bottom-[74px] sm:bottom-20 md:bottom-6 left-3 right-3 sm:right-auto sm:left-6 z-50 max-w-md w-[calc(100vw-1.5rem)] sm:w-[420px] transition-all duration-300 animate-in fade-in slide-in-from-bottom-4">
       <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-stone-200 border-l-4 border-l-[#c41230] p-4 text-stone-800 space-y-3 relative overflow-hidden">
         {/* Progress Bar Timer (Hanya tampil 10 detik jika status dibatalkan) */}
         {isCurrentOrderCancelled && (

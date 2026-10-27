@@ -7,7 +7,13 @@ export function assetUrl(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
     return path;
   }
-  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  let cleanPath = path;
+  while (cleanPath.startsWith('./')) {
+    cleanPath = cleanPath.slice(2);
+  }
+  while (cleanPath.startsWith('/')) {
+    cleanPath = cleanPath.slice(1);
+  }
   const base = import.meta.env.BASE_URL || './';
   const prefix = base.endsWith('/') ? base : `${base}/`;
   return `${prefix}${cleanPath}`;

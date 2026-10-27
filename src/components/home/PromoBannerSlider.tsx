@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PromoBanner, getStoredPromoBanners, fetchRemotePromoBanners } from '../../utils/banners';
+import { assetUrl } from '../../utils/assets';
 import { useLanguage } from '../../context/LanguageContext';
 
 export const PromoBannerSlider: React.FC = () => {
@@ -83,10 +84,16 @@ export const PromoBannerSlider: React.FC = () => {
               {/* Cover Photo */}
               {/* Pure Cover Photo (No Text Overlay) */}
               <img
-                src={currentBanner.imageUrl}
-                alt="Banner Promo Sembako Nusantara"
+                src={assetUrl(currentBanner.imageUrl)}
+                alt={currentBanner.title || 'Banner Promo Sembako Nusantara'}
                 className="w-full h-full object-cover object-center select-none"
                 loading="eager"
+                onError={(e) => {
+                  const fallback = assetUrl(`banner-promo-${(currentIndex % 3) + 1}.jpg`);
+                  if ((e.target as HTMLImageElement).src !== fallback) {
+                    (e.target as HTMLImageElement).src = fallback;
+                  }
+                }}
               />
             </Link>
           </motion.div>
