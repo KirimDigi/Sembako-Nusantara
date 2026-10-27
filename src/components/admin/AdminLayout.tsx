@@ -537,7 +537,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
   return (
     <div className="h-screen overflow-hidden bg-stone-100 flex flex-col md:flex-row text-stone-900 font-sans">
       {/* Mobile Top Bar */}
-      <div className="md:hidden bg-[#1a1a1a] text-white px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-md">
+      <div className="md:hidden bg-[#1a1a1a] text-white px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-md shrink-0">
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setMobileMenuOpen(true)}
@@ -1216,11 +1216,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+      <main className="flex-1 flex flex-col min-w-0 min-h-0 md:h-screen overflow-y-auto">
         {/* Top Header */}
         <header
           ref={headerRef}
-          className="bg-white border-b border-stone-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-30 shadow-xs"
+          className="bg-white border-b border-stone-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10 shadow-xs shrink-0"
         >
           <div>
             <h2 className="text-xl font-bold text-stone-900 tracking-tight flex items-center gap-2">
