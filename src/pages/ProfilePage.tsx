@@ -8,6 +8,7 @@ import { useAdmin } from '../context/AdminContext';
 import { useLanguage } from '../context/LanguageContext';
 import { assetUrl } from '../utils/assets';
 import { getMemberId, getCode39BarcodeBars, downloadMemberCardPng } from '../utils/memberCard';
+import { sendRegistrationWhatsApp } from '../services/whatsappGateway';
 
 type ActiveTab = 'overview' | 'barcode' | 'orders' | 'wishlist' | 'cart' | 'security' | 'edit_profile';
 
@@ -334,6 +335,17 @@ export const ProfilePage: React.FC = () => {
             })
           );
         } catch (err) {}
+
+        // Kirim Notifikasi WhatsApp Gateway Selamat Datang & Verifikasi ke Nomor Terdaftar
+        sendRegistrationWhatsApp({
+          name: regName.trim(),
+          phone: regPhone.trim(),
+          address: fullAddress,
+          custId: newCustId,
+          loyaltyPoints: 100
+        }).catch((err) => {
+          console.warn('[WA Gateway] Gagal kirim WA registrasi akun:', err);
+        });
 
         // Semua akun pelanggan baru setelah login langsung href ke beranda
         navigate('/', { replace: true });

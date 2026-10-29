@@ -5,6 +5,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { CashierPermissionItem, CashierAccount, ThermalPrinterSettings, ConnectedPrinterProfile } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { StockOpnameSection } from '../../components/admin/StockOpnameSection';
+import { sendWhatsAppMessage, getWAGatewayConfig, WAGatewayConfig, DEFAULT_WA_CONFIG } from '../../services/whatsappGateway';
 
 export const INITIAL_PERMISSIONS: CashierPermissionItem[] = [
   // 1. Operasional Kasir & Penjualan
@@ -306,8 +307,21 @@ export const SettingsPage: React.FC = () => {
   const { language } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Active Tab: 'accounts' | 'printer' | 'stock_opname'
-  const activeTab = searchParams.get('tab') === 'printer' ? 'printer' : searchParams.get('tab') === 'stock_opname' ? 'stock_opname' : 'accounts';
+  // Active Tab: 'accounts' | 'printer' | 'stock_opname' | 'wa_gateway'
+  const activeTab = searchParams.get('tab') === 'printer'
+    ? 'printer'
+    : searchParams.get('tab') === 'stock_opname'
+    ? 'stock_opname'
+    : searchParams.get('tab') === 'wa_gateway'
+    ? 'wa_gateway'
+    : 'accounts';
+
+  // WhatsApp Gateway State
+  const [waConfig, setWaConfig] = useState<WAGatewayConfig>(getWAGatewayConfig);
+  const [waTestPhone, setWaTestPhone] = useState('+6281380989932');
+  const [waTestMsg, setWaTestMsg] = useState('Halo! Ini adalah tes koneksi WhatsApp Gateway Sembako Nusantara Jepang.');
+  const [isSendingWa, setIsSendingWa] = useState(false);
+  const [waResultToast, setWaResultToast] = useState<{ success: boolean; text: string } | null>(null);
 
   // All system permissions master list
   const [permissions] = useState<CashierPermissionItem[]>(INITIAL_PERMISSIONS);
@@ -913,6 +927,23 @@ export const SettingsPage: React.FC = () => {
             <span>Stok Opname (Audit Fisik Inventori)</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-300">
               Massal & Manual
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSearchParams({ tab: 'wa_gateway' })}
+            className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'wa_gateway'
+                ? 'bg-[#c41230] text-white shadow-md'
+                : 'bg-white hover:bg-stone-100 text-stone-700 border border-stone-200'
+            }`}
+          >
+            <span className="material-symbols-outlined text-lg text-emerald-600">chat</span>
+            <span>WhatsApp Gateway</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              {waConfig.sessionId}
             </span>
           </button>
         </div>
@@ -2544,6 +2575,310 @@ export const SettingsPage: React.FC = () => {
         {/* ========================================================================= */}
         {activeTab === 'stock_opname' && (
           <StockOpnameSection />
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 4: WHATSAPP GATEWAY (AQSHAMART / KirimDigi)                           */}
+        {/* ========================================================================= */}
+        {activeTab === 'wa_gateway' && (
+          <div className="space-y-6">
+            {/* Top Header Card */}
+            <div className="bg-gradient-to-r from-emerald-950 via-stone-900 to-stone-900 text-white p-5 sm:p-6 rounded-3xl shadow-lg border border-emerald-900/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-2xl shrink-0">
+                  <span className="material-symbols-outlined text-3xl">chat</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-xs border border-emerald-500/30 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Sub-Menu: WhatsApp Gateway Real-Time
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black text-white mt-1">
+                    Integrasi WhatsApp Gateway (KirimDigi)
+                  </h3>
+                  <p className="text-xs text-stone-300 mt-1 max-w-2xl leading-relaxed">
+                    Kirim notifikasi otomatis ke nomor WhatsApp customer saat checkout, pembaruan status pesanan selesai/sampai tujuan, dan pendaftaran akun baru.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="px-3.5 py-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold text-xs rounded-xl flex items-center gap-2">
+                  <span className="material-symbols-outlined text-base">check_circle</span>
+                  <span>Port 2026: Terkoneksi</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Notification Toast */}
+            {waResultToast && (
+              <div
+                className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-between border shadow-sm ${
+                  waResultToast.success
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    : 'bg-rose-50 border-rose-200 text-rose-900'
+                }`}
+              >
+                <span>{waResultToast.text}</span>
+                <button
+                  type="button"
+                  onClick={() => setWaResultToast(null)}
+                  className="text-stone-400 hover:text-stone-700 ml-3"
+                >
+                  <span className="material-symbols-outlined text-sm">close</span>
+                </button>
+              </div>
+            )}
+
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column (5 cols): Connected Device Card & Triggers */}
+              <div className="lg:col-span-5 space-y-5">
+                {/* Connected Session Card (styled like WhatsApp Gateway UI) */}
+                <div className="bg-emerald-50/80 rounded-3xl border border-emerald-200 p-5 shadow-xs space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-bold text-stone-900 text-base flex items-center gap-1.5">
+                        <span className="text-emerald-700 font-black">{waConfig.sessionId}</span>
+                        <span className="text-stone-500 font-normal text-xs">(ID: {waConfig.sessionId})</span>
+                      </h4>
+                      <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-semibold mt-1">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                        <span>Status: Connected</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-stone-600 font-mono mt-1">
+                        <span className="material-symbols-outlined text-sm text-stone-400">phone</span>
+                        <span>Phone: +6281380989932</span>
+                      </div>
+                    </div>
+                    <span className="text-[11px] text-stone-400 font-mono">
+                      Aktif
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-emerald-200/70 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const testInput = document.getElementById('wa-test-phone-input');
+                        testInput?.focus();
+                      }}
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-xs">send</span>
+                      <span>Test Message</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3 Automated Triggers List */}
+                <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-xs space-y-4">
+                  <h4 className="font-bold text-stone-900 text-sm flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#c41230]">bolt</span>
+                    <span>3 Alur Otomatisasi WhatsApp Gateway</span>
+                  </h4>
+
+                  <div className="space-y-3">
+                    {/* Trigger 1 */}
+                    <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-amber-950 flex items-center gap-1.5">
+                          <span>🛍️</span>
+                          <span>1. Customer Checkout Toko</span>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-200/70 text-amber-900 text-[10px] font-bold">
+                          Spinner 3-5s
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-stone-600 leading-relaxed">
+                        Saat tombol pesanan ditekan, tombol menampilkan loading spinner 3-5 detik. Setelah itu rincian barang, total bayar (Yen/Rp), resi, dan kurir (Yamato/Sagawa) otomatis terkirim ke WhatsApp pembeli.
+                      </p>
+                    </div>
+
+                    {/* Trigger 2 */}
+                    <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-emerald-950 flex items-center gap-1.5">
+                          <span>✅</span>
+                          <span>2. Pesanan Sampai / Selesai</span>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-200/70 text-emerald-900 text-[10px] font-bold">
+                          Otomatis
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-stone-600 leading-relaxed">
+                        Ketika admin memperbarui status pesanan menjadi <strong>Selesai (Tahap 4: Paket Sampai)</strong>, pesan konfirmasi barang telah tiba otomatis dikirimkan ke nomor WhatsApp customer.
+                      </p>
+                    </div>
+
+                    {/* Trigger 3 */}
+                    <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200/80 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-blue-950 flex items-center gap-1.5">
+                          <span>🎉</span>
+                          <span>3. Pendaftaran Akun Baru</span>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-blue-200/70 text-blue-900 text-[10px] font-bold">
+                          Instan
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-stone-600 leading-relaxed">
+                        Saat customer menekan tombol <strong>Daftar & Buat Akun Sekarang</strong>, pesan sambutan, ID Member baru, dan bonus 100 poin reward langsung dikirim ke no HP terdaftar.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column (7 cols): API Documentation & Interactive Test Console */}
+              <div className="lg:col-span-7 space-y-5">
+                {/* API Documentation Box (Matching UI screenshot) */}
+                <div className="bg-[#1e293b] text-stone-200 rounded-3xl p-5 sm:p-6 shadow-md border border-slate-700/80 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+                    <div className="flex items-center gap-2 text-sm font-bold text-white">
+                      <span className="text-emerald-400 font-mono">&lt;/&gt;</span>
+                      <span>API Documentation</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">
+                      AQSHAMART Gateway
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center gap-2">
+                      <span className="text-emerald-400">🔑</span>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-semibold uppercase">API Key:</div>
+                        <div className="font-mono font-bold text-white text-xs">{waConfig.apiKey}</div>
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center gap-2">
+                      <span className="text-cyan-400">🌐</span>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-semibold uppercase">Base URL:</div>
+                        <div className="font-mono font-bold text-white text-xs">{waConfig.baseUrl}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-bold text-slate-300 mb-1.5 flex items-center gap-1">
+                      <span className="text-emerald-400">&gt;_</span>
+                      <span>Send Message (cURL Blueprint):</span>
+                    </div>
+                    <div className="p-3.5 bg-slate-900/90 rounded-2xl border border-slate-700 font-mono text-[11px] text-emerald-400 overflow-x-auto leading-relaxed">
+                      <code>
+                        curl -X POST "{waConfig.baseUrl}/api/send" \<br />
+                        &nbsp;&nbsp;-H "Content-Type: application/json" \<br />
+                        &nbsp;&nbsp;-H "x-api-key: {waConfig.apiKey}" \<br />
+                        &nbsp;&nbsp;-d '&#123; "sessionId": "{waConfig.sessionId}", "number": "628xxxxxxxxxx", "message": "Pesan dari Sembako Nusantara" &#125;'
+                      </code>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Interactive Test Console Card */}
+                <div className="bg-white rounded-3xl border border-stone-200 p-5 sm:p-6 shadow-xs space-y-4">
+                  <h4 className="font-bold text-stone-900 text-sm flex items-center gap-2">
+                    <span className="material-symbols-outlined text-emerald-600">send_and_archive</span>
+                    <span>Uji Coba Kirim Pesan WhatsApp Gateway Langsung</span>
+                  </h4>
+
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      setIsSendingWa(true);
+                      setWaResultToast(null);
+                      try {
+                        const res = await sendWhatsAppMessage(waTestPhone, waTestMsg, waConfig.sessionId);
+                        if (res.success) {
+                          setWaResultToast({
+                            success: true,
+                            text: `✅ Berhasil! Pesan WhatsApp terkirim ke ${waTestPhone} via sesi ${waConfig.sessionId}.`
+                          });
+                        } else {
+                          setWaResultToast({
+                            success: false,
+                            text: `⚠️ Pengiriman ke gateway gagal: ${res.error || 'Pastikan service http://localhost:2026 aktif'}`
+                          });
+                        }
+                      } catch (err: any) {
+                        setWaResultToast({ success: false, text: `❌ Error: ${err?.message || err}` });
+                      } finally {
+                        setIsSendingWa(false);
+                      }
+                    }}
+                    className="space-y-3.5"
+                  >
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 mb-1">
+                        Nomor WhatsApp Tujuan:
+                      </label>
+                      <input
+                        id="wa-test-phone-input"
+                        type="text"
+                        value={waTestPhone}
+                        onChange={(e) => setWaTestPhone(e.target.value)}
+                        placeholder="Contoh: 6281380989932 atau 08123456789"
+                        required
+                        className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <p className="text-[10px] text-stone-400 mt-0.5">
+                        Mendukung format Indonesia (+62 / 08xx) dan Jepang (+81 / 080 / 090xx).
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 mb-1">
+                        Isi Pesan WhatsApp Uji Coba:
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={waTestMsg}
+                        onChange={(e) => setWaTestMsg(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        placeholder="Ketik pesan tes di sini..."
+                      />
+                    </div>
+
+                    <div className="pt-1 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWaConfig(DEFAULT_WA_CONFIG);
+                          localStorage.removeItem('sn_wa_gateway_config');
+                          setWaResultToast({ success: true, text: 'Konfigurasi dikembalikan ke default KirimDigi & localhost:2026' });
+                        }}
+                        className="text-xs text-stone-500 hover:text-stone-800 underline font-medium cursor-pointer"
+                      >
+                        Reset ke Default
+                      </button>
+
+                      <button
+                        type="submit"
+                        disabled={isSendingWa}
+                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-75"
+                      >
+                        {isSendingWa ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                            <span>Menghubungi Gateway...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-sm">send</span>
+                            <span>Kirim Pesan Uji Coba Sekarang</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </AdminLayout>

@@ -9,6 +9,7 @@ import { FreeShippingProgressBar } from '../components/common/FreeShippingProgre
 import { assetUrl } from '../utils/assets';
 import { resolveProductImage, getPlaceholderImage } from '../components/common/ProductImage';
 import { CheckoutCrossSell } from '../components/checkout/CheckoutCrossSell';
+import { sendCheckoutWhatsApp } from '../services/whatsappGateway';
 
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -134,13 +135,13 @@ export const CheckoutPage: React.FC = () => {
       }))
     };
 
-    // Activate 5-second loading spinner overlay
+    // Activate 3-5 second loading spinner on button and overlay
     setIsProcessing(true);
-    setLoadingSecondsLeft(5);
+    setLoadingSecondsLeft(4);
     setLoadingProgress(0);
 
     const startTime = Date.now();
-    const duration = 5000; // 5 seconds interval for structured backend queue
+    const duration = 4000; // 4 seconds loading spinner (sesuai arahan 3-5 detik)
 
     // Clear previous timers if any
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
@@ -159,11 +160,16 @@ export const CheckoutPage: React.FC = () => {
       setLoadingProgress(100);
       setLoadingSecondsLeft(0);
 
-      // Save directly to admin state, persistence, and inventory after 5 seconds
+      // Save directly to admin state, persistence, and inventory after 4 seconds
       addOrder(newOrder);
       setCompletedOrder(newOrder);
       clearCart();
       setIsProcessing(false);
+
+      // Kirim Notifikasi WhatsApp Gateway ke Nomor HP Pembeli
+      sendCheckoutWhatsApp(newOrder).catch((err) => {
+        console.warn('[WA Gateway] Gagal kirim notifikasi checkout:', err);
+      });
     }, duration);
   };
 
@@ -780,8 +786,8 @@ export const CheckoutPage: React.FC = () => {
                     {language === 'JP'
                       ? `注文処理中... (${loadingSecondsLeft}秒)`
                       : language === 'EN'
-                      ? `Processing... (${loadingSecondsLeft}s)`
-                      : `Memproses Pembayaran... (${loadingSecondsLeft}s)`}
+                      ? `Processing Order & WA... (${loadingSecondsLeft}s)`
+                      : `Memproses Pesanan & Notifikasi WA... (${loadingSecondsLeft}s)`}
                   </span>
                 </>
               ) : (

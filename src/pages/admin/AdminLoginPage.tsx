@@ -5,7 +5,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { assetUrl } from '../../utils/assets';
 
 export const AdminLoginPage: React.FC = () => {
-  const { login, isAuthenticated, isAdmin } = useAuth();
+  const { login, isAuthenticated, isAdmin, currentUser } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();

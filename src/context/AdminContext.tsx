@@ -33,6 +33,7 @@ import {
   INITIAL_WHOLESALE_PRICES
 } from '../data/adminMockData';
 import { supabase } from '../lib/supabase';
+import { sendOrderDeliveredWhatsApp } from '../services/whatsappGateway';
 
 interface AdminContextType {
   products: Product[];
@@ -900,6 +901,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     trackingNumber?: string,
     courier?: Order['courier']
   ) => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+
     setOrders((prev) => {
       const updated = prev.map((ord) => {
         if (ord.id === orderId) {
@@ -944,6 +947,18 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updated_at: new Date().toISOString()
       }).eq('id', orderId).then(() => {}, () => {});
     } catch (e) {}
+
+    // Kirim Notifikasi WhatsApp Gateway jika pesanan Sampai di Lokasi / Selesai
+    if (status === 'Selesai' && targetOrder) {
+      sendOrderDeliveredWhatsApp({
+        ...targetOrder,
+        status: 'Selesai',
+        trackingNumber: trackingNumber || targetOrder.trackingNumber,
+        courier: courier || targetOrder.courier
+      }).catch((err) => {
+        console.warn('[WA Gateway] Gagal kirim WA pesanan selesai:', err);
+      });
+    }
   };
 
   const cancelOrder = (orderId: string, reason?: string) => {
