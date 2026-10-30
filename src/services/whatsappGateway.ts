@@ -5,7 +5,7 @@
  * Default Configuration:
  * - Base URL: http://localhost:2026
  * - API Key: AQSHAMART2025
- * - Session ID: KirimDigi (fallback f1)
+ * - Session ID: KirimDigi
  */
 
 export interface WAGatewayConfig {
@@ -148,19 +148,6 @@ export async function sendWhatsAppMessage(
     }
 
     if (!res.ok) {
-      // 2. Jika sesi KirimDigi tidak merespon 200, coba sesi fallback 'HRIS02'
-      if (primarySession === 'KirimDigi') {
-        try {
-          console.log('[WA Gateway] Mencoba fallback sesi HRIS02...');
-          const fallbackRes = await doFetch(usedUrl, 'HRIS02');
-          if (fallbackRes.ok) {
-            const fallbackData = await fallbackRes.json();
-            console.log('[WA Gateway] Berhasil terkirim via fallback session HRIS02:', fallbackData);
-            return { success: true, data: fallbackData };
-          }
-        } catch (fbErr) {}
-      }
-
       const errText = await res.text();
       console.warn(`[WA Gateway] Server response error (${res.status}):`, errText);
       return { success: false, error: `Server error ${res.status}: ${errText}` };
