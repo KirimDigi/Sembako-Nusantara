@@ -225,11 +225,41 @@ export async function sendCheckoutWhatsApp(order: {
   const totalYen = `¥${(order.total || 0).toLocaleString()}`;
   const totalRupiah = order.totalAmountIDR ? ` / Rp ${(order.totalAmountIDR).toLocaleString()}` : '';
 
-  // 1. Pesan Konfirmasi untuk Customer
+  // Deteksi bahasa pengguna (dari order.language atau localStorage 'sn_lang')
+  const currentLang = (order.language || (typeof window !== 'undefined' ? localStorage.getItem('sn_lang') : null) || 'ID').toUpperCase();
+  const isJp = currentLang === 'JP';
+
+  // 1. Pesan Konfirmasi untuk Customer (Bilingual: Jepang atau Indonesia)
   let customerSuccess = false;
   if (phone) {
-    const customerMessage = 
-`🛍️ *KONFIRMASI PESANAN - SEMBAKO NUSANTARA JEPANG* 🇯🇵🇮🇩
+    const customerMessage = isJp
+      ? `🛍️ *ご注文確認 - センバコ・ヌサンタラ日本* 🇯🇵🇮🇩
+--------------------------------------------------
+*${order.customerName}* 様、この度は「センバコ・ヌサンタラ」をご利用いただき誠にありがとうございます！
+ご注文を正常に受け付けました。東京配送センターにて直ちに梱包・発送準備に入ります。
+
+📋 *ご注文内容:*
+• 注文番号: *#${order.id}*
+• お問い合わせ送り状番号: *${order.trackingNumber}*
+• 配送業者: *${order.courier}*
+• お支払い方法: *${order.paymentMethod ? order.paymentMethod.toUpperCase() : '銀行振込 / QRIS'}*
+• 配送ステータス: *📦 東京倉庫にて梱包中・発送準備中*
+
+🛒 *ご注文商品一覧:*
+${itemsList}
+
+💰 *お支払い合計金額:*
+*${totalYen}*${totalRupiah}
+
+📍 *お届け先住所:*
+${order.shippingAddress}
+
+🚚 *リアルタイム配送追跡:*
+https://kirimdigi.github.io/Sembako-Nusantara/#/tracking?q=${order.trackingNumber}
+
+安心・安全なハラール食品と本場インドネシアの食材・調味料を丁寧に梱包してお届けいたします。商品の到着をどうぞ楽しみにお待ちください！🙏✨
+_センバコ・ヌサンタラ日本 - 日本全国へお届けする故郷の味_`
+      : `🛍️ *KONFIRMASI PESANAN - SEMBAKO NUSANTARA JEPANG* 🇯🇵🇮🇩
 --------------------------------------------------
 Halo *${order.customerName}*, terima kasih telah berbelanja di Sembako Nusantara! Pesanan Anda telah kami terima dan segera diproses.
 
@@ -324,11 +354,36 @@ export async function sendOrderDeliveredWhatsApp(order: {
         .join('\n')
     : '-';
 
-  // 1. Pesan untuk Customer
+  // Deteksi bahasa pengguna (dari order.language atau localStorage 'sn_lang')
+  const currentLang = (order.language || (typeof window !== 'undefined' ? localStorage.getItem('sn_lang') : null) || 'ID').toUpperCase();
+  const isJp = currentLang === 'JP';
+
+  // 1. Pesan untuk Customer (Bilingual: Jepang / Indonesia)
   let customerSuccess = false;
   if (phone) {
-    const customerMessage =
-`✅ *PESANAN SELESAI / TELAH SAMPAI DI LOKASI* 📦🎉
+    const customerMessage = isJp
+      ? `✅ *配達完了のお知らせ - センバコ・ヌサンタラ日本* 📦🎉
+--------------------------------------------------
+*${order.customerName || 'お客様'}* 様
+
+いつも「センバコ・ヌサンタラ」をご利用いただきありがとうございます！
+ご注文のお荷物が無事に *お届け先住所に到着（配達完了）* いたしました。
+
+📋 *配送情報:*
+• 注文番号: *#${order.id}*
+• お問い合わせ送り状番号: *${order.trackingNumber || '-'}*
+• 配送業者: *${order.courier || 'ヤマト運輸（クロネコヤマト）'}*
+• お受取人様: *${order.customerName || 'お客様'}*
+• お届け先: *${order.shippingAddress || order.address || '-'}*
+
+📦 *お届けした商品一覧:*
+${itemsList}
+
+本場インドネシアの食材・ハラール調味料・スパイスをご堪能ください。故郷の豊かな味わいがお手元に届き、素敵な食卓となりますように！🇮🇩🇯🇵
+
+何かご不明な点や再注文のご希望がございましたら、いつでも公式LINE/WhatsAppよりお気軽にお問い合わせください。
+_センバコ・ヌサンタラ日本をご利用いただき心より感謝申し上げます。_ 🙏❤️`
+      : `✅ *PESANAN SELESAI / TELAH SAMPAI DI LOKASI* 📦🎉
 --------------------------------------------------
 Halo *${order.customerName || 'Pelanggan Setia'}*,
 
@@ -395,13 +450,40 @@ export async function sendRegistrationWhatsApp(customer: {
   address: string;
   custId: string;
   loyaltyPoints?: number;
+  language?: string;
   [key: string]: any;
 }): Promise<boolean> {
-  // 1. Pesan Selamat Datang untuk Member Baru
+  const currentLang = (customer.language || (typeof window !== 'undefined' ? localStorage.getItem('sn_lang') : null) || 'ID').toUpperCase();
+  const isJp = currentLang === 'JP';
+
+  // 1. Pesan Selamat Datang untuk Member Baru (Bilingual: Jepang / Indonesia)
   let memberSuccess = false;
   if (customer.phone) {
-    const memberMessage =
-`🎉 *SELAMAT DATANG DI SEMBAKO NUSANTARA JEPANG* 🇯🇵🇮🇩
+    const memberMessage = isJp
+      ? `🎉 *会員登録完了 - センバコ・ヌサンタラ日本へようこそ* 🇯🇵🇮🇩
+--------------------------------------------------
+*${customer.name}* 様
+
+「センバコ・ヌサンタラ日本」の会員登録が無事に *完了いたしました*。ご登録誠にありがとうございます！
+
+👤 *会員情報:*
+• 会員ID: *${customer.custId}*
+• お名前: *${customer.name}*
+• ご登録電話番号: *${customer.phone}*
+• ご登録住所: *${customer.address}*
+• 新規入会特典ポイント: *🎁 ${customer.loyaltyPoints || 100} ポイント進呈*
+
+✨ *会員様限定特典:*
+1. お買い物ごとにキャッシュバック・リワードポイントが貯まる
+2. ヤマト運輸＆佐川急便による日本全国47都道府県への迅速・安全配送
+3. 一定金額以上のお買い上げで送料無料特典
+4. 日本在住者・インドネシアコミュニティ向け毎週の限定セール・特売情報
+
+🌐 *オンラインショップはこちら:*
+https://kirimdigi.github.io/Sembako-Nusantara/
+
+今後のお問い合わせやお買い物のサポートのため、本アカウントのご登録をお願い申し上げます。どうぞお買い物をお楽しみください！🙏🛒`
+      : `🎉 *SELAMAT DATANG DI SEMBAKO NUSANTARA JEPANG* 🇯🇵🇮🇩
 --------------------------------------------------
 Halo *${customer.name}*,
 

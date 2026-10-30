@@ -111,6 +111,7 @@ export const CheckoutPage: React.FC = () => {
       status: 'Dikemas' as const,
       paymentMethod,
       currency: selectedCurrency,
+      language: language,
       total: grandTotal,
       totalAmount: grandTotal,
       totalAmountIDR: grandTotalIdr,

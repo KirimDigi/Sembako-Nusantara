@@ -342,7 +342,8 @@ export const ProfilePage: React.FC = () => {
           phone: regPhone.trim(),
           address: fullAddress,
           custId: newCustId,
-          loyaltyPoints: 100
+          loyaltyPoints: 100,
+          language: language
         }).catch((err) => {
           console.warn('[WA Gateway] Gagal kirim WA registrasi akun:', err);
         });
