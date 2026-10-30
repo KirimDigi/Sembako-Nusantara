@@ -144,7 +144,37 @@ export async function sendWhatsAppMessage(
 }
 
 /**
+ * Official Admin WhatsApp recipient for incoming orders, registrations, and completed orders
+ */
+export const ADMIN_WA_PHONE = '0895329332135';
+
+/**
+ * Get configured Admin WhatsApp phone (supports localStorage override)
+ */
+export function getAdminWAPhone(): string {
+  try {
+    const saved = localStorage.getItem('sn_wa_admin_phone');
+    if (saved && saved.trim()) return saved.trim();
+  } catch (e) {}
+  return ADMIN_WA_PHONE;
+}
+
+/**
+ * Save custom Admin WhatsApp phone
+ */
+export function setAdminWAPhone(phone: string): void {
+  try {
+    if (phone && phone.trim()) {
+      localStorage.setItem('sn_wa_admin_phone', phone.trim());
+    } else {
+      localStorage.removeItem('sn_wa_admin_phone');
+    }
+  } catch (e) {}
+}
+
+/**
  * Trigger 1: Send WhatsApp notification when customer checkouts
+ * Sends confirmation to CUSTOMER and order alert to ADMIN (0895329332135)
  */
 export async function sendCheckoutWhatsApp(order: {
   id: string;
@@ -158,12 +188,9 @@ export async function sendCheckoutWhatsApp(order: {
   total: number;
   totalAmountIDR?: number;
   items: Array<{ name?: string; productName?: string; quantity?: number; qty?: number; price?: number }>;
+  [key: string]: any;
 }): Promise<boolean> {
   const phone = order.phone;
-  if (!phone) {
-    console.warn('[WA Gateway] Checkout: nomor telepon customer kosong');
-    return false;
-  }
 
   const itemsList = order.items && order.items.length > 0
     ? order.items
@@ -179,7 +206,10 @@ export async function sendCheckoutWhatsApp(order: {
   const totalYen = `¥${(order.total || 0).toLocaleString()}`;
   const totalRupiah = order.totalAmountIDR ? ` / Rp ${(order.totalAmountIDR).toLocaleString()}` : '';
 
-  const message = 
+  // 1. Pesan Konfirmasi untuk Customer
+  let customerSuccess = false;
+  if (phone) {
+    const customerMessage = 
 `🛍️ *KONFIRMASI PESANAN - SEMBAKO NUSANTARA JEPANG* 🇯🇵🇮🇩
 --------------------------------------------------
 Halo *${order.customerName}*, terima kasih telah berbelanja di Sembako Nusantara! Pesanan Anda telah kami terima dan segera diproses.
@@ -206,12 +236,50 @@ https://kirimdigi.github.io/Sembako-Nusantara/#/tracking?q=${order.trackingNumbe
 Terima kasih atas kepercayaan Anda. Kami pastikan produk halal dan bumbu nusantara dikemas dengan aman dan higienis! 🙏✨
 _Sembako Nusantara Jepang - Cita Rasa Kampung Halaman di Negeri Sakura_`;
 
-  const res = await sendWhatsAppMessage(phone, message);
-  return res.success;
+    const res = await sendWhatsAppMessage(phone, customerMessage);
+    customerSuccess = res.success;
+  } else {
+    console.warn('[WA Gateway] Checkout: nomor telepon customer kosong');
+  }
+
+  // 2. Pesan Notifikasi Pesanan Masuk untuk ADMIN (0895329332135)
+  const adminPhone = getAdminWAPhone();
+  if (adminPhone) {
+    const adminMessage =
+`🚨 *PESANAN BARU MASUK (NOTIFIKASI ADMIN)* 🛍️📦
+--------------------------------------------------
+Halo Admin Sembako Nusantara, ada pesanan online baru yang baru saja di-checkout dan perlu diproses!
+
+📋 *Detail Pesanan:*
+• No. Pesanan: *#${order.id}*
+• No. Resi: *${order.trackingNumber}*
+• Nama Customer: *${order.customerName}*
+• No. HP / WhatsApp: *${order.phone || '-'}*
+• Kurir Pilihan: *${order.courier}*
+• Metode Pembayaran: *${order.paymentMethod ? order.paymentMethod.toUpperCase() : 'TRANSFER / QRIS'}*
+• Total Tagihan: *${totalYen}*${totalRupiah}
+
+🛒 *Rincian Barang yang Dipesan:*
+${itemsList}
+
+📍 *Alamat Pengiriman di Jepang:*
+${order.shippingAddress}
+
+Silakan segera periksa dan siapkan packing di Gudang Tokyo via Dashboard Admin:
+https://kirimdigi.github.io/Sembako-Nusantara/#/admin/orders
+_Sistem Otomatis Sembako Nusantara Jepang_`;
+
+    sendWhatsAppMessage(adminPhone, adminMessage).catch((e) => {
+      console.warn('[WA Gateway] Gagal kirim notifikasi pesanan masuk ke admin:', e);
+    });
+  }
+
+  return customerSuccess;
 }
 
 /**
  * Trigger 2: Send WhatsApp notification when order is delivered / finished (Sampai di Lokasi / Selesai)
+ * Sends notification to CUSTOMER and confirmation to ADMIN (0895329332135)
  */
 export async function sendOrderDeliveredWhatsApp(order: {
   id: string;
@@ -221,13 +289,11 @@ export async function sendOrderDeliveredWhatsApp(order: {
   shippingAddress?: string;
   address?: string;
   courier?: string;
+  status?: string;
   items?: Array<{ name?: string; productName?: string; quantity?: number; qty?: number }>;
+  [key: string]: any;
 }): Promise<boolean> {
   const phone = order.phone;
-  if (!phone) {
-    console.warn('[WA Gateway] Order Delivered: nomor telepon customer kosong');
-    return false;
-  }
 
   const itemsList = order.items && order.items.length > 0
     ? order.items
@@ -239,7 +305,10 @@ export async function sendOrderDeliveredWhatsApp(order: {
         .join('\n')
     : '-';
 
-  const message =
+  // 1. Pesan untuk Customer
+  let customerSuccess = false;
+  if (phone) {
+    const customerMessage =
 `✅ *PESANAN SELESAI / TELAH SAMPAI DI LOKASI* 📦🎉
 --------------------------------------------------
 Halo *${order.customerName || 'Pelanggan Setia'}*,
@@ -261,12 +330,45 @@ Semoga paket sembako, bumbu asli nusantara, dan makanan halal Anda tiba dalam ko
 Jika Anda membutuhkan bantuan atau ingin memesan kembali, silakan hubungi kami via WhatsApp ini.
 _Terima kasih telah berbelanja di Sembako Nusantara Jepang!_ 🙏❤️`;
 
-  const res = await sendWhatsAppMessage(phone, message);
-  return res.success;
+    const res = await sendWhatsAppMessage(phone, customerMessage);
+    customerSuccess = res.success;
+  } else {
+    console.warn('[WA Gateway] Order Delivered: nomor telepon customer kosong');
+  }
+
+  // 2. Pesan Konfirmasi Pesanan Selesai untuk ADMIN (0895329332135)
+  const adminPhone = getAdminWAPhone();
+  if (adminPhone) {
+    const adminMessage =
+`✅ *PESANAN SELESAI / SAMPAI (NOTIFIKASI ADMIN)* 📦🎉
+--------------------------------------------------
+Halo Admin Sembako Nusantara, pesanan berikut telah berhasil diantar & berstatus *SELESAI (DELIVERED)*:
+
+📋 *Detail Pesanan:*
+• No. Pesanan: *#${order.id}*
+• No. Resi: *${order.trackingNumber || '-'}*
+• Kurir: *${order.courier || 'Yamato Transport'}*
+• Customer: *${order.customerName || 'Pelanggan'}*
+• No. HP / WA: *${order.phone || '-'}*
+• Alamat Tujuan: *${order.shippingAddress || order.address || '-'}*
+
+📦 *Barang yang Telah Diterima:*
+${itemsList}
+
+Status pesanan saat ini: *SELESAI (DELIVERED)* ✅
+_Sistem Otomatis Sembako Nusantara Jepang_`;
+
+    sendWhatsAppMessage(adminPhone, adminMessage).catch((e) => {
+      console.warn('[WA Gateway] Gagal kirim notifikasi pesanan selesai ke admin:', e);
+    });
+  }
+
+  return customerSuccess;
 }
 
 /**
  * Trigger 3: Send WhatsApp welcome & verification notification on account registration
+ * Sends welcome to MEMBER and new registration alert to ADMIN (0895329332135)
  */
 export async function sendRegistrationWhatsApp(customer: {
   name: string;
@@ -274,13 +376,12 @@ export async function sendRegistrationWhatsApp(customer: {
   address: string;
   custId: string;
   loyaltyPoints?: number;
+  [key: string]: any;
 }): Promise<boolean> {
-  if (!customer.phone) {
-    console.warn('[WA Gateway] Registration: nomor telepon kosong');
-    return false;
-  }
-
-  const message =
+  // 1. Pesan Selamat Datang untuk Member Baru
+  let memberSuccess = false;
+  if (customer.phone) {
+    const memberMessage =
 `🎉 *SELAMAT DATANG DI SEMBAKO NUSANTARA JEPANG* 🇯🇵🇮🇩
 --------------------------------------------------
 Halo *${customer.name}*,
@@ -305,6 +406,35 @@ https://kirimdigi.github.io/Sembako-Nusantara/
 
 Simpan nomor ini sebagai kontak resmi Sembako Nusantara Jepang untuk kemudahan komunikasi dan pemesanan. Selamat berbelanja! 🙏🛒`;
 
-  const res = await sendWhatsAppMessage(customer.phone, message);
-  return res.success;
+    const res = await sendWhatsAppMessage(customer.phone, memberMessage);
+    memberSuccess = res.success;
+  } else {
+    console.warn('[WA Gateway] Registration: nomor telepon member kosong');
+  }
+
+  // 2. Pesan Notifikasi Pendaftaran Akun untuk ADMIN (0895329332135)
+  const adminPhone = getAdminWAPhone();
+  if (adminPhone) {
+    const adminMessage =
+`🔔 *MEMBER BARU TERDAFTAR (NOTIFIKASI ADMIN)* 👤🎉
+--------------------------------------------------
+Halo Admin Sembako Nusantara, ada pelanggan baru saja mendaftar akun keanggotaan:
+
+📋 *Data Member Baru:*
+• ID Member: *${customer.custId}*
+• Nama Lengkap: *${customer.name}*
+• No. WhatsApp: *${customer.phone}*
+• Alamat di Jepang: *${customer.address}*
+• Bonus Poin Awal: *${customer.loyaltyPoints || 100} Poin*
+• Waktu Pendaftaran: *${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Tokyo' })} JST*
+
+Data telah otomatis tersimpan di CRM Pelanggan Admin.
+_Sistem Otomatis Sembako Nusantara Jepang_`;
+
+    sendWhatsAppMessage(adminPhone, adminMessage).catch((e) => {
+      console.warn('[WA Gateway] Gagal kirim notifikasi registrasi ke admin:', e);
+    });
+  }
+
+  return memberSuccess;
 }

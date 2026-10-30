@@ -4,8 +4,15 @@ import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useLanguage } from '../../context/LanguageContext';
 import { CashierPermissionItem, CashierAccount, ThermalPrinterSettings, ConnectedPrinterProfile } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { StockOpnameSection } from '../../components/admin/StockOpnameSection';
-import { sendWhatsAppMessage, getWAGatewayConfig, WAGatewayConfig, DEFAULT_WA_CONFIG } from '../../services/whatsappGateway';
+import { 
+  sendWhatsAppMessage, 
+  getWAGatewayConfig, 
+  WAGatewayConfig, 
+  DEFAULT_WA_CONFIG,
+  ADMIN_WA_PHONE,
+  getAdminWAPhone,
+  setAdminWAPhone
+} from '../../services/whatsappGateway';
 
 export const INITIAL_PERMISSIONS: CashierPermissionItem[] = [
   // 1. Operasional Kasir & Penjualan
@@ -318,8 +325,9 @@ export const SettingsPage: React.FC = () => {
 
   // WhatsApp Gateway State
   const [waConfig, setWaConfig] = useState<WAGatewayConfig>(getWAGatewayConfig);
-  const [waTestPhone, setWaTestPhone] = useState('+6281380989932');
-  const [waTestMsg, setWaTestMsg] = useState('Halo! Ini adalah tes koneksi WhatsApp Gateway Sembako Nusantara Jepang.');
+  const [waAdminPhone, setWaAdminPhone] = useState<string>(getAdminWAPhone);
+  const [waTestPhone, setWaTestPhone] = useState('0895329332135');
+  const [waTestMsg, setWaTestMsg] = useState('Halo Admin! Ini adalah tes koneksi notifikasi otomatis WhatsApp Gateway Sembako Nusantara Jepang.');
   const [isSendingWa, setIsSendingWa] = useState(false);
   const [waResultToast, setWaResultToast] = useState<{ success: boolean; text: string } | null>(null);
 
@@ -2673,11 +2681,59 @@ export const SettingsPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Admin WhatsApp Recipient Card */}
+                <div className="bg-white rounded-3xl border border-emerald-200 p-5 shadow-xs space-y-3 bg-gradient-to-br from-white to-emerald-50/30">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-stone-900 text-sm flex items-center gap-2">
+                      <span className="material-symbols-outlined text-emerald-600">admin_panel_settings</span>
+                      <span>WhatsApp Admin Penerima Notifikasi</span>
+                    </h4>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span>Aktif Otomatis</span>
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-stone-600 leading-relaxed">
+                    Setiap ada <strong>Pesanan Baru Masuk</strong>, <strong>Registrasi Akun Baru</strong>, dan <strong>Pesanan Selesai</strong>, sistem otomatis mengirimkan tembusan rincian lengkap ke nomor Admin:
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-2.5 text-stone-400 material-symbols-outlined text-base">phone_iphone</span>
+                      <input
+                        type="text"
+                        value={waAdminPhone}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setWaAdminPhone(val);
+                          setAdminWAPhone(val);
+                        }}
+                        placeholder="0895329332135"
+                        className="w-full pl-9 pr-3.5 py-2 bg-white border border-emerald-300 rounded-xl text-xs font-mono font-bold text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWaTestPhone(waAdminPhone);
+                        const testInput = document.getElementById('wa-test-phone-input');
+                        testInput?.focus();
+                        showToast(`Nomor Admin ${waAdminPhone} dipilih untuk uji coba kirim!`);
+                      }}
+                      className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs"
+                    >
+                      <span className="material-symbols-outlined text-xs">send</span>
+                      <span>Uji Kirim ke Admin</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* 3 Automated Triggers List */}
                 <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-xs space-y-4">
                   <h4 className="font-bold text-stone-900 text-sm flex items-center gap-2">
                     <span className="material-symbols-outlined text-[#c41230]">bolt</span>
-                    <span>3 Alur Otomatisasi WhatsApp Gateway</span>
+                    <span>3 Alur Otomatisasi (Customer & Admin 0895329332135)</span>
                   </h4>
 
                   <div className="space-y-3">
@@ -2693,7 +2749,7 @@ export const SettingsPage: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-[11px] text-stone-600 leading-relaxed">
-                        Saat tombol pesanan ditekan, tombol menampilkan loading spinner 3-5 detik. Setelah itu rincian barang, total bayar (Yen/Rp), resi, dan kurir (Yamato/Sagawa) otomatis terkirim ke WhatsApp pembeli.
+                        Saat tombol pesanan ditekan, tombol menampilkan loading spinner 3-5 detik. Setelah selesai, rincian pesanan & resi dikirimkan ke <strong>WhatsApp Pembeli</strong> dan sekaligus notifikasi order baru dikirimkan ke <strong>WhatsApp Admin ({waAdminPhone})</strong>.
                       </p>
                     </div>
 
@@ -2709,7 +2765,7 @@ export const SettingsPage: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-[11px] text-stone-600 leading-relaxed">
-                        Ketika admin memperbarui status pesanan menjadi <strong>Selesai (Tahap 4: Paket Sampai)</strong>, pesan konfirmasi barang telah tiba otomatis dikirimkan ke nomor WhatsApp customer.
+                        Ketika admin memperbarui status pesanan menjadi <strong>Selesai (Tahap 4: Paket Sampai)</strong>, pesan konfirmasi paket tiba otomatis dikirimkan ke <strong>WhatsApp customer</strong> dan laporan pesanan selesai dikirimkan ke <strong>WhatsApp Admin ({waAdminPhone})</strong>.
                       </p>
                     </div>
 
@@ -2725,7 +2781,7 @@ export const SettingsPage: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-[11px] text-stone-600 leading-relaxed">
-                        Saat customer menekan tombol <strong>Daftar & Buat Akun Sekarang</strong>, pesan sambutan, ID Member baru, dan bonus 100 poin reward langsung dikirim ke no HP terdaftar.
+                        Saat customer menekan tombol <strong>Daftar & Buat Akun Sekarang</strong>, pesan sambutan, ID Member baru, dan bonus 100 poin reward langsung dikirim ke <strong>nomor HP member</strong>, serta data pendaftaran baru otomatis diteruskan ke <strong>WhatsApp Admin ({waAdminPhone})</strong>.
                       </p>
                     </div>
                   </div>
