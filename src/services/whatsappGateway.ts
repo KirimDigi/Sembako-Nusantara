@@ -15,10 +15,12 @@ export interface WAGatewayConfig {
 }
 
 export const DEFAULT_WA_CONFIG: WAGatewayConfig = {
-  baseUrl: 'http://localhost:2026',
+  baseUrl: 'https://nonleaking-cameron-eagerly.ngrok-free.dev',
   apiKey: 'AQSHAMART2025',
   sessionId: 'KirimDigi'
 };
+
+export const LOCAL_FALLBACK_URL = 'http://localhost:2026';
 
 /**
  * Get current WA gateway configuration with localStorage override capability
@@ -68,7 +70,7 @@ export function formatPhoneNumberForWA(phone: string): string {
 }
 
 /**
- * Core function to send WhatsApp message via local gateway
+ * Core function to send WhatsApp message via live / local gateway
  */
 export async function sendWhatsAppMessage(
   recipientPhone: string,
@@ -88,42 +90,72 @@ export async function sendWhatsAppMessage(
   const payload = {
     sessionId: primarySession,
     number: cleanNumber,
+    to: cleanNumber,
+    phone: cleanNumber,
+    receiver: cleanNumber,
     message: messageText
   };
 
-  console.log(`[WA Gateway] Mengirim pesan ke ${cleanNumber} menggunakan session: ${primarySession}`);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'x-api-key': config.apiKey,
+    'session-id': primarySession,
+    'ngrok-skip-browser-warning': 'true'
+  };
+
+  console.log(`[WA Gateway] Mengirim pesan ke ${cleanNumber} via ${config.baseUrl} (session: ${primarySession})`);
+
+  // Helper untuk melakukan request HTTP
+  const doFetch = async (targetUrl: string, sessionName: string) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000); // 7s timeout
+    try {
+      const res = await fetch(`${targetUrl}/api/send`, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'session-id': sessionName
+        },
+        body: JSON.stringify({ ...payload, sessionId: sessionName }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return res;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
+    }
+  };
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
-
-    const res = await fetch(`${config.baseUrl}/api/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': config.apiKey
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
+    // 1. Percobaan pertama: Target URL utama (Live ngrok / config.baseUrl)
+    let res: Response | null = null;
+    let usedUrl = config.baseUrl;
+    try {
+      res = await doFetch(usedUrl, primarySession);
+    } catch (err) {
+      // Jika config.baseUrl gagal (misal jika pakai localhost tapi offline, coba ngrok atau sebaliknya)
+      const altUrl = usedUrl.includes('localhost')
+        ? 'https://nonleaking-cameron-eagerly.ngrok-free.dev'
+        : 'http://localhost:2026';
+      try {
+        console.log(`[WA Gateway] Mencoba fallback endpoint: ${altUrl}`);
+        res = await doFetch(altUrl, primarySession);
+        usedUrl = altUrl;
+      } catch (altErr) {
+        throw err;
+      }
+    }
 
     if (!res.ok) {
-      // If primary session failed, attempt fallback session if KirimDigi / f1
+      // 2. Jika sesi KirimDigi tidak merespon 200, coba sesi fallback 'HRIS02'
       if (primarySession === 'KirimDigi') {
         try {
-          const fallbackRes = await fetch(`${config.baseUrl}/api/send`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': config.apiKey
-            },
-            body: JSON.stringify({ ...payload, sessionId: 'f1' })
-          });
+          console.log('[WA Gateway] Mencoba fallback sesi HRIS02...');
+          const fallbackRes = await doFetch(usedUrl, 'HRIS02');
           if (fallbackRes.ok) {
             const fallbackData = await fallbackRes.json();
-            console.log('[WA Gateway] Berhasil terkirim via fallback session f1:', fallbackData);
+            console.log('[WA Gateway] Berhasil terkirim via fallback session HRIS02:', fallbackData);
             return { success: true, data: fallbackData };
           }
         } catch (fbErr) {}
@@ -138,7 +170,7 @@ export async function sendWhatsAppMessage(
     console.log('[WA Gateway] Berhasil terkirim:', data);
     return { success: true, data };
   } catch (err: any) {
-    console.warn('[WA Gateway] Gagal menghubungi gateway lokal (mungkin offline):', err?.message || err);
+    console.warn('[WA Gateway] Gagal menghubungi gateway WhatsApp:', err?.message || err);
     return { success: false, error: err?.message || 'Gateway offline / network error' };
   }
 }

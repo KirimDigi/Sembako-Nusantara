@@ -2905,7 +2905,7 @@ export const SettingsPage: React.FC = () => {
                         onClick={() => {
                           setWaConfig(DEFAULT_WA_CONFIG);
                           localStorage.removeItem('sn_wa_gateway_config');
-                          setWaResultToast({ success: true, text: 'Konfigurasi dikembalikan ke default KirimDigi & localhost:2026' });
+                          setWaResultToast({ success: true, text: 'Konfigurasi dikembalikan ke default KirimDigi & Gateway Aktif' });
                         }}
                         className="text-xs text-stone-500 hover:text-stone-800 underline font-medium cursor-pointer"
                       >
