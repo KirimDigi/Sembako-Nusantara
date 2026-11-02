@@ -4,15 +4,7 @@ import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useLanguage } from '../../context/LanguageContext';
 import { CashierPermissionItem, CashierAccount, ThermalPrinterSettings, ConnectedPrinterProfile } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { 
-  sendWhatsAppMessage, 
-  getWAGatewayConfig, 
-  WAGatewayConfig, 
-  DEFAULT_WA_CONFIG,
-  ADMIN_WA_PHONE,
-  getAdminWAPhone,
-  setAdminWAPhone
-} from '../../services/whatsappGateway';
+import { StockOpnameSection } from '../../components/admin/StockOpnameSection';
 
 export const INITIAL_PERMISSIONS: CashierPermissionItem[] = [
   // 1. Operasional Kasir & Penjualan
@@ -188,20 +180,29 @@ const INITIAL_CASHIERS: CashierAccount[] = [
 
 export const INITIAL_CONNECTED_PRINTERS: ConnectedPrinterProfile[] = [
   {
+    id: 'printer-pos58',
+    name: 'POS-58',
+    connectionType: 'browser_driver',
+    paperWidth: 58,
+    rollDiameter: 30,
+    osTarget: 'Windows',
+    isDefault: true
+  },
+  {
     id: 'printer-dp7645',
     name: 'DP7645III',
     connectionType: 'browser_driver',
-    paperWidth: 57,
-    rollDiameter: 47,
+    paperWidth: 58,
+    rollDiameter: 30,
     osTarget: 'Windows',
-    isDefault: true
+    isDefault: false
   },
   {
     id: 'printer-onenote',
     name: 'OneNote for Windows 10',
     connectionType: 'browser_driver',
-    paperWidth: 57,
-    rollDiameter: 47,
+    paperWidth: 58,
+    rollDiameter: 30,
     osTarget: 'Windows',
     isDefault: false
   },
@@ -209,8 +210,8 @@ export const INITIAL_CONNECTED_PRINTERS: ConnectedPrinterProfile[] = [
     id: 'printer-xps',
     name: 'Microsoft XPS Document Writer',
     connectionType: 'browser_driver',
-    paperWidth: 57,
-    rollDiameter: 47,
+    paperWidth: 58,
+    rollDiameter: 30,
     osTarget: 'Windows',
     isDefault: false
   },
@@ -218,8 +219,8 @@ export const INITIAL_CONNECTED_PRINTERS: ConnectedPrinterProfile[] = [
     id: 'printer-pdf',
     name: 'Microsoft Print to PDF',
     connectionType: 'browser_driver',
-    paperWidth: 57,
-    rollDiameter: 47,
+    paperWidth: 58,
+    rollDiameter: 30,
     osTarget: 'Windows',
     isDefault: false
   },
@@ -230,15 +231,6 @@ export const INITIAL_CONNECTED_PRINTERS: ConnectedPrinterProfile[] = [
     paperWidth: 80,
     rollDiameter: 80,
     osTarget: 'Windows',
-    isDefault: false
-  },
-  {
-    id: 'printer-pos58-gen',
-    name: 'POS-58 Series Thermal (Generic 57x47mm)',
-    connectionType: 'browser_driver',
-    paperWidth: 57,
-    rollDiameter: 47,
-    osTarget: 'Semua Perangkat',
     isDefault: false
   },
   {
@@ -253,10 +245,10 @@ export const INITIAL_CONNECTED_PRINTERS: ConnectedPrinterProfile[] = [
 ];
 
 export const DEFAULT_PRINTER_SETTINGS: ThermalPrinterSettings = {
-  printerName: 'DP7645III',
+  printerName: 'POS-58',
   connectionType: 'browser_driver',
-  paperWidth: 57, // Lebar Kertas mm (Default: 57)
-  rollDiameter: 47, // Diameter Lingkaran mm (Default: 47)
+  paperWidth: 58, // Lebar Kertas mm (Default: 58 mm)
+  rollDiameter: 30, // Diameter Lingkaran mm (Default: 30 mm)
   charPerLine: 32,
   fontSize: 'normal',
   autoCut: true,
@@ -272,6 +264,7 @@ export const DEFAULT_PRINTER_SETTINGS: ThermalPrinterSettings = {
   savedPrinters: INITIAL_CONNECTED_PRINTERS
 };
 
+
 export const getCleanPrinterSettings = (savedRaw: string | null): ThermalPrinterSettings => {
   if (!savedRaw) return DEFAULT_PRINTER_SETTINGS;
   try {
@@ -280,7 +273,24 @@ export const getCleanPrinterSettings = (savedRaw: string | null): ThermalPrinter
       parsed.footerNote = parsed.footerNote.replace(/🇮🇩🇯🇵|IDJP/g, '').trim();
     }
 
+    // Auto-migrate legacy 57mm or inverted 30mm paperWidth to standard 58x30mm thermal paper
+    if (parsed.paperWidth === 57 || parsed.paperWidth === 30 || parsed.rollDiameter === 47 || parsed.rollDiameter === 58) {
+      parsed.paperWidth = 58;
+      parsed.rollDiameter = 30;
+      parsed.charPerLine = 32;
+    }
+
     let savedList: ConnectedPrinterProfile[] = Array.isArray(parsed.savedPrinters) ? [...parsed.savedPrinters] : [];
+    savedList = savedList.map(p => {
+      if (p.paperWidth === 57 || p.paperWidth === 30 || p.rollDiameter === 47 || p.rollDiameter === 58) {
+        return {
+          ...p,
+          paperWidth: 58,
+          rollDiameter: 30
+        };
+      }
+      return p;
+    });
 
     // Merge default Windows printers from user's system if not present
     INITIAL_CONNECTED_PRINTERS.forEach((initP) => {
@@ -291,8 +301,8 @@ export const getCleanPrinterSettings = (savedRaw: string | null): ThermalPrinter
     });
 
     let activeName = parsed.printerName;
-    if (!activeName || activeName === 'Thermal Receipt Printer (57x47mm)') {
-      activeName = 'DP7645III';
+    if (!activeName || activeName.includes('57x47mm') || activeName === 'DP7645III') {
+      activeName = 'POS-58';
     }
 
     const activeProfile = savedList.find((p) => p.name === activeName);
@@ -301,8 +311,9 @@ export const getCleanPrinterSettings = (savedRaw: string | null): ThermalPrinter
       ...DEFAULT_PRINTER_SETTINGS,
       ...parsed,
       printerName: activeName,
-      paperWidth: activeProfile?.paperWidth || parsed.paperWidth || 57,
-      rollDiameter: activeProfile?.rollDiameter || parsed.rollDiameter || 47,
+      paperWidth: activeProfile?.paperWidth || parsed.paperWidth || 58,
+      rollDiameter: activeProfile?.rollDiameter || parsed.rollDiameter || 30,
+      charPerLine: parsed.charPerLine || 32,
       savedPrinters: savedList
     };
   } catch (e) {
@@ -314,22 +325,12 @@ export const SettingsPage: React.FC = () => {
   const { language } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Active Tab: 'accounts' | 'printer' | 'stock_opname' | 'wa_gateway'
+  // Active Tab: 'accounts' | 'printer' | 'stock_opname'
   const activeTab = searchParams.get('tab') === 'printer'
     ? 'printer'
     : searchParams.get('tab') === 'stock_opname'
     ? 'stock_opname'
-    : searchParams.get('tab') === 'wa_gateway'
-    ? 'wa_gateway'
     : 'accounts';
-
-  // WhatsApp Gateway State
-  const [waConfig, setWaConfig] = useState<WAGatewayConfig>(getWAGatewayConfig);
-  const [waAdminPhone, setWaAdminPhone] = useState<string>(getAdminWAPhone);
-  const [waTestPhone, setWaTestPhone] = useState('0895329332135');
-  const [waTestMsg, setWaTestMsg] = useState('Halo Admin! Ini adalah tes koneksi notifikasi otomatis WhatsApp Gateway Sembako Nusantara Jepang.');
-  const [isSendingWa, setIsSendingWa] = useState(false);
-  const [waResultToast, setWaResultToast] = useState<{ success: boolean; text: string } | null>(null);
 
   // All system permissions master list
   const [permissions] = useState<CashierPermissionItem[]>(INITIAL_PERMISSIONS);
@@ -357,6 +358,7 @@ export const SettingsPage: React.FC = () => {
 
   // Add POS Account Modal State
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
+  const [showAddPin, setShowAddPin] = useState(false);
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState('Kasir POS');
   const [customRole, setCustomRole] = useState('');
@@ -374,6 +376,7 @@ export const SettingsPage: React.FC = () => {
 
   // Edit Account Details State
   const [editingAccountData, setEditingAccountData] = useState<CashierAccount | null>(null);
+  const [showEditPin, setShowEditPin] = useState(false);
 
   // Edit Account Permissions Modal State
   const [editingPermissionsAccount, setEditingPermissionsAccount] = useState<CashierAccount | null>(null);
@@ -439,8 +442,8 @@ export const SettingsPage: React.FC = () => {
   const [showAddPrinterModal, setShowAddPrinterModal] = useState(false);
   const [newPrinterName, setNewPrinterName] = useState('');
   const [newPrinterConn, setNewPrinterConn] = useState<'browser_driver' | 'bluetooth' | 'usb_direct' | 'network_ip'>('browser_driver');
-  const [newPrinterWidth, setNewPrinterWidth] = useState(57);
-  const [newPrinterDiameter, setNewPrinterDiameter] = useState(47);
+  const [newPrinterWidth, setNewPrinterWidth] = useState(58);
+  const [newPrinterDiameter, setNewPrinterDiameter] = useState(30);
   const [newPrinterOs, setNewPrinterOs] = useState<'Windows' | 'Mac' | 'Semua Perangkat'>('Windows');
 
   const showToast = (msg: string) => {
@@ -779,37 +782,59 @@ export const SettingsPage: React.FC = () => {
   // Test Print Thermal Receipt
   const handleTestPrint = () => {
     // Inject dynamic print styling for the exact paper width
-    const existingStyle = document.getElementById('thermal-print-override');
-    if (existingStyle) existingStyle.remove();
+    const printWidth = printerSettings.paperWidth || 58;
+    // Pada printer thermal 58mm, lebar print head fisik adalah 48mm (384 dots).
+    // Menyetel printable width ke 48mm memastikan sisi kanan nota tidak terpotong!
+    const printableWidth = printWidth === 58 ? 48 : printWidth <= 50 ? printWidth - 4 : printWidth - 8;
+    const fontSizePx =
+      printerSettings.fontSize === 'small' ? '9px' : printerSettings.fontSize === 'large' ? '12px' : '10px';
 
     const styleEl = document.createElement('style');
     styleEl.id = 'thermal-print-override';
     styleEl.innerHTML = `
       @media print {
         @page {
-          size: ${printerSettings.paperWidth}mm auto;
+          size: ${printWidth}mm auto;
           margin: 0mm;
+        }
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: ${printWidth}mm !important;
+          max-width: ${printWidth}mm !important;
+          background: #ffffff !important;
+          overflow: hidden !important;
         }
         body * {
           visibility: hidden !important;
         }
         #thermal-receipt-preview-area, #thermal-receipt-preview-area * {
           visibility: visible !important;
+          color: #000000 !important;
+          -webkit-text-fill-color: #000000 !important;
+          border-color: #000000 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          line-height: 1.15 !important;
         }
         #thermal-receipt-preview-area {
           position: fixed !important;
           left: 0 !important;
           top: 0 !important;
-          width: ${printerSettings.paperWidth}mm !important;
-          max-width: ${printerSettings.paperWidth}mm !important;
+          width: ${printableWidth}mm !important;
+          max-width: ${printableWidth}mm !important;
+          box-sizing: border-box !important;
           margin: 0 !important;
-          padding: 2mm 3mm !important;
-          background: white !important;
-          color: black !important;
+          padding: 0.5mm 1mm !important;
+          background: #ffffff !important;
+          color: #000000 !important;
           font-family: 'Courier New', Courier, monospace !important;
-          font-size: ${printerSettings.fontSize === 'small' ? '10px' : printerSettings.fontSize === 'large' ? '13px' : '11px'} !important;
+          font-size: ${fontSizePx} !important;
+          line-height: 1.15 !important;
           box-shadow: none !important;
           border: none !important;
+          overflow: hidden !important;
+          word-break: break-word !important;
         }
       }
     `;
@@ -875,7 +900,7 @@ export const SettingsPage: React.FC = () => {
         activeTab === 'stock_opname'
           ? 'Audit fisik dan penyesuaian persediaan barang toko (Stok Opname). Mendukung input manual per produk dan upload massal file CSV.'
           : activeTab === 'printer'
-          ? 'Konfigurasi printer thermal nota kasir, ukuran kertas (default 57x47 mm), dan integrasi cetak POS.'
+          ? 'Konfigurasi printer thermal nota kasir, ukuran kertas (default 58x30 mm, area cetak aman 48 mm), dan integrasi cetak POS.'
           : 'Kelola akun login mesin POS untuk Store Manager, Supervisor (SPV), Kasir, dan Karyawan Toko beserta hak akses fiturnya.'
       }
     >
@@ -935,23 +960,6 @@ export const SettingsPage: React.FC = () => {
             <span>Stok Opname (Audit Fisik Inventori)</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-300">
               Massal & Manual
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSearchParams({ tab: 'wa_gateway' })}
-            className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'wa_gateway'
-                ? 'bg-[#c41230] text-white shadow-md'
-                : 'bg-white hover:bg-stone-100 text-stone-700 border border-stone-200'
-            }`}
-          >
-            <span className="material-symbols-outlined text-lg text-emerald-600">chat</span>
-            <span>WhatsApp Gateway</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              {waConfig.sessionId}
             </span>
           </button>
         </div>
@@ -1256,7 +1264,7 @@ export const SettingsPage: React.FC = () => {
                       </h3>
                     </div>
                     <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                      Rekomendasi: 57x47 mm
+                      Rekomendasi: 58x30 mm (Area Cetak 48 mm)
                     </span>
                   </div>
 
@@ -1271,19 +1279,19 @@ export const SettingsPage: React.FC = () => {
                         onClick={() =>
                           setPrinterSettings({
                             ...printerSettings,
-                            paperWidth: 57,
-                            rollDiameter: 47,
+                            paperWidth: 58,
+                            rollDiameter: 30,
                             charPerLine: 32
                           })
                         }
                         className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
-                          printerSettings.paperWidth === 57 && printerSettings.rollDiameter === 47
+                          printerSettings.paperWidth === 58 && printerSettings.rollDiameter === 30
                             ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 font-bold'
                             : 'bg-stone-50 border-stone-200 hover:bg-stone-100 text-stone-700'
                         }`}
                       >
-                        <div className="text-xs font-black">⭐ 57 x 47 mm</div>
-                        <div className="text-[10px] text-stone-500 mt-0.5">Default Kasir</div>
+                        <div className="text-xs font-black">⭐ 58 x 30 mm</div>
+                        <div className="text-[10px] text-stone-500 mt-0.5">Default Kasir (58mm)</div>
                       </button>
 
                       <button
@@ -1297,7 +1305,7 @@ export const SettingsPage: React.FC = () => {
                           })
                         }
                         className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
-                          printerSettings.paperWidth === 58
+                          printerSettings.paperWidth === 58 && printerSettings.rollDiameter === 50
                             ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 font-bold'
                             : 'bg-stone-50 border-stone-200 hover:bg-stone-100 text-stone-700'
                         }`}
@@ -1343,7 +1351,7 @@ export const SettingsPage: React.FC = () => {
                           onChange={(e) =>
                             setPrinterSettings({
                               ...printerSettings,
-                              paperWidth: Math.max(40, parseInt(e.target.value) || 57)
+                              paperWidth: Math.max(40, parseInt(e.target.value) || 58)
                             })
                           }
                           className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#c41230]"
@@ -1353,7 +1361,7 @@ export const SettingsPage: React.FC = () => {
                         </span>
                       </div>
                       <span className="text-[10px] text-stone-500 mt-0.5 block">
-                        Default: <strong>57 mm</strong>
+                        Default: <strong>58 mm</strong>
                       </span>
                     </div>
 
@@ -1370,7 +1378,7 @@ export const SettingsPage: React.FC = () => {
                           onChange={(e) =>
                             setPrinterSettings({
                               ...printerSettings,
-                              rollDiameter: Math.max(20, parseInt(e.target.value) || 47)
+                              rollDiameter: Math.max(20, parseInt(e.target.value) || 30)
                             })
                           }
                           className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#c41230]"
@@ -1380,7 +1388,7 @@ export const SettingsPage: React.FC = () => {
                         </span>
                       </div>
                       <span className="text-[10px] text-stone-500 mt-0.5 block">
-                        Default: <strong>47 mm</strong>
+                        Default: <strong>30 mm</strong>
                       </span>
                     </div>
 
@@ -1402,7 +1410,7 @@ export const SettingsPage: React.FC = () => {
                         className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#c41230]"
                       />
                       <span className="text-[10px] text-stone-500 mt-0.5 block">
-                        57mm = 32 CPL
+                        58mm = 32 CPL (Area 48mm)
                       </span>
                     </div>
                   </div>
@@ -1470,7 +1478,7 @@ export const SettingsPage: React.FC = () => {
                     >
                       {(printerSettings.savedPrinters || INITIAL_CONNECTED_PRINTERS).map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} {p.paperWidth ? `(${p.paperWidth}x${p.rollDiameter || 47} mm)` : ''} {p.name === printerSettings.printerName ? '★ [AKTIF DI KASIR]' : ''}
+                          {p.name} {p.paperWidth ? `(${p.paperWidth}x${p.rollDiameter || 30} mm)` : ''} {p.name === printerSettings.printerName ? '★ [AKTIF DI KASIR]' : ''}
                         </option>
                       ))}
                     </select>
@@ -1558,7 +1566,7 @@ export const SettingsPage: React.FC = () => {
                     </div>
                     <ul className="list-disc pl-4 space-y-1 text-stone-700">
                       <li>
-                        <strong>DP7645III (Printer Kasir Default)</strong>: Sudah aktif dengan ukuran nota <strong>57x47 mm</strong>. Anda dapat langsung mencetak struk kasir tanpa perlu konfigurasi tambahan.
+                        <strong>DP7645III (Printer Kasir Default)</strong>: Sudah aktif dengan ukuran nota <strong>58x30 mm (area cetak aman 48 mm)</strong>. Anda dapat langsung mencetak struk kasir tanpa perlu konfigurasi tambahan.
                       </li>
                       <li>
                         <strong>Printer Lain Terhubung</strong>: Printer seperti <em>\\SERVER\Canon G2030 series</em>, <em>Microsoft Print to PDF</em>, <em>Microsoft XPS Document Writer</em>, dan <em>OneNote for Windows 10</em> dapat dipilih langsung melalui menu dropdown <strong>Printer :</strong> di atas maupun langsung di modal struk POS Kasir.
@@ -1819,29 +1827,29 @@ export const SettingsPage: React.FC = () => {
                     Berikut adalah simulasi visual nota kasir yang akan keluar dari printer thermal <strong>{printerSettings.paperWidth}x{printerSettings.rollDiameter} mm</strong>:
                   </p>
 
-                  {/* Printable Thermal Receipt Box */}
+                  {/* Printable Thermal Receipt Box (Monochrome Black & Less Paper Compact) */}
                   <div className="flex justify-center p-3 bg-stone-100 rounded-2xl overflow-hidden">
                     <div
                       id="thermal-receipt-preview-area"
                       style={{
                         width: `${Math.min(320, printerSettings.paperWidth * 4.5)}px`
                       }}
-                      className="bg-white p-4 shadow-md rounded-md text-stone-900 font-mono text-[11px] leading-tight space-y-2 border-t-4 border-stone-900 transition-all select-none"
+                      className="bg-white p-2.5 shadow-md rounded-md text-black font-mono text-[11px] leading-tight space-y-1.5 border-t-4 border-black transition-all select-none"
                     >
                       {/* Header */}
-                      <div className="text-center space-y-0.5 pb-2 border-b border-dashed border-stone-400">
+                      <div className="text-center space-y-0 pb-1 border-b border-dashed border-black">
                         {printerSettings.showLogo && (
-                          <div className="text-xs font-black tracking-wider text-[#c41230] mb-0.5 font-sans">
+                          <div className="text-xs font-black tracking-wider text-black mb-0.5 font-sans">
                             せんばこ ぬさんたら にほん
                           </div>
                         )}
-                        <div className="font-bold text-xs uppercase">{printerSettings.storeName}</div>
-                        <div className="text-[9px] text-stone-600 leading-tight">{printerSettings.storeAddress}</div>
-                        <div className="text-[9px] text-stone-600">Telp: {printerSettings.storePhone}</div>
+                        <div className="font-bold text-xs uppercase text-black">{printerSettings.storeName}</div>
+                        <div className="text-[9.5px] text-black leading-tight">{printerSettings.storeAddress}</div>
+                        <div className="text-[9px] text-black">Telp: {printerSettings.storePhone}</div>
                       </div>
 
                       {/* Metadata */}
-                      <div className="text-[10px] space-y-0.5 py-1 border-b border-dashed border-stone-400">
+                      <div className="text-[10px] space-y-0 py-0.5 border-b border-dashed border-black text-black">
                         <div className="flex justify-between">
                           <span>No: SN-POS-88910</span>
                           <span>{new Date().toLocaleDateString('id-ID')}</span>
@@ -1856,35 +1864,35 @@ export const SettingsPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Items */}
-                      <div className="py-1 space-y-1.5 border-b border-dashed border-stone-400 text-[10px]">
+                      {/* Items (Berdempetan persis sama) */}
+                      <div className="py-1 space-y-1 border-b border-dashed border-black text-[10px] text-black">
                         <div className="flex justify-between items-start">
-                          <div>
-                            <div className="font-bold">Indomie Goreng (DUS)</div>
-                            <div className="text-[9px] text-stone-500">¥4,500 × 1</div>
+                          <div className="leading-tight">
+                            <div className="font-bold text-black">Indomie Goreng (DUS)</div>
+                            <div className="text-[9px] text-black">¥4,500 × 1</div>
                           </div>
-                          <div className="font-bold">¥4,500</div>
+                          <div className="font-bold text-black">¥4,500</div>
                         </div>
 
                         <div className="flex justify-between items-start">
-                          <div>
-                            <div className="font-bold">Kecap Bango 550ml</div>
-                            <div className="text-[9px] text-stone-500">¥450 × 2</div>
+                          <div className="leading-tight">
+                            <div className="font-bold text-black">Kecap Bango 550ml</div>
+                            <div className="text-[9px] text-black">¥450 × 2</div>
                           </div>
-                          <div className="font-bold">¥900</div>
+                          <div className="font-bold text-black">¥900</div>
                         </div>
 
                         <div className="flex justify-between items-start">
-                          <div>
-                            <div className="font-bold">Teh Botol Kotak 250ml</div>
-                            <div className="text-[9px] text-stone-500">¥120 × 3</div>
+                          <div className="leading-tight">
+                            <div className="font-bold text-black">Teh Botol Kotak 250ml</div>
+                            <div className="text-[9px] text-black">¥120 × 3</div>
                           </div>
-                          <div className="font-bold">¥360</div>
+                          <div className="font-bold text-black">¥360</div>
                         </div>
                       </div>
 
                       {/* Totals */}
-                      <div className="text-[10px] space-y-0.5 py-1 border-b border-dashed border-stone-400">
+                      <div className="text-[10px] space-y-0.5 py-0.5 border-b border-dashed border-black text-black">
                         <div className="flex justify-between">
                           <span>Subtotal:</span>
                           <span>¥5,760</span>
@@ -1893,11 +1901,11 @@ export const SettingsPage: React.FC = () => {
                           <span>Pajak Konsumsi (8%):</span>
                           <span>¥460</span>
                         </div>
-                        <div className="flex justify-between font-bold text-xs pt-1 border-t border-stone-300">
+                        <div className="flex justify-between font-bold text-xs pt-0.5 border-t border-black">
                           <span>TOTAL BAYAR:</span>
                           <span>¥6,220</span>
                         </div>
-                        <div className="flex justify-between pt-1">
+                        <div className="flex justify-between pt-0.5">
                           <span>Metode Bayar (Tunai JPY):</span>
                           <span>¥10,000</span>
                         </div>
@@ -1908,13 +1916,10 @@ export const SettingsPage: React.FC = () => {
                       </div>
 
                       {/* Footer Notes */}
-                      <div className="text-center text-[9px] text-stone-600 pt-2 space-y-1">
+                      <div className="text-center text-[9px] text-black pt-1 space-y-0.5">
                         <div className="font-bold">{printerSettings.footerNote}</div>
-                        <div className="text-[8px] text-stone-500 leading-tight">
+                        <div className="text-[8px] text-black leading-tight">
                           {printerSettings.storePolicyNote}
-                        </div>
-                        <div className="font-mono text-[9px] pt-1 tracking-widest text-stone-400">
-                          *SN-TEST-RECEIPT-57MM*
                         </div>
                       </div>
                     </div>
@@ -2044,14 +2049,26 @@ export const SettingsPage: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1">PIN Login (4 Angka):</label>
-                    <input
-                      type="password"
-                      maxLength={4}
-                      value={newPin}
-                      onChange={(e) => setNewPin(e.target.value)}
-                      placeholder="1234"
-                      className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-[#c41230]"
-                    />
+                    <div className="relative flex items-center">
+                      <input
+                        type={showAddPin ? 'text' : 'password'}
+                        maxLength={4}
+                        value={newPin}
+                        onChange={(e) => setNewPin(e.target.value)}
+                        placeholder="1234"
+                        className="w-full bg-stone-50 border border-stone-300 rounded-xl pl-3 pr-10 py-2 text-xs font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-[#c41230]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAddPin(!showAddPin)}
+                        className="absolute right-2.5 text-stone-400 hover:text-stone-700 p-1 flex items-center justify-center cursor-pointer transition-colors"
+                        title={showAddPin ? 'Sembunyikan PIN' : 'Lihat PIN'}
+                      >
+                        <span className="material-symbols-outlined text-lg leading-none">
+                          {showAddPin ? 'visibility_off' : 'visibility'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2228,13 +2245,25 @@ export const SettingsPage: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1">PIN Login (4 Angka):</label>
-                    <input
-                      type="password"
-                      maxLength={4}
-                      value={editingAccountData.pin}
-                      onChange={(e) => setEditingAccountData({ ...editingAccountData, pin: e.target.value })}
-                      className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-[#c41230]"
-                    />
+                    <div className="relative flex items-center">
+                      <input
+                        type={showEditPin ? 'text' : 'password'}
+                        maxLength={4}
+                        value={editingAccountData.pin}
+                        onChange={(e) => setEditingAccountData({ ...editingAccountData, pin: e.target.value })}
+                        className="w-full bg-stone-50 border border-stone-300 rounded-xl pl-3 pr-10 py-2 text-xs font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-[#c41230]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowEditPin(!showEditPin)}
+                        className="absolute right-2.5 text-stone-400 hover:text-stone-700 p-1 flex items-center justify-center cursor-pointer transition-colors"
+                        title={showEditPin ? 'Sembunyikan PIN' : 'Lihat PIN'}
+                      >
+                        <span className="material-symbols-outlined text-lg leading-none">
+                          {showEditPin ? 'visibility_off' : 'visibility'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2509,14 +2538,14 @@ export const SettingsPage: React.FC = () => {
                       Lebar Kertas (mm):
                     </label>
                     <div className="flex gap-1.5 mb-1.5">
-                      {[57, 58, 80].map((w) => (
+                      {[30, 58, 80].map((w) => (
                         <button
                           key={w}
                           type="button"
                           onClick={() => {
                             setNewPrinterWidth(w);
-                            if (w === 57) setNewPrinterDiameter(47);
-                            else if (w === 58) setNewPrinterDiameter(50);
+                            if (w === 30) setNewPrinterDiameter(58);
+                            else if (w === 58) setNewPrinterDiameter(30);
                             else if (w === 80) setNewPrinterDiameter(80);
                           }}
                           className={`flex-1 py-1 text-[10px] font-bold rounded-lg border transition-colors cursor-pointer ${
@@ -2531,11 +2560,11 @@ export const SettingsPage: React.FC = () => {
                     </div>
                     <input
                       type="number"
-                      min={40}
+                      min={20}
                       max={120}
                       required
                       value={newPrinterWidth}
-                      onChange={(e) => setNewPrinterWidth(parseInt(e.target.value) || 57)}
+                      onChange={(e) => setNewPrinterWidth(parseInt(e.target.value) || 30)}
                       className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-1.5 text-xs font-bold"
                     />
                   </div>
@@ -2547,11 +2576,11 @@ export const SettingsPage: React.FC = () => {
                     <div className="h-6"></div>
                     <input
                       type="number"
-                      min={30}
+                      min={20}
                       max={100}
                       required
                       value={newPrinterDiameter}
-                      onChange={(e) => setNewPrinterDiameter(parseInt(e.target.value) || 47)}
+                      onChange={(e) => setNewPrinterDiameter(parseInt(e.target.value) || 30)}
                       className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-1.5 text-xs font-bold"
                     />
                   </div>
@@ -2585,357 +2614,6 @@ export const SettingsPage: React.FC = () => {
           <StockOpnameSection />
         )}
 
-        {/* ========================================================================= */}
-        {/* TAB 4: WHATSAPP GATEWAY (AQSHAMART / KirimDigi)                           */}
-        {/* ========================================================================= */}
-        {activeTab === 'wa_gateway' && (
-          <div className="space-y-6">
-            {/* Top Header Card */}
-            <div className="bg-gradient-to-r from-emerald-950 via-stone-900 to-stone-900 text-white p-5 sm:p-6 rounded-3xl shadow-lg border border-emerald-900/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-2xl shrink-0">
-                  <span className="material-symbols-outlined text-3xl">chat</span>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-xs border border-emerald-500/30 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                      Sub-Menu: WhatsApp Gateway Real-Time
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-black text-white mt-1">
-                    Integrasi WhatsApp Gateway (KirimDigi)
-                  </h3>
-                  <p className="text-xs text-stone-300 mt-1 max-w-2xl leading-relaxed">
-                    Kirim notifikasi otomatis ke nomor WhatsApp customer saat checkout, pembaruan status pesanan selesai/sampai tujuan, dan pendaftaran akun baru.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="px-3.5 py-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold text-xs rounded-xl flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base">check_circle</span>
-                  <span>Port 2026: Terkoneksi</span>
-                </span>
-              </div>
-            </div>
-
-            {/* Notification Toast */}
-            {waResultToast && (
-              <div
-                className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-between border shadow-sm ${
-                  waResultToast.success
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                    : 'bg-rose-50 border-rose-200 text-rose-900'
-                }`}
-              >
-                <span>{waResultToast.text}</span>
-                <button
-                  type="button"
-                  onClick={() => setWaResultToast(null)}
-                  className="text-stone-400 hover:text-stone-700 ml-3"
-                >
-                  <span className="material-symbols-outlined text-sm">close</span>
-                </button>
-              </div>
-            )}
-
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left Column (5 cols): Connected Device Card & Triggers */}
-              <div className="lg:col-span-5 space-y-5">
-                {/* Connected Session Card (styled like WhatsApp Gateway UI) */}
-                <div className="bg-emerald-50/80 rounded-3xl border border-emerald-200 p-5 shadow-xs space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-bold text-stone-900 text-base flex items-center gap-1.5">
-                        <span className="text-emerald-700 font-black">{waConfig.sessionId}</span>
-                        <span className="text-stone-500 font-normal text-xs">(ID: {waConfig.sessionId})</span>
-                      </h4>
-                      <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-semibold mt-1">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
-                        <span>Status: Connected</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-stone-600 font-mono mt-1">
-                        <span className="material-symbols-outlined text-sm text-stone-400">phone</span>
-                        <span>Phone: +6281380989932</span>
-                      </div>
-                    </div>
-                    <span className="text-[11px] text-stone-400 font-mono">
-                      Aktif
-                    </span>
-                  </div>
-
-                  <div className="pt-2 border-t border-emerald-200/70 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const testInput = document.getElementById('wa-test-phone-input');
-                        testInput?.focus();
-                      }}
-                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-xs">send</span>
-                      <span>Test Message</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Admin WhatsApp Recipient Card */}
-                <div className="bg-white rounded-3xl border border-emerald-200 p-5 shadow-xs space-y-3 bg-gradient-to-br from-white to-emerald-50/30">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-stone-900 text-sm flex items-center gap-2">
-                      <span className="material-symbols-outlined text-emerald-600">admin_panel_settings</span>
-                      <span>WhatsApp Admin Penerima Notifikasi</span>
-                    </h4>
-                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span>Aktif Otomatis</span>
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-stone-600 leading-relaxed">
-                    Setiap ada <strong>Pesanan Baru Masuk</strong>, <strong>Registrasi Akun Baru</strong>, dan <strong>Pesanan Selesai</strong>, sistem otomatis mengirimkan tembusan rincian lengkap ke nomor Admin:
-                  </p>
-
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-2.5 text-stone-400 material-symbols-outlined text-base">phone_iphone</span>
-                      <input
-                        type="text"
-                        value={waAdminPhone}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setWaAdminPhone(val);
-                          setAdminWAPhone(val);
-                        }}
-                        placeholder="0895329332135"
-                        className="w-full pl-9 pr-3.5 py-2 bg-white border border-emerald-300 rounded-xl text-xs font-mono font-bold text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setWaTestPhone(waAdminPhone);
-                        const testInput = document.getElementById('wa-test-phone-input');
-                        testInput?.focus();
-                        showToast(`Nomor Admin ${waAdminPhone} dipilih untuk uji coba kirim!`);
-                      }}
-                      className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs"
-                    >
-                      <span className="material-symbols-outlined text-xs">send</span>
-                      <span>Uji Kirim ke Admin</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 3 Automated Triggers List */}
-                <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-xs space-y-4">
-                  <h4 className="font-bold text-stone-900 text-sm flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#c41230]">bolt</span>
-                    <span>3 Alur Otomatisasi (Customer & Admin 0895329332135)</span>
-                  </h4>
-
-                  <div className="space-y-3">
-                    {/* Trigger 1 */}
-                    <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-amber-950 flex items-center gap-1.5">
-                          <span>🛍️</span>
-                          <span>1. Customer Checkout Toko</span>
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-amber-200/70 text-amber-900 text-[10px] font-bold">
-                          Spinner 3-5s
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-stone-600 leading-relaxed">
-                        Saat tombol pesanan ditekan, tombol menampilkan loading spinner 3-5 detik. Setelah selesai, rincian pesanan & resi dikirimkan ke <strong>WhatsApp Pembeli</strong> dan sekaligus notifikasi order baru dikirimkan ke <strong>WhatsApp Admin ({waAdminPhone})</strong>.
-                      </p>
-                    </div>
-
-                    {/* Trigger 2 */}
-                    <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-emerald-950 flex items-center gap-1.5">
-                          <span>✅</span>
-                          <span>2. Pesanan Sampai / Selesai</span>
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-200/70 text-emerald-900 text-[10px] font-bold">
-                          Otomatis
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-stone-600 leading-relaxed">
-                        Ketika admin memperbarui status pesanan menjadi <strong>Selesai (Tahap 4: Paket Sampai)</strong>, pesan konfirmasi paket tiba otomatis dikirimkan ke <strong>WhatsApp customer</strong> dan laporan pesanan selesai dikirimkan ke <strong>WhatsApp Admin ({waAdminPhone})</strong>.
-                      </p>
-                    </div>
-
-                    {/* Trigger 3 */}
-                    <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200/80 space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-blue-950 flex items-center gap-1.5">
-                          <span>🎉</span>
-                          <span>3. Pendaftaran Akun Baru</span>
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-blue-200/70 text-blue-900 text-[10px] font-bold">
-                          Instan
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-stone-600 leading-relaxed">
-                        Saat customer menekan tombol <strong>Daftar & Buat Akun Sekarang</strong>, pesan sambutan, ID Member baru, dan bonus 100 poin reward langsung dikirim ke <strong>nomor HP member</strong>, serta data pendaftaran baru otomatis diteruskan ke <strong>WhatsApp Admin ({waAdminPhone})</strong>.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column (7 cols): API Documentation & Interactive Test Console */}
-              <div className="lg:col-span-7 space-y-5">
-                {/* API Documentation Box (Matching UI screenshot) */}
-                <div className="bg-[#1e293b] text-stone-200 rounded-3xl p-5 sm:p-6 shadow-md border border-slate-700/80 space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-700 pb-3">
-                    <div className="flex items-center gap-2 text-sm font-bold text-white">
-                      <span className="text-emerald-400 font-mono">&lt;/&gt;</span>
-                      <span>API Documentation</span>
-                    </div>
-                    <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">
-                      AQSHAMART Gateway
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center gap-2">
-                      <span className="text-emerald-400">🔑</span>
-                      <div>
-                        <div className="text-[10px] text-slate-400 font-semibold uppercase">API Key:</div>
-                        <div className="font-mono font-bold text-white text-xs">{waConfig.apiKey}</div>
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center gap-2">
-                      <span className="text-cyan-400">🌐</span>
-                      <div>
-                        <div className="text-[10px] text-slate-400 font-semibold uppercase">Base URL:</div>
-                        <div className="font-mono font-bold text-white text-xs">{waConfig.baseUrl}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs font-bold text-slate-300 mb-1.5 flex items-center gap-1">
-                      <span className="text-emerald-400">&gt;_</span>
-                      <span>Send Message (cURL Blueprint):</span>
-                    </div>
-                    <div className="p-3.5 bg-slate-900/90 rounded-2xl border border-slate-700 font-mono text-[11px] text-emerald-400 overflow-x-auto leading-relaxed">
-                      <code>
-                        curl -X POST "{waConfig.baseUrl}/api/send" \<br />
-                        &nbsp;&nbsp;-H "Content-Type: application/json" \<br />
-                        &nbsp;&nbsp;-H "x-api-key: {waConfig.apiKey}" \<br />
-                        &nbsp;&nbsp;-d '&#123; "sessionId": "{waConfig.sessionId}", "number": "628xxxxxxxxxx", "message": "Pesan dari Sembako Nusantara" &#125;'
-                      </code>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Interactive Test Console Card */}
-                <div className="bg-white rounded-3xl border border-stone-200 p-5 sm:p-6 shadow-xs space-y-4">
-                  <h4 className="font-bold text-stone-900 text-sm flex items-center gap-2">
-                    <span className="material-symbols-outlined text-emerald-600">send_and_archive</span>
-                    <span>Uji Coba Kirim Pesan WhatsApp Gateway Langsung</span>
-                  </h4>
-
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      setIsSendingWa(true);
-                      setWaResultToast(null);
-                      try {
-                        const res = await sendWhatsAppMessage(waTestPhone, waTestMsg, waConfig.sessionId);
-                        if (res.success) {
-                          setWaResultToast({
-                            success: true,
-                            text: `✅ Berhasil! Pesan WhatsApp terkirim ke ${waTestPhone} via sesi ${waConfig.sessionId}.`
-                          });
-                        } else {
-                          setWaResultToast({
-                            success: false,
-                            text: `⚠️ Pengiriman ke gateway gagal: ${res.error || 'Pastikan service http://localhost:2026 aktif'}`
-                          });
-                        }
-                      } catch (err: any) {
-                        setWaResultToast({ success: false, text: `❌ Error: ${err?.message || err}` });
-                      } finally {
-                        setIsSendingWa(false);
-                      }
-                    }}
-                    className="space-y-3.5"
-                  >
-                    <div>
-                      <label className="block text-xs font-bold text-stone-700 mb-1">
-                        Nomor WhatsApp Tujuan:
-                      </label>
-                      <input
-                        id="wa-test-phone-input"
-                        type="text"
-                        value={waTestPhone}
-                        onChange={(e) => setWaTestPhone(e.target.value)}
-                        placeholder="Contoh: 6281380989932 atau 08123456789"
-                        required
-                        className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                      <p className="text-[10px] text-stone-400 mt-0.5">
-                        Mendukung format Indonesia (+62 / 08xx) dan Jepang (+81 / 080 / 090xx).
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-stone-700 mb-1">
-                        Isi Pesan WhatsApp Uji Coba:
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={waTestMsg}
-                        onChange={(e) => setWaTestMsg(e.target.value)}
-                        className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        placeholder="Ketik pesan tes di sini..."
-                      />
-                    </div>
-
-                    <div className="pt-1 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWaConfig(DEFAULT_WA_CONFIG);
-                          localStorage.removeItem('sn_wa_gateway_config');
-                          setWaResultToast({ success: true, text: 'Konfigurasi dikembalikan ke default KirimDigi & Gateway Aktif' });
-                        }}
-                        className="text-xs text-stone-500 hover:text-stone-800 underline font-medium cursor-pointer"
-                      >
-                        Reset ke Default
-                      </button>
-
-                      <button
-                        type="submit"
-                        disabled={isSendingWa}
-                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-75"
-                      >
-                        {isSendingWa ? (
-                          <>
-                            <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                            <span>Menghubungi Gateway...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="material-symbols-outlined text-sm">send</span>
-                            <span>Kirim Pesan Uji Coba Sekarang</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </AdminLayout>
   );

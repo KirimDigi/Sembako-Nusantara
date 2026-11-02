@@ -809,7 +809,14 @@ export const ProductManagementPage: React.FC = () => {
                         <td className="py-3 px-4">
                           <div className="min-w-0 max-w-xs sm:max-w-md">
                             <div className="font-bold text-stone-900 text-xs">
-                              {language === 'JP' ? p.nameJp || p.name : language === 'EN' ? p.nameEn || p.name : p.name}
+                              {(() => {
+                                const base = language === 'JP' ? (p.nameJp || p.name) : language === 'EN' ? (p.nameEn || p.name) : p.name;
+                                const u = language === 'JP' ? (p.unitJp || p.unit) : language === 'EN' ? (p.unitEn || p.unit) : p.unit;
+                                if (u && !base.toLowerCase().includes(u.toLowerCase().trim())) {
+                                  return `${base} ${u}`;
+                                }
+                                return base;
+                              })()}
                             </div>
                             <div className="flex flex-wrap items-center gap-1.5 mt-1">
                               <span className="font-mono bg-stone-900 text-white font-bold px-1.5 py-0.5 rounded text-[10px] shadow-2xs">
@@ -818,7 +825,6 @@ export const ProductManagementPage: React.FC = () => {
                               <span className="bg-[#c41230]/10 text-[#c41230] font-bold px-1.5 py-0.5 rounded text-[10px]">
                                 {p.brand}
                               </span>
-                              <span className="text-stone-400 text-[10px]">• {p.unit}</span>
                             </div>
                           </div>
                         </td>
@@ -1259,7 +1265,14 @@ export const ProductManagementPage: React.FC = () => {
                         <span className="text-[#c41230]">{p.brand}</span>
                       </div>
                       <h3 className="font-bold text-xs text-stone-900 line-clamp-2 mt-1">
-                        {language === 'JP' ? p.nameJp || p.name : language === 'EN' ? p.nameEn || p.name : p.name}
+                        {(() => {
+                          const base = language === 'JP' ? (p.nameJp || p.name) : language === 'EN' ? (p.nameEn || p.name) : p.name;
+                          const u = language === 'JP' ? (p.unitJp || p.unit) : language === 'EN' ? (p.unitEn || p.unit) : p.unit;
+                          if (u && !base.toLowerCase().includes(u.toLowerCase().trim())) {
+                            return `${base} ${u}`;
+                          }
+                          return base;
+                        })()}
                       </h3>
                       <div className="flex items-baseline justify-between mt-2 pt-2 border-t border-stone-100">
                         <div>

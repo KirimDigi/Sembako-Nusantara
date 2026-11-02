@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAdmin } from '../context/AdminContext';
@@ -24,6 +24,21 @@ export const AccountOrdersPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
+  useEffect(() => {
+    if (currentUser) {
+      const isPos =
+        currentUser.role === 'Kasir (POS)' ||
+        currentUser.role?.toLowerCase().includes('kasir') ||
+        currentUser.role?.toLowerCase().includes('pos') ||
+        currentUser.role?.toLowerCase().includes('supervisor') ||
+        currentUser.role?.toLowerCase().includes('spv') ||
+        currentUser.id?.toLowerCase().startsWith('pos-');
+      if (isPos) {
+        navigate('/admin/pos', { replace: true });
+      }
+    }
+  }, [currentUser, navigate]);
+
   const handleGoogleLogin = async () => {
     setLoginError('');
     setIsGoogleLoading(true);
@@ -41,7 +56,7 @@ export const AccountOrdersPage: React.FC = () => {
     }
   };
 
-  // Real-time synchronization between Admin Dashboard orders and Customer Pesanan Saya
+  // Real-time synchronization: 100% identik dengan menu pesanan profil & adminOrders
   const orders = React.useMemo(() => {
     let localUserOrders: any[] = [];
     try {
@@ -52,80 +67,67 @@ export const AccountOrdersPage: React.FC = () => {
       }
     } catch (e) {}
 
-    const storageOrderIds = new Set(localUserOrders.map((o: any) => o.id || o.orderId));
+    // Map all adminOrders (exact 1:1 match with ProfilePage order history)
+    const adminOrdersMap = new Map<string, any>();
 
-    // Deep merge: each order in storage gets updated in real-time from AdminContext
-    const mergedList: any[] = localUserOrders.map((uo: any) => {
-      const ordId = uo.id || uo.orderId;
-      const matchAdmin = adminOrders.find((ao) => ao.id === ordId);
+    adminOrders.forEach((ao) => {
+      const ordId = ao.id;
+      const localMatch = localUserOrders.find((uo: any) => (uo.id || uo.orderId) === ordId);
       const isLocallyCancelled = localCancelledIds.includes(ordId);
-      if (matchAdmin) {
-        return {
+
+      adminOrdersMap.set(ordId, {
+        id: ordId,
+        orderId: ordId,
+        trackingNumber: ao.trackingNumber || localMatch?.trackingNumber || `SN-TRK-${ordId.replace(/\D/g, '') || '8821'}`,
+        courier: ao.courier || localMatch?.courier || 'Yamato Transport',
+        status: isLocallyCancelled ? 'Dibatalkan' : ao.status,
+        total: ao.totalAmount ?? localMatch?.total ?? localMatch?.totalAmount ?? 0,
+        totalAmount: ao.totalAmount ?? localMatch?.totalAmount ?? localMatch?.total ?? 0,
+        taxAmount: ao.taxAmount ?? localMatch?.taxAmount ?? 0,
+        date: ao.date || localMatch?.date || '1 Nov 2026',
+        customerName: ao.customerName || localMatch?.customerName || currentUser?.name || 'Pelanggan',
+        shippingAddress: ao.shippingAddress || localMatch?.shippingAddress || localMatch?.address || currentUser?.address || '〒144-0051 Tokyo, Ota-ku, Nishikamata 5-9-16',
+        paymentMethod: ao.paymentMethod || localMatch?.paymentMethod || 'TRANSFER / QRIS',
+        items: (ao.items && ao.items.length > 0 ? ao.items : localMatch?.items || []).map((it: any) => ({
+          id: it.id || it.productId,
+          productId: it.productId || it.id,
+          name: it.productName || it.name,
+          productName: it.productName || it.name,
+          qty: it.quantity || it.qty || 1,
+          quantity: it.quantity || it.qty || 1,
+          price: it.price,
+          image: it.image
+        }))
+      });
+    });
+
+    // Also include any local order not yet in adminOrders
+    localUserOrders.forEach((uo: any) => {
+      const ordId = uo.id || uo.orderId;
+      if (ordId && !adminOrdersMap.has(ordId)) {
+        adminOrdersMap.set(ordId, {
           ...uo,
           id: ordId,
           orderId: ordId,
-          status: isLocallyCancelled ? 'Dibatalkan' : matchAdmin.status,
-          courier: matchAdmin.courier || uo.courier || 'Yamato Transport',
-          trackingNumber: matchAdmin.trackingNumber || uo.trackingNumber || '',
-          total: matchAdmin.totalAmount ?? uo.total ?? uo.totalAmount,
-          totalAmount: matchAdmin.totalAmount ?? uo.totalAmount ?? uo.total,
-          taxAmount: matchAdmin.taxAmount ?? uo.taxAmount ?? 0,
-          items: matchAdmin.items && matchAdmin.items.length > 0 ? matchAdmin.items : uo.items,
-          shippingAddress: matchAdmin.shippingAddress || uo.shippingAddress || uo.address,
-          customerName: matchAdmin.customerName || uo.customerName || 'Pelanggan',
-          date: matchAdmin.date || uo.date
-        };
+          status: localCancelledIds.includes(ordId) ? 'Dibatalkan' : uo.status,
+          courier: uo.courier || 'Yamato Transport',
+          trackingNumber: uo.trackingNumber || `SN-TRK-${ordId.replace(/\D/g, '') || '8821'}`
+        });
       }
-      return {
-        ...uo,
-        id: ordId,
-        orderId: ordId,
-        status: isLocallyCancelled ? 'Dibatalkan' : uo.status,
-        courier: uo.courier || 'Yamato Transport',
-        trackingNumber: uo.trackingNumber || ''
-      };
     });
 
-    // Also include any order directly from adminOrders that belongs to this user
-    if (currentUser) {
-      const curId = currentUser.id?.toLowerCase().trim();
-      const curEmail = currentUser.email?.toLowerCase().trim();
-      const curName = currentUser.name?.toLowerCase().trim();
+    const result = Array.from(adminOrdersMap.values());
 
-      for (const ao of adminOrders) {
-        if (!storageOrderIds.has(ao.id)) {
-          const matchUser =
-            ((ao as any).userId && String((ao as any).userId).toLowerCase().trim() === curId) ||
-            ((ao as any).userEmail && String((ao as any).userEmail).toLowerCase().trim() === curEmail) ||
-            (ao.customerName && curName && (ao.customerName.toLowerCase().includes(curName) || curName.includes(ao.customerName.toLowerCase())));
-
-          if (matchUser) {
-            mergedList.push({
-              id: ao.id,
-              orderId: ao.id,
-              trackingNumber: ao.trackingNumber || '',
-              courier: ao.courier || 'Yamato Transport',
-              status: localCancelledIds.includes(ao.id) ? 'Dibatalkan' : ao.status,
-              total: ao.totalAmount,
-              totalAmount: ao.totalAmount,
-              taxAmount: ao.taxAmount || 0,
-              date: ao.date,
-              customerName: ao.customerName,
-              shippingAddress: ao.shippingAddress,
-              items: (ao.items || []).map((it: any) => ({
-                id: it.id || it.productId,
-                name: it.productName || it.name,
-                qty: it.quantity || it.qty || 1,
-                price: it.price
-              }))
-            });
-          }
-        }
+    // Sync back to local storage
+    try {
+      if (result.length > 0) {
+        localStorage.setItem('sn_user_orders', JSON.stringify(result));
       }
-    }
+    } catch (e) {}
 
-    return mergedList;
+    return result;
   }, [adminOrders, localCancelledIds, currentUser]);
+
 
   const copyToClipboard = (text: string, orderId: string) => {
     if (!text || text === '-') return;
@@ -208,7 +210,7 @@ export const AccountOrdersPage: React.FC = () => {
               Masuk ke Akun Anda
             </h1>
             <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
-              Silakan masuk untuk melihat riwayat pesanan, mengklaim poin reward diaspora, dan melanjutkan checkout belanja.
+              Silakan masuk untuk melihat riwayat pesanan, pelacakan kiriman paket, dan melanjutkan checkout belanja.
             </p>
           </div>
 
@@ -219,19 +221,26 @@ export const AccountOrdersPage: React.FC = () => {
             </div>
           )}
 
-          {/* Login Form */}
-          <form onSubmit={handleFormLogin} className="max-w-md mx-auto space-y-4 text-left">
+          {/* Login Form (With Anti-Autofill Protection so Admin Credentials Won't Auto-Fill) */}
+          <form onSubmit={handleFormLogin} autoComplete="off" className="max-w-md mx-auto space-y-4 text-left">
+            {/* Hidden decoy fields to divert Chrome/Edge browser autofill */}
+            <input type="text" name="fake_username_remember" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" readOnly />
+            <input type="password" name="fake_password_remember" style={{ display: 'none' }} tabIndex={-1} autoComplete="new-password" readOnly />
+
             <div>
               <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                 ID / No. HP / Username:
               </label>
               <input
                 type="text"
+                name="sn_cust_login_user_id"
+                id="sn_cust_login_user_id"
+                autoComplete="off"
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
-                placeholder="Masukkan ID / No. HP / Username"
+                placeholder="Contoh: 0812-3456-7890 / ID Member Pelanggan"
                 required
-                className="w-full px-4 py-3 rounded-xl border border-stone-300 text-sm bg-stone-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#c41230]"
+                className="w-full px-4 py-3 rounded-xl border border-stone-300 text-sm bg-stone-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#c41230] placeholder:text-stone-400"
               />
             </div>
 
@@ -242,11 +251,14 @@ export const AccountOrdersPage: React.FC = () => {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  name="sn_cust_login_user_pass"
+                  id="sn_cust_login_user_pass"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Masukkan kata sandi"
+                  placeholder="Masukkan kata sandi (contoh: ••••••••)"
                   required
-                  className="w-full pl-4 pr-11 py-3 rounded-xl border border-stone-300 text-sm bg-stone-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#c41230]"
+                  className="w-full pl-4 pr-11 py-3 rounded-xl border border-stone-300 text-sm bg-stone-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#c41230] placeholder:text-stone-400"
                 />
                 <button
                   type="button"
@@ -325,12 +337,13 @@ export const AccountOrdersPage: React.FC = () => {
               <h2 className="font-heading font-bold text-lg text-stone-900">
                 {currentUser?.name || 'Willy Pratama'}
               </h2>
-              <p className="text-xs text-stone-500 mt-0.5">
-                {currentUser?.tier || (isAdmin ? 'Pengelola Resmi (Super Admin)' : 'Anggota Diaspora VIP (Gold Member)')}
-              </p>
-              <span className="inline-block mt-2 px-3 py-1 bg-[#DCFCE7] text-[#15803D] text-[11px] font-bold rounded-full border border-emerald-200">
-                Poin Reward: {currentUser?.loyaltyPoints ?? 0} JPY
-              </span>
+              {isAdmin && (
+                <div className="mt-1">
+                  <span className="inline-block px-2.5 py-0.5 bg-stone-900 text-white text-[11px] font-bold rounded-full">
+                    Pengelola Resmi (Super Admin)
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Profile Info Details */}

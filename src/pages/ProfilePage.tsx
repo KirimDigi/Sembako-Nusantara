@@ -103,11 +103,26 @@ export const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (currentUser) {
+      const isPos =
+        currentUser.role === 'Kasir (POS)' ||
+        currentUser.role?.toLowerCase().includes('kasir') ||
+        currentUser.role?.toLowerCase().includes('pos') ||
+        currentUser.role?.toLowerCase().includes('supervisor') ||
+        currentUser.role?.toLowerCase().includes('spv') ||
+        currentUser.id?.toLowerCase().startsWith('pos-');
+
+      if (isPos) {
+        navigate('/admin/pos', { replace: true });
+        return;
+      }
+
       setEditName(currentUser.name || '');
       setEditPhone(currentUser.phone || '');
       setEditAddress(currentUser.address || '');
+    } else if (!isAuthenticated) {
+      navigate('/login', { replace: true });
     }
-  }, [currentUser]);
+  }, [currentUser, isAuthenticated, navigate]);
 
   // Change Password Form State
   const [currentPass, setCurrentPass] = useState('');
@@ -304,7 +319,7 @@ export const ProfilePage: React.FC = () => {
         password: regPassword,
         totalOrders: 0,
         totalSpent: 0,
-        loyaltyPoints: 100,
+        loyaltyPoints: 0,
         tier: 'Bronze',
         preferredLanguage: language === 'JP' ? 'JP' : language === 'EN' ? 'EN' : 'ID'
       });
@@ -342,7 +357,7 @@ export const ProfilePage: React.FC = () => {
           phone: regPhone.trim(),
           address: fullAddress,
           custId: newCustId,
-          loyaltyPoints: 100,
+          loyaltyPoints: 0,
           language: language
         }).catch((err) => {
           console.warn('[WA Gateway] Gagal kirim WA registrasi akun:', err);
@@ -640,7 +655,11 @@ export const ProfilePage: React.FC = () => {
 
           {/* MODE 1: LOGIN FORM */}
           {authMode === 'login' && (
-            <form onSubmit={handleFormLogin} className="max-w-md mx-auto space-y-4 text-left">
+            <form onSubmit={handleFormLogin} autoComplete="off" className="max-w-md mx-auto space-y-4 text-left">
+              {/* Hidden decoy fields to divert Chrome/Edge browser autofill */}
+              <input type="text" name="fake_profile_username_remember" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" readOnly />
+              <input type="password" name="fake_profile_password_remember" style={{ display: 'none' }} tabIndex={-1} autoComplete="new-password" readOnly />
+
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1.5">
                   {language === 'JP'
@@ -655,16 +674,19 @@ export const ProfilePage: React.FC = () => {
                   </span>
                   <input
                     type="text"
+                    name="sn_profile_login_id"
+                    id="sn_profile_login_id"
+                    autoComplete="off"
                     value={loginId}
                     onChange={(e) => setLoginId(e.target.value)}
                     placeholder={
                       language === 'JP'
-                        ? '例: cust-1 または 08011223344'
+                        ? '例: 08011223344 または 会員番号'
                         : language === 'EN'
-                        ? 'e.g. cust-1 or 080-1122-3344'
-                        : 'Contoh: cust-1 atau 080-1122-3344'
+                        ? 'e.g. 080-1122-3344 or Member ID'
+                        : 'Contoh: 0812-3456-7890 atau ID Member'
                     }
-                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all placeholder:text-stone-400"
                     required
                   />
                 </div>
@@ -684,10 +706,13 @@ export const ProfilePage: React.FC = () => {
                   </span>
                   <input
                     type={showPassword ? 'text' : 'password'}
+                    name="sn_profile_login_key"
+                    id="sn_profile_login_key"
+                    autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-11 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all"
+                    placeholder="•••••••• (Kata sandi akun)"
+                    className="w-full pl-10 pr-11 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-[#c41230] focus:ring-1 focus:ring-[#c41230] outline-none transition-all placeholder:text-stone-400"
                     required
                   />
                   <button
@@ -999,10 +1024,6 @@ export const ProfilePage: React.FC = () => {
                   }}
                 />
               </div>
-              <span className="absolute -bottom-2 -right-1 bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full border-2 border-stone-900 shadow-sm flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>
-                VIP
-              </span>
             </div>
 
             <div className="space-y-1">
@@ -1010,9 +1031,11 @@ export const ProfilePage: React.FC = () => {
                 <h1 className="font-heading font-black text-2xl sm:text-3xl text-white">
                   {currentUser?.name || (language === 'JP' ? 'ヌサンタラ 会員様' : language === 'EN' ? 'Nusantara Customer' : 'Pelanggan Nusantara')}
                 </h1>
-                <span className="px-2.5 py-0.5 bg-amber-400 text-stone-950 text-[11px] font-black rounded-full uppercase tracking-wider">
-                  {currentUser?.tier || (isAdmin ? (language === 'JP' ? 'スーパー管理者' : 'Super Admin') : (language === 'JP' ? 'ゴールド会員' : 'Gold Member'))}
-                </span>
+                {isAdmin && (
+                  <span className="px-2.5 py-0.5 bg-amber-400 text-stone-950 text-[11px] font-black rounded-full uppercase tracking-wider">
+                    {language === 'JP' ? 'スーパー管理者' : 'Super Admin'}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-stone-300 flex items-center justify-center sm:justify-start gap-2">
                 <span className="material-symbols-outlined text-sm text-amber-300">qr_code_2</span>
@@ -1166,7 +1189,6 @@ export const ProfilePage: React.FC = () => {
                     : 'Barcode Member Digital'}
                 </span>
               </div>
-              <span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-black rounded-full">VIP</span>
             </button>
 
             <button
@@ -1288,6 +1310,28 @@ export const ProfilePage: React.FC = () => {
               </div>
               <span className="material-symbols-outlined text-sm">chevron_right</span>
             </button>
+
+            {/* Logout Tab Button in Profile Sidebar */}
+            <button
+              type="button"
+              onClick={async () => {
+                await logout();
+                navigate('/', { replace: true });
+              }}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition-all border border-red-200/80 bg-red-50/40 mt-2 cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-lg text-red-600">logout</span>
+                <span>
+                  {language === 'JP'
+                    ? 'ログアウト (終了)'
+                    : language === 'EN'
+                    ? 'Logout / Sign Out'
+                    : 'Keluar / Logout Akun'}
+                </span>
+              </div>
+              <span className="material-symbols-outlined text-sm text-red-400">chevron_right</span>
+            </button>
           </div>
 
           {/* Admin shortcuts if user is admin */}
@@ -1328,7 +1372,7 @@ export const ProfilePage: React.FC = () => {
             <div className="space-y-6">
               {/* Welcome Card */}
               <div className="bg-white rounded-3xl border border-[#EBE5DF] p-6 sm:p-8 shadow-sm space-y-4">
-                <div className="flex items-center justify-between border-b border-stone-100 pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-100 pb-4 gap-3">
                   <div>
                     <h2 className="font-heading font-black text-xl text-stone-900">
                       {language === 'JP'
@@ -1345,14 +1389,28 @@ export const ProfilePage: React.FC = () => {
                         : 'Kelola semua aktivitas belanja diaspora, pantau pengiriman Yamato/Sagawa, dan manfaatkan barcode member Anda.'}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('barcode')}
-                    className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold rounded-xl transition-colors cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-sm">qr_code_2</span>
-                    <span>{language === 'JP' ? 'バーコードを表示' : language === 'EN' ? 'View Barcode' : 'Tampilkan Barcode'}</span>
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('barcode')}
+                      className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">qr_code_2</span>
+                      <span>{language === 'JP' ? 'バーコードを表示' : language === 'EN' ? 'View Barcode' : 'Tampilkan Barcode'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await logout();
+                        navigate('/', { replace: true });
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-red-50 hover:bg-red-100 text-[#c41230] hover:text-red-700 border border-red-200 text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-2xs"
+                      title={language === 'JP' ? 'ログアウト (終了)' : language === 'EN' ? 'Logout' : 'Keluar'}
+                    >
+                      <span className="material-symbols-outlined text-sm">logout</span>
+                      <span>{language === 'JP' ? 'ログアウト' : language === 'EN' ? 'Logout' : 'Keluar'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Profile Data Info */}
@@ -1377,22 +1435,36 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="pt-2 flex flex-wrap gap-3">
+                <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('edit_profile')}
+                      className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">edit</span>
+                      <span>{language === 'JP' ? 'プロフィールと住所を変更' : language === 'EN' ? 'Edit Profile & Address' : 'Edit Profil & Alamat'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('security')}
+                      className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">lock_reset</span>
+                      <span>{language === 'JP' ? 'パスワードを変更' : language === 'EN' ? 'Change Password' : 'Ganti Password'}</span>
+                    </button>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => setActiveTab('edit_profile')}
-                    className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                    onClick={async () => {
+                      await logout();
+                      navigate('/', { replace: true });
+                    }}
+                    className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                   >
-                    <span className="material-symbols-outlined text-sm">edit</span>
-                    <span>{language === 'JP' ? 'プロフィールと住所を変更' : language === 'EN' ? 'Edit Profile & Address' : 'Edit Profil & Alamat'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('security')}
-                    className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-sm">lock_reset</span>
-                    <span>{language === 'JP' ? 'パスワードを変更' : language === 'EN' ? 'Change Password' : 'Ganti Password'}</span>
+                    <span className="material-symbols-outlined text-sm">logout</span>
+                    <span>{language === 'JP' ? 'ログアウト (終了)' : language === 'EN' ? 'Logout / Sign Out' : 'Keluar / Logout Akun'}</span>
                   </button>
                 </div>
               </div>
@@ -1508,9 +1580,11 @@ export const ProfilePage: React.FC = () => {
                       <div className="text-[9px] text-amber-300 font-bold uppercase tracking-widest">JAPAN DIASPORA CARD</div>
                     </div>
                   </div>
-                  <span className="px-2.5 py-1 bg-amber-400 text-stone-950 font-black text-[10px] rounded-full shadow-sm">
-                    {currentUser?.tier || (isAdmin ? 'SUPER ADMIN' : 'GOLD MEMBER')}
-                  </span>
+                  {isAdmin && (
+                    <span className="px-2.5 py-1 bg-amber-400 text-stone-950 font-black text-[10px] rounded-full shadow-sm">
+                      SUPER ADMIN
+                    </span>
+                  )}
                 </div>
 
                 {/* Member Info */}
@@ -1580,7 +1654,7 @@ export const ProfilePage: React.FC = () => {
                       await downloadMemberCardPng({
                         memberId,
                         memberName: currentUser?.name || 'Willy Pratama',
-                        tier: currentUser?.tier || (isAdmin ? 'SUPER ADMIN' : 'GOLD MEMBER')
+                        tier: isAdmin ? 'SUPER ADMIN' : ''
                       });
                     } finally {
                       setIsDownloadingCard(false);
@@ -1812,48 +1886,60 @@ export const ProfilePage: React.FC = () => {
                       ? '配送状況の追跡およびお買い物の領収書をご確認いただけます。'
                       : language === 'EN'
                       ? 'Track your parcel shipping status and download transaction receipts.'
-                      : 'Pantau status pengiriman paket dan unduh bukti transaksi.'}
+                      : 'Pantau status pengiriman paket dan unduh bukti transaksi resmi.'}
                   </p>
                 </div>
 
-                {/* Status Filter Chips */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {(['ALL', 'DIPROSES', 'DIKIRIM', 'SELESAI'] as const).map((filter) => {
-                    const label =
-                      language === 'JP'
-                        ? filter === 'ALL'
-                          ? 'すべて'
-                          : filter === 'DIPROSES'
-                          ? '準備中'
-                          : filter === 'DIKIRIM'
-                          ? '発送済み'
-                          : '配達完了'
-                        : language === 'EN'
-                        ? filter === 'ALL'
-                          ? 'All'
-                          : filter === 'DIPROSES'
-                          ? 'Processing'
-                          : filter === 'DIKIRIM'
-                          ? 'Shipped'
-                          : 'Completed'
-                        : filter === 'ALL'
-                        ? 'Semua'
-                        : filter;
-                    return (
-                      <button
-                        key={filter}
-                        type="button"
-                        onClick={() => setOrderFilter(filter)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          orderFilter === filter
-                            ? 'bg-stone-900 text-white shadow-sm'
-                            : 'bg-stone-100 hover:bg-stone-200 text-stone-600'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Link ke Halaman Pesanan Lengkap (/orders) */}
+                  <Link
+                    to="/orders"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-stone-900 hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-sm text-[#c41230]">local_shipping</span>
+                    <span>Buka Halaman Orders (/orders)</span>
+                    <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                  </Link>
+
+                  {/* Status Filter Chips */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {(['ALL', 'DIPROSES', 'DIKIRIM', 'SELESAI'] as const).map((filter) => {
+                      const label =
+                        language === 'JP'
+                          ? filter === 'ALL'
+                            ? 'すべて'
+                            : filter === 'DIPROSES'
+                            ? '準備中'
+                            : filter === 'DIKIRIM'
+                            ? '発送済み'
+                            : '配達完了'
+                          : language === 'EN'
+                          ? filter === 'ALL'
+                            ? 'All'
+                            : filter === 'DIPROSES'
+                            ? 'Processing'
+                            : filter === 'DIKIRIM'
+                            ? 'Shipped'
+                            : 'Completed'
+                          : filter === 'ALL'
+                          ? 'Semua'
+                          : filter;
+                      return (
+                        <button
+                          key={filter}
+                          type="button"
+                          onClick={() => setOrderFilter(filter)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            orderFilter === filter
+                              ? 'bg-stone-900 text-white shadow-sm'
+                              : 'bg-stone-100 hover:bg-stone-200 text-stone-600'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -1907,6 +1993,34 @@ export const ProfilePage: React.FC = () => {
                         </span>
                       </div>
 
+                      {/* Kurir & Resi Tracking Info */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 py-2 px-3 bg-stone-50 rounded-xl text-[11px] text-stone-600 border border-stone-100">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-xs text-[#c41230]">local_shipping</span>
+                          <span className="font-bold text-stone-800">{order.courier || 'Yamato Transport (ヤマト運輸)'}</span>
+                          {order.trackingNumber && (
+                            <span className="font-mono text-stone-500">Resi: {order.trackingNumber}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to={`/tracking?q=${order.trackingNumber || order.id}`}
+                            className="text-[#c41230] hover:underline font-bold flex items-center gap-0.5"
+                          >
+                            <span>Lacak Paket</span>
+                            <span className="material-symbols-outlined text-xs">open_in_new</span>
+                          </Link>
+                          <span className="text-stone-300">•</span>
+                          <Link
+                            to="/orders"
+                            className="text-stone-700 hover:text-black font-bold flex items-center gap-0.5"
+                          >
+                            <span>Lihat di /orders</span>
+                            <span className="material-symbols-outlined text-xs">chevron_right</span>
+                          </Link>
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
                         {order.items?.map((item: any, idx: number) => (
                           <div key={idx} className="flex items-center justify-between text-xs text-stone-700">
@@ -1931,6 +2045,7 @@ export const ProfilePage: React.FC = () => {
               )}
             </div>
           )}
+
 
           {/* ================================================================= */}
           {/* TAB 5: KERANJANG SAYA (CART PREVIEW) */}

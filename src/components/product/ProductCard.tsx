@@ -123,9 +123,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               {getProductName()}
             </h3>
           </Link>
-          <p className="text-[11px] text-stone-400 mt-1">
-            {getProductUnit()}
-          </p>
+          {!getProductName().toLowerCase().includes(getProductUnit().toLowerCase().trim()) && (
+            <p className="text-[11px] text-stone-400 mt-1">
+              {getProductUnit()}
+            </p>
+          )}
 
           {/* Rating */}
           <div className="flex items-center gap-1 mt-1.5 text-xs text-amber-500">

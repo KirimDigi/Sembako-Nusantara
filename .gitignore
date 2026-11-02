@@ -34,4 +34,8 @@ dist-ssr
 .tempmediaStorage
 .system_generated
 scratch/
+scratch_screenshots/
+scripts/
+.playwright-mcp/
+audit_report.json
 *.mp4

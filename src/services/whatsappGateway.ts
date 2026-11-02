@@ -163,6 +163,150 @@ export async function sendWhatsAppMessage(
 }
 
 /**
+ * Send WhatsApp media / document (such as PDF receipt) via WA gateway
+ * Supports multiple payload keys (file, document, media, filename, caption, mimetype)
+ * and endpoint fallbacks (/api/send-file, /api/send-document, /api/send).
+ */
+export async function sendWhatsAppDocument(
+  recipientPhone: string,
+  fileBase64OrUrl: string,
+  filename: string,
+  caption: string = 'Nota struk kasir pdf',
+  customSessionId?: string
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  const config = getWAGatewayConfig();
+  const cleanNumber = formatPhoneNumberForWA(recipientPhone);
+
+  if (!cleanNumber || cleanNumber.length < 8) {
+    console.warn('[WA Gateway] Nomor telepon penerima dokumen tidak valid:', recipientPhone);
+    return { success: false, error: 'Nomor telepon tidak valid' };
+  }
+
+  const primarySession = customSessionId || config.sessionId || 'KirimDigi';
+
+  // Format payload with standard WA gateway attributes
+  const payload = {
+    sessionId: primarySession,
+    number: cleanNumber,
+    to: cleanNumber,
+    phone: cleanNumber,
+    receiver: cleanNumber,
+    file: fileBase64OrUrl,
+    document: fileBase64OrUrl,
+    media: fileBase64OrUrl,
+    pdf: fileBase64OrUrl,
+    filename: filename,
+    caption: caption, // User rule: "Nota struk kasir pdf"
+    mimetype: 'application/pdf'
+  };
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'x-api-key': config.apiKey,
+    'session-id': primarySession,
+    'ngrok-skip-browser-warning': 'true'
+  };
+
+  console.log(`[WA Gateway] Mengirim file PDF "${filename}" ke ${cleanNumber} (Caption: "${caption}")`);
+
+  const endpoints = ['/api/send-file', '/api/send-document', '/api/send'];
+
+  const tryEndpoints = async (targetUrl: string, sessionName: string) => {
+    let lastError: any = null;
+    for (const ep of endpoints) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout for document upload
+      try {
+        const res = await fetch(`${targetUrl}${ep}`, {
+          method: 'POST',
+          headers: {
+            ...headers,
+            'session-id': sessionName
+          },
+          body: JSON.stringify({ ...payload, sessionId: sessionName }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const data = await res.json().catch(() => ({ success: true }));
+          return { ok: true, data };
+        } else if (res.status === 404) {
+          // Endpoint not found on this server, try next endpoint
+          continue;
+        } else {
+          const errText = await res.text();
+          lastError = new Error(`Server status ${res.status}: ${errText}`);
+        }
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        lastError = err;
+      }
+    }
+    throw lastError || new Error('Semua endpoint dokumen gagal dihubungi');
+  };
+
+  try {
+    let result: { ok: boolean; data: any };
+    try {
+      result = await tryEndpoints(config.baseUrl, primarySession);
+    } catch (err) {
+      // Fallback endpoint if primary baseUrl fails
+      const altUrl = config.baseUrl.includes('localhost')
+        ? 'https://nonleaking-cameron-eagerly.ngrok-free.dev'
+        : 'http://localhost:2026';
+      console.log(`[WA Gateway] Mencoba fallback endpoint dokumen: ${altUrl}`);
+      result = await tryEndpoints(altUrl, primarySession);
+    }
+
+    console.log('[WA Gateway] File dokumen PDF berhasil terkirim:', result.data);
+    return { success: true, data: result.data };
+  } catch (err: any) {
+    console.warn('[WA Gateway] Gagal mengirim dokumen PDF ke WhatsApp:', err?.message || err);
+    return { success: false, error: err?.message || 'Gateway dokumen offline' };
+  }
+}
+
+/**
+ * High-level helper: Automatically generates receipt PDF in matching language
+ * (Japanese for Yen / JPY, Indonesian for Rupiah / IDR) and dispatches via WA Gateway.
+ */
+export async function sendPOSTransactionReceiptWhatsApp(
+  tx: any,
+  customerPhone: string
+): Promise<{ success: boolean; filename?: string; error?: string; dataUrl?: string }> {
+  try {
+    const { generateReceiptPdf } = await import('../utils/receiptPdfGenerator');
+
+    // Language adaptation rule: JPY -> Japanese, IDR -> Indonesian
+    const language = tx.currency === 'JPY' ? 'JP' : 'ID';
+
+    console.log(`[WA Gateway] Menyiapkan Struk PDF kasir (${language}) untuk transaksi #${tx.receiptNumber || tx.id}`);
+
+    const { pdfBase64, filename, dataUrl } = await generateReceiptPdf(tx, language);
+
+    // User requirement: "JADI CAPTIONYA TIDAK ADA HANYA Nota struk kasir pdf"
+    const caption = 'Nota struk kasir pdf';
+
+    const sendRes = await sendWhatsAppDocument(customerPhone, pdfBase64, filename, caption);
+
+    return {
+      success: sendRes.success,
+      filename,
+      dataUrl,
+      error: sendRes.error
+    };
+  } catch (err: any) {
+    console.error('[WA Gateway] Error generate & send POS receipt PDF:', err);
+    return {
+      success: false,
+      error: err?.message || 'Gagal memproses struk PDF'
+    };
+  }
+}
+
+
+/**
  * Official Admin WhatsApp recipient for incoming orders, registrations, and completed orders
  */
 export const ADMIN_WA_PHONE = '0895329332135';
@@ -471,10 +615,9 @@ export async function sendRegistrationWhatsApp(customer: {
 • お名前: *${customer.name}*
 • ご登録電話番号: *${customer.phone}*
 • ご登録住所: *${customer.address}*
-• 新規入会特典ポイント: *🎁 ${customer.loyaltyPoints || 100} ポイント進呈*
 
 ✨ *会員様限定特典:*
-1. お買い物ごとにキャッシュバック・リワードポイントが貯まる
+1. 日本全国の皆様へ本場インドネシアの食材・ハラルフードをお届け
 2. ヤマト運輸＆佐川急便による日本全国47都道府県への迅速・安全配送
 3. 一定金額以上のお買い上げで送料無料特典
 4. 日本在住者・インドネシアコミュニティ向け毎週の限定セール・特売情報
@@ -494,10 +637,9 @@ Selamat! Akun keanggotaan Anda di *Sembako Nusantara Jepang* telah *BERHASIL DIB
 • Nama: *${customer.name}*
 • No. WhatsApp: *${customer.phone}*
 • Alamat Terdaftar: *${customer.address}*
-• Bonus Poin Selamat Datang: *🎁 ${customer.loyaltyPoints || 100} Poin Belanja*
 
 ✨ *Keuntungan Member Sembako Nusantara:*
-1. Dapatkan Cashback Poin Reward di setiap transaksi
+1. Belanja kebutuhan sembako & halal food Indonesia terlengkap di Jepang
 2. Pengiriman kilat Yamato & Sagawa ke seluruh 47 prefektur Jepang
 3. Bebas Ongkir dengan pembelian tertentu
 4. Update promo mingguan & diskon khusus diaspora Indonesia
@@ -526,7 +668,6 @@ Halo Admin Sembako Nusantara, ada pelanggan baru saja mendaftar akun keanggotaan
 • Nama Lengkap: *${customer.name}*
 • No. WhatsApp: *${customer.phone}*
 • Alamat di Jepang: *${customer.address}*
-• Bonus Poin Awal: *${customer.loyaltyPoints || 100} Poin*
 • Waktu Pendaftaran: *${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Tokyo' })} JST*
 
 Data telah otomatis tersimpan di CRM Pelanggan Admin.

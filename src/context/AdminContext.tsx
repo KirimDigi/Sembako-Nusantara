@@ -127,15 +127,15 @@ const INITIAL_ORDERS: Order[] = [];
 // Ensures builds, updates, and deploys NEVER reset user stock, prices, HPP, or transactions
 function loadAndMergeProducts(): Product[] {
   try {
-    const saved = localStorage.getItem('sn_products_v7');
+    const saved = localStorage.getItem('sn_products_v8') || localStorage.getItem('sn_products_v7');
     if (!saved) {
-      localStorage.setItem('sn_products_v7', JSON.stringify(PRODUCTS_DATA));
+      localStorage.setItem('sn_products_v8', JSON.stringify(PRODUCTS_DATA));
       return PRODUCTS_DATA;
     }
 
     const parsed: Product[] = JSON.parse(saved);
     if (!Array.isArray(parsed) || parsed.length === 0) {
-      localStorage.setItem('sn_products_v7', JSON.stringify(PRODUCTS_DATA));
+      localStorage.setItem('sn_products_v8', JSON.stringify(PRODUCTS_DATA));
       return PRODUCTS_DATA;
     }
 
@@ -176,9 +176,20 @@ function loadAndMergeProducts(): Product[] {
       const matchesSku = savedItem.sku && codeSkus.has(savedItem.sku);
       const matchesId = savedItem.id && codeIds.has(String(savedItem.id));
       if (!matchesSku && !matchesId) {
-        mergedList.push(savedItem);
+        const u = (savedItem.unit || '').trim();
+        const customName = u && !savedItem.name.toLowerCase().includes(u.toLowerCase())
+          ? `${savedItem.name} ${u}`
+          : savedItem.name;
+        mergedList.push({
+          ...savedItem,
+          name: customName
+        });
       }
     });
+
+    try {
+      localStorage.setItem('sn_products_v8', JSON.stringify(mergedList));
+    } catch (e) {}
 
     return mergedList;
   } catch (err) {
@@ -1255,7 +1266,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // Synchronize immediately to persistent LocalStorage
       try {
-        localStorage.setItem('sn_products_v7', JSON.stringify(updatedList));
+        localStorage.setItem('sn_products_v8', JSON.stringify(updatedList));
       } catch (err) {}
 
       return updatedList;

@@ -8,6 +8,8 @@ import { CurrencyType, getActiveExchangeRate, convertJpyToIdr, formatIdr, format
 import { DEFAULT_PRINTER_SETTINGS, getCleanPrinterSettings } from './SettingsPage';
 import { POSDisplayPayload } from './POSCustomerDisplayPage';
 import { resolveProductImage, getPlaceholderImage } from '../../components/common/ProductImage';
+import { sendPOSTransactionReceiptWhatsApp } from '../../services/whatsappGateway';
+import { generateReceiptPdf } from '../../utils/receiptPdfGenerator';
 
 export const POSKasirPage: React.FC = () => {
   const navigate = useNavigate();
@@ -184,29 +186,108 @@ export const POSKasirPage: React.FC = () => {
     }
   };
 
+  // WhatsApp Receipt PDF Delivery State
+  const [waDeliveryStatus, setWaDeliveryStatus] = useState<{
+    status: 'idle' | 'sending' | 'success' | 'error';
+    message?: string;
+    filename?: string;
+    phone?: string;
+    dataUrl?: string;
+  }>({ status: 'idle' });
+  const [manualWaPhone, setManualWaPhone] = useState<string>('');
+  const [isManualSending, setIsManualSending] = useState<boolean>(false);
+
+  // Manual trigger kirim Struk PDF ke WhatsApp dari Modal Struk
+  const handleSendWaReceiptManual = async (targetPhone: string) => {
+    if (!completedTx || !targetPhone.trim()) return;
+    setIsManualSending(true);
+    setWaDeliveryStatus({ status: 'sending', phone: targetPhone.trim() });
+    try {
+      const res = await sendPOSTransactionReceiptWhatsApp(completedTx, targetPhone.trim());
+      if (res.success) {
+        setWaDeliveryStatus({
+          status: 'success',
+          filename: res.filename,
+          phone: targetPhone.trim(),
+          dataUrl: res.dataUrl
+        });
+      } else {
+        setWaDeliveryStatus({
+          status: 'error',
+          message: res.error || 'Gagal mengirim dokumen PDF',
+          phone: targetPhone.trim()
+        });
+      }
+    } catch (err: any) {
+      setWaDeliveryStatus({
+        status: 'error',
+        message: err?.message || 'Gateway offline',
+        phone: targetPhone.trim()
+      });
+    } finally {
+      setIsManualSending(false);
+    }
+  };
+
+  // Unduh Struk PDF langsung ke komputer / browser
+  const handleDownloadReceiptPdf = async () => {
+    if (!completedTx) return;
+    try {
+      const lang = completedTx.currency === 'JPY' ? 'JP' : 'ID';
+      const { pdfBlob, filename } = await generateReceiptPdf(completedTx, lang);
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Error downloading receipt PDF:', e);
+    }
+  };
+
   // Thermal Printer Settings State (Sinkron otomatis dengan menu Pengaturan)
   const [printerSettings, setPrinterSettings] = useState<ThermalPrinterSettings>(() => {
     return getCleanPrinterSettings(localStorage.getItem('sn_pos_printer_settings'));
   });
 
-  // Sinkronkan ulang pengaturan printer setiap kali modal struk dibuka
+  // Sinkronkan ulang pengaturan printer & nomor WhatsApp customer setiap kali modal struk dibuka
   useEffect(() => {
     if (completedTx) {
       setPrinterSettings(getCleanPrinterSettings(localStorage.getItem('sn_pos_printer_settings')));
+      if (completedTx.customerName) {
+        const cName = completedTx.customerName.toLowerCase().trim();
+        const matched = customers.find(
+          (c) =>
+            c.name.toLowerCase().trim() === cName ||
+            c.phone.replace(/\D/g, '') === cName.replace(/\D/g, '')
+        );
+        if (matched?.phone) {
+          setManualWaPhone(matched.phone);
+        }
+      }
+    } else {
+      setWaDeliveryStatus({ status: 'idle' });
+      setManualWaPhone('');
     }
-  }, [completedTx]);
+  }, [completedTx, customers]);
 
   // Fungsi Cetak Nota Thermal POS (menggunakan CSS @page dengan lebar kertas dinamis)
   const handlePrintReceipt = () => {
     const currentSettings = getCleanPrinterSettings(localStorage.getItem('sn_pos_printer_settings'));
     setPrinterSettings(currentSettings);
 
-    const printWidth = currentSettings.paperWidth || 57;
+    const printWidth = currentSettings.paperWidth || 58;
+    // Pada printer thermal 58mm, lebar print head fisik adalah 48mm (384 dots).
+    // Menyetel printable width ke 48mm memastikan sisi kanan nota tidak terpotong!
+    const printableWidth = printWidth === 58 ? 48 : printWidth <= 50 ? printWidth - 4 : printWidth - 8;
     const existingStyle = document.getElementById('pos-thermal-print-override');
     if (existingStyle) existingStyle.remove();
 
     const fontSizePx =
-      currentSettings.fontSize === 'small' ? '10px' : currentSettings.fontSize === 'large' ? '13px' : '11px';
+      currentSettings.fontSize === 'small' ? '9px' : currentSettings.fontSize === 'large' ? '12px' : '10px';
 
     const styleEl = document.createElement('style');
     styleEl.id = 'pos-thermal-print-override';
@@ -216,26 +297,44 @@ export const POSKasirPage: React.FC = () => {
           size: ${printWidth}mm auto;
           margin: 0mm;
         }
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: ${printWidth}mm !important;
+          max-width: ${printWidth}mm !important;
+          background: #ffffff !important;
+          overflow: hidden !important;
+        }
         body * {
           visibility: hidden !important;
         }
         #pos-thermal-receipt-print-area, #pos-thermal-receipt-print-area * {
           visibility: visible !important;
+          color: #000000 !important;
+          -webkit-text-fill-color: #000000 !important;
+          border-color: #000000 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          line-height: 1.15 !important;
         }
         #pos-thermal-receipt-print-area {
           position: fixed !important;
           left: 0 !important;
           top: 0 !important;
-          width: ${printWidth}mm !important;
-          max-width: ${printWidth}mm !important;
+          width: ${printableWidth}mm !important;
+          max-width: ${printableWidth}mm !important;
+          box-sizing: border-box !important;
           margin: 0 !important;
-          padding: 2mm 3mm !important;
-          background: white !important;
-          color: black !important;
+          padding: 0.5mm 1mm !important;
+          background: #ffffff !important;
+          color: #000000 !important;
           font-family: 'Courier New', Courier, monospace !important;
           font-size: ${fontSizePx} !important;
+          line-height: 1.15 !important;
           box-shadow: none !important;
           border: none !important;
+          overflow: hidden !important;
+          word-break: break-word !important;
         }
         #pos-thermal-receipt-print-area .no-print {
           display: none !important;
@@ -1189,7 +1288,72 @@ export const POSKasirPage: React.FC = () => {
     setDiscountPercent(0);
     setTxNotes('');
     setCompletedTx(savedTx);
+
+    // Otomatis kirim File PDF Struk Nota jika kolom pelanggan diisi & nomor WA terdaftar
+    const customerInput = selectedCustomer.trim();
+    if (customerInput) {
+      const matchedCustomer =
+        selectedCustomerObj ||
+        customers.find(
+          (c) =>
+            c.name.toLowerCase().trim() === customerInput.toLowerCase() ||
+            c.phone.replace(/\D/g, '') === customerInput.replace(/\D/g, '') ||
+            c.id.toLowerCase() === customerInput.toLowerCase()
+        );
+
+      const targetPhone =
+        matchedCustomer?.phone ||
+        (customerInput.replace(/\D/g, '').length >= 8 ? customerInput : '');
+
+      if (targetPhone) {
+        setWaDeliveryStatus({ status: 'sending', phone: targetPhone });
+        setManualWaPhone(targetPhone);
+
+        sendPOSTransactionReceiptWhatsApp(savedTx, targetPhone)
+          .then((res) => {
+            if (res.success) {
+              setWaDeliveryStatus({
+                status: 'success',
+                filename: res.filename,
+                phone: targetPhone,
+                dataUrl: res.dataUrl
+              });
+            } else {
+              setWaDeliveryStatus({
+                status: 'error',
+                message: res.error || 'Gagal mengirim dokumen PDF',
+                phone: targetPhone
+              });
+            }
+          })
+          .catch((err) => {
+            setWaDeliveryStatus({
+              status: 'error',
+              message: err?.message || 'Gateway offline',
+              phone: targetPhone
+            });
+          });
+      } else {
+        setWaDeliveryStatus({
+          status: 'idle',
+          message: 'Nomor WhatsApp pelanggan belum terdaftar'
+        });
+        setManualWaPhone('');
+      }
+    } else {
+      setWaDeliveryStatus({ status: 'idle' });
+      setManualWaPhone('');
+    }
+
+    // Auto-Cetak Nota jika opsi autoPrintOnCheckout aktif
+    if (printerSettings.autoPrintOnCheckout) {
+      setTimeout(() => {
+        handlePrintReceipt();
+      }, 450);
+    }
   };
+
+
 
   // Broadcast POS Live State ke Customer Display (Layar Pelanggan / Dual Monitor)
   useEffect(() => {
@@ -2808,7 +2972,7 @@ export const POSKasirPage: React.FC = () => {
                   >
                     {printerSettings.savedPrinters.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} {p.paperWidth ? `(${p.paperWidth}x${p.rollDiameter || 47}mm)` : ''} {p.name === printerSettings.printerName ? '★ [AKTIF]' : ''}
+                        {p.name} {p.paperWidth ? `(${p.paperWidth}x${p.rollDiameter || 30}mm)` : ''} {p.name === printerSettings.printerName ? '★ [AKTIF]' : ''}
                       </option>
                     ))}
                   </select>
@@ -2816,51 +2980,51 @@ export const POSKasirPage: React.FC = () => {
               )}
             </div>
 
-            {/* RECEIPT PRINT CONTAINER */}
+            {/* RECEIPT PRINT CONTAINER (100% Monochrome Black & Less Paper Compact) */}
             <div
               id="pos-thermal-receipt-print-area"
-              className="bg-white p-3 border border-dashed border-stone-300 rounded-2xl space-y-3 font-mono"
+              className="bg-white p-2 border border-dashed border-black rounded-xl space-y-1 font-mono text-black text-[10px] leading-tight select-none shadow-xs max-w-full overflow-hidden"
             >
               {/* Thermal Struk Header */}
-              <div className="text-center space-y-0.5 pb-2 border-b border-dashed border-stone-400">
+              <div className="text-center space-y-0 pb-1 border-b border-dashed border-black">
                 {printerSettings.showLogo && (
-                  <div className="text-xs font-black tracking-wider text-[#c41230] mb-0.5 font-sans">
+                  <div className="text-[11px] font-black tracking-wider text-black mb-0.5 font-sans">
                     せんばこ ぬさんたら にほん
                   </div>
                 )}
-                <h3 className="font-black text-xs text-stone-900 tracking-wider uppercase">
+                <h3 className="font-black text-[11px] text-black tracking-wider uppercase">
                   {printerSettings.storeName || txt.receiptHeaderStore}
                 </h3>
-                <p className="text-[10px] text-stone-600 leading-tight">
+                <p className="text-[9px] text-black leading-tight">
                   {printerSettings.storeAddress || txt.receiptStoreAddr}
                 </p>
                 {printerSettings.storePhone && (
-                  <p className="text-[9px] text-stone-500">Telp: {printerSettings.storePhone}</p>
+                  <p className="text-[8.5px] text-black">Telp: {printerSettings.storePhone}</p>
                 )}
               </div>
 
               {/* Struk Metadata */}
-              <div className="text-[10px] space-y-0.5 text-stone-700 py-1 border-b border-dashed border-stone-400">
-                <div className="flex justify-between">
+              <div className="text-[9px] space-y-0.5 text-black py-0.5 border-b border-dashed border-black">
+                <div className="flex justify-between items-center">
                   <span>No:</span>
-                  <span className="font-bold text-stone-900">{completedTx.receiptNumber}</span>
+                  <span className="font-bold text-black truncate max-w-[16ch]">{completedTx.receiptNumber}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span>Tgl:</span>
-                  <span>{new Date(completedTx.date).toLocaleString('id-ID')}</span>
+                  <span className="text-black">{new Date(completedTx.date).toLocaleDateString('id-ID')}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span>Kasir:</span>
-                  <span>{completedTx.cashierName}</span>
+                  <span className="text-black truncate max-w-[14ch]">{completedTx.cashierName}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span>Pelanggan:</span>
-                  <span className="font-bold text-stone-800">{completedTx.customerName || 'Walk-in'}</span>
+                  <span className="font-bold text-black truncate max-w-[14ch]">{completedTx.customerName || 'Walk-in'}</span>
                 </div>
               </div>
 
-              {/* Items List */}
-              <div className="space-y-1.5 max-h-48 overflow-y-auto text-[11px] py-1.5 border-b border-dashed border-stone-400">
+              {/* Items List (Berdempetan persis sama & less paper, full-line name for 30mm width) */}
+              <div className="space-y-1 max-h-48 overflow-y-auto text-[9.5px] py-1 border-b border-dashed border-black">
                 {completedTx.items.map((item, idx) => {
                   const isIdr = completedTx.currency === 'IDR';
                   const rate = completedTx.exchangeRate || exchangeRate;
@@ -2871,17 +3035,17 @@ export const POSKasirPage: React.FC = () => {
                     ? formatIdr(convertJpyToIdr(item.subtotal, rate))
                     : `¥${item.subtotal.toLocaleString()}`;
                   return (
-                    <div key={idx} className="flex justify-between items-start">
-                      <div className="pr-1 flex-1">
-                        <div className="font-semibold text-stone-900 leading-tight">
-                          {item.productName}
-                        </div>
-                        <div className="text-[9px] text-stone-500">
-                          {itemPriceStr} × {item.quantity}
-                        </div>
+                    <div key={idx} className="border-b border-dotted border-stone-200 pb-0.5 text-black">
+                      <div className="font-semibold text-black break-words leading-tight">
+                        {item.productName}
                       </div>
-                      <div className="font-bold text-stone-900 shrink-0 text-right">
-                        {itemSubtotalStr}
+                      <div className="flex justify-between items-center text-[8.5px] text-black">
+                        <span>
+                          {itemPriceStr} × {item.quantity}
+                        </span>
+                        <span className="font-bold text-black text-right shrink-0">
+                          {itemSubtotalStr}
+                        </span>
                       </div>
                     </div>
                   );
@@ -2890,43 +3054,43 @@ export const POSKasirPage: React.FC = () => {
 
               {/* Catatan / Keterangan Transaksi pada Struk */}
               {completedTx.notes && (
-                <div className="text-[9px] p-1.5 bg-stone-50 rounded border border-dashed border-stone-300 text-stone-700">
+                <div className="text-[8.5px] p-1 bg-white rounded border border-dashed border-black text-black">
                   <span className="font-bold block uppercase mb-0.5">Catatan:</span>
                   <span>{completedTx.notes}</span>
                 </div>
               )}
 
               {/* Totals */}
-              <div className="space-y-1 text-[11px]">
-                <div className="flex justify-between text-stone-600 text-[10px] pb-1 border-b border-dashed border-stone-300">
-                  <span>Jumlah Item:</span>
-                  <span className="font-bold text-stone-900">
+              <div className="space-y-0.5 text-[9.5px] text-black">
+                <div className="flex justify-between text-black text-[8.5px] pb-0.5 border-b border-dashed border-black">
+                  <span>Jml Item:</span>
+                  <span className="font-bold text-black">
                     {completedTx.items.length} Item ({completedTx.items.reduce((s, i) => s + i.quantity, 0)} pcs)
                   </span>
                 </div>
-                <div className="flex justify-between text-stone-600">
+                <div className="flex justify-between text-black">
                   <span>Subtotal:</span>
-                  <span>
+                  <span className="text-black">
                     {completedTx.currency === 'IDR'
                       ? formatIdr(convertJpyToIdr(completedTx.subtotal, completedTx.exchangeRate || exchangeRate))
                       : `¥${completedTx.subtotal.toLocaleString()}`}
                   </span>
                 </div>
                 {completedTx.discountAmount > 0 && (
-                  <div className="flex justify-between text-emerald-700">
+                  <div className="flex justify-between text-black font-semibold">
                     <span>Diskon:</span>
                     <span>-¥{completedTx.discountAmount.toLocaleString()}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-stone-600">
+                <div className="flex justify-between text-black">
                   <span>Pajak (8%):</span>
-                  <span>
+                  <span className="text-black">
                     {completedTx.currency === 'IDR'
                       ? formatIdr(convertJpyToIdr(completedTx.taxAmount, completedTx.exchangeRate || exchangeRate))
                       : `¥${completedTx.taxAmount.toLocaleString()}`}
                   </span>
                 </div>
-                <div className="flex justify-between font-bold text-xs text-stone-900 pt-1 border-t border-stone-400">
+                <div className="flex justify-between font-bold text-[10.5px] text-black pt-0.5 border-t border-black">
                   <span>TOTAL:</span>
                   <div className="text-right">
                     <span>
@@ -2936,19 +3100,19 @@ export const POSKasirPage: React.FC = () => {
                     </span>
                   </div>
                 </div>
-                <div className="flex justify-between text-stone-700 pt-1 border-t border-dashed border-stone-300">
+                <div className="flex justify-between text-black pt-0.5 border-t border-dashed border-black">
                   <span>
                     Bayar ({completedTx.paymentMethod} {completedTx.currency === 'IDR' ? 'Rp' : '¥'}):
                   </span>
-                  <span>
+                  <span className="text-black">
                     {completedTx.currency === 'IDR'
                       ? formatIdr(completedTx.amountPaidOriginal || completedTx.amountPaid)
                       : formatJpy(completedTx.amountPaid)}
                   </span>
                 </div>
-                <div className="flex justify-between text-stone-700">
+                <div className="flex justify-between text-black">
                   <span>Kembali:</span>
-                  <span className="font-bold">
+                  <span className="font-bold text-black">
                     {completedTx.currency === 'IDR'
                       ? formatIdr(completedTx.changeAmountOriginal || completedTx.changeAmount)
                       : formatJpy(completedTx.changeAmount)}
@@ -2957,19 +3121,126 @@ export const POSKasirPage: React.FC = () => {
               </div>
 
               {/* Footer Note & Store Policy */}
-              <div className="text-center pt-2 border-t border-dashed border-stone-400 space-y-1">
-                <p className="text-[10px] text-stone-700 font-bold leading-tight">
+              <div className="text-center pt-1 border-t border-dashed border-black space-y-0.5 text-black">
+                <p className="text-[9.5px] text-black font-bold leading-tight">
                   {printerSettings.footerNote || txt.receiptThanks}
                 </p>
                 {printerSettings.storePolicyNote && (
-                  <p className="text-[8.5px] text-stone-500 leading-tight">
+                  <p className="text-[8px] text-black leading-tight">
                     {printerSettings.storePolicyNote}
                   </p>
                 )}
-                <div className="text-[8px] text-stone-400 pt-1 tracking-widest uppercase">
-                  *** UKURAN NOTA: {printerSettings.paperWidth}×{printerSettings.rollDiameter} MM ***
-                </div>
               </div>
+            </div>
+
+            {/* WHATSAPP PDF STRUK NOTA GATEWAY INTEGRATION */}
+            <div className="p-3 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl space-y-2.5 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-bold text-emerald-950">
+                  <span className="material-symbols-outlined text-base text-emerald-600">send_to_mobile</span>
+                  <span>WhatsApp Gateway (Struk PDF)</span>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold uppercase tracking-wider">
+                  KirimDigi WA
+                </span>
+              </div>
+
+              {/* Delivery Status Indicator */}
+              {waDeliveryStatus.status === 'sending' && (
+                <div className="p-2.5 bg-sky-50 border border-sky-200 rounded-xl text-sky-800 flex items-center gap-2 animate-pulse">
+                  <span className="material-symbols-outlined text-sm animate-spin">sync</span>
+                  <div className="flex-1 text-[11px]">
+                    <span className="font-bold">Mengirim Struk Nota PDF ke WhatsApp Pelanggan...</span>
+                    <div className="text-[10px] text-sky-600 font-mono">Nomor Tujuan: {waDeliveryStatus.phone}</div>
+                  </div>
+                </div>
+              )}
+
+              {waDeliveryStatus.status === 'success' && (
+                <div className="p-2.5 bg-emerald-100/90 border border-emerald-300 rounded-xl text-emerald-900 flex items-start gap-2">
+                  <span className="material-symbols-outlined text-emerald-600 text-base shrink-0 mt-0.5">check_circle</span>
+                  <div className="flex-1 min-w-0 text-[11px]">
+                    <div className="font-bold flex items-center justify-between">
+                      <span>Struk PDF Berhasil Dikirim ke WA!</span>
+                      <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold">TERKIRIM</span>
+                    </div>
+                    <div className="text-[10px] text-emerald-800 mt-1 font-mono">
+                      No. WA: <strong>{waDeliveryStatus.phone}</strong> • Caption: <span className="bg-emerald-200/80 px-1 rounded font-semibold italic">Nota struk kasir pdf</span>
+                    </div>
+                    <div className="text-[10px] text-emerald-700 truncate mt-0.5 font-mono">
+                      📄 {waDeliveryStatus.filename} ({completedTx.currency === 'JPY' ? 'Bahasa Jepang' : 'Bahasa Indonesia'})
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {waDeliveryStatus.status === 'error' && (
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 flex items-start gap-2">
+                  <span className="material-symbols-outlined text-amber-600 text-base shrink-0 mt-0.5">info</span>
+                  <div className="flex-1 text-[11px]">
+                    <div className="font-bold">Pengiriman Struk PDF Tertunda</div>
+                    <div className="text-[10px] text-amber-700 mt-0.5">
+                      {waDeliveryStatus.message || 'Periksa koneksi gateway WhatsApp atau nomor tujuan.'}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Phone input & Manual Send Button */}
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={manualWaPhone}
+                  onChange={(e) => setManualWaPhone(e.target.value)}
+                  placeholder="Nomor WA Pelanggan (08... / +81...)"
+                  className="flex-1 bg-white border border-emerald-300 rounded-xl text-xs px-2.5 py-2 font-mono text-stone-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSendWaReceiptManual(manualWaPhone)}
+                  disabled={isManualSending || !manualWaPhone.trim()}
+                  className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    {isManualSending ? 'sync' : 'send'}
+                  </span>
+                  <span>{isManualSending ? 'Mengirim...' : 'Kirim WA'}</span>
+                </button>
+              </div>
+
+              {/* Language Indicator & Download Button */}
+              <div className="flex items-center justify-between text-[11px] text-stone-500 pt-1 border-t border-emerald-200/60">
+                <span className="text-[10px]">
+                  Bahasa Struk: <strong>{completedTx.currency === 'JPY' ? '日本語 (Jepang / Yen)' : 'Indonesia (Rupiah)'}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleDownloadReceiptPdf}
+                  className="text-stone-700 hover:text-emerald-700 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <span className="material-symbols-outlined text-xs">download</span>
+                  <span>Unduh File PDF</span>
+                </button>
+              </div>
+            </div>
+
+            {/* PRINTER HARDWARE & SILENT PRINT GUIDANCE */}
+            <div className="p-2.5 bg-stone-100/90 border border-stone-200 rounded-xl text-[11px] text-stone-600 space-y-1">
+              <div className="flex items-center justify-between text-stone-800 font-bold">
+                <span className="flex items-center gap-1 text-[11px]">
+                  <span className="material-symbols-outlined text-xs text-[#c41230]">print</span>
+                  <span>Printer Aktif: <strong>{printerSettings.printerName || 'POS-58'}</strong> ({printerSettings.paperWidth}mm)</span>
+                </span>
+                <span className="text-[9.5px] text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-mono font-bold">
+                  Windows Default
+                </span>
+              </div>
+              <p className="text-[10px] text-stone-500 leading-tight">
+                💡 <strong>Printer belum muncul di Destination Chrome?</strong> Klik dropdown Destination &gt; pilih <strong>"See more..." (Lihat lainnya)</strong> &gt; pilih <strong>POS-58</strong>. Chrome akan mengingatnya selamanya.
+              </p>
+              <p className="text-[10px] text-stone-500 leading-tight">
+                ⚡ <strong>Cetak Langsung Otomatis (Tanpa Dialog Pop-up Google):</strong> Tambahkan <code className="bg-white px-1 py-0.5 rounded border border-stone-300 font-mono text-[9px] font-bold text-stone-800">--kiosk-printing</code> pada shortcut Google Chrome kasir.
+              </p>
             </div>
 
             {/* ACTION BUTTONS */}
@@ -2993,6 +3264,7 @@ export const POSKasirPage: React.FC = () => {
             </div>
           </div>
         </div>
+
       )}
 
       {/* 2ND CONFIRMATION MODAL: HAPUS TRANSAKSI PENJUALAN KASIR */}

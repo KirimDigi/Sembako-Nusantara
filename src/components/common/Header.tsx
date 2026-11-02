@@ -19,7 +19,7 @@ export const Header: React.FC = () => {
   const { totalItems } = useCart();
   const { totalWishlistItems } = useWishlist();
   const { t, language } = useLanguage();
-  const { isAuthenticated, currentUser, isAdmin } = useAuth();
+  const { isAuthenticated, currentUser, isAdmin, logout } = useAuth();
   const { products } = useAdmin();
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
@@ -320,28 +320,45 @@ export const Header: React.FC = () => {
 
             {/* 3. Right Action Controls: Desktop Masuk/Daftar -> Wishlist -> Cart -> Hamburger Menu */}
             <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-              {/* Masuk / Daftar Akun Button - DESKTOP ONLY (hidden on mobile, wrapped inside Hamburger Drawer) */}
+              {/* Masuk / Daftar Akun & Logout Button - DESKTOP ONLY (hidden on mobile, wrapped inside Hamburger Drawer) */}
               {isAuthenticated ? (
-                <Link
-                  to="/profile"
-                  className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-stone-50 border border-stone-200 hover:border-stone-300 rounded-full text-xs font-bold text-stone-800 transition-all shadow-2xs hover:shadow-xs group cursor-pointer"
-                  title="Profil Saya"
-                >
-                  <div className="w-6 h-6 rounded-full bg-[#c41230] text-white flex items-center justify-center font-bold text-xs uppercase shadow-2xs">
-                    {currentUser?.name?.[0] || 'U'}
-                  </div>
-                  <span className="max-w-[100px] lg:max-w-[130px] truncate group-hover:text-[#c41230] transition-colors">
-                    {currentUser?.name}
-                  </span>
-                  {isAdmin && (
-                    <span className="px-1.5 py-0.2 bg-amber-500 text-white text-[9px] font-extrabold rounded-md shadow-2xs">
-                      Admin
+                <div className="hidden md:flex items-center gap-1.5">
+                  <Link
+                    to="/profile"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-stone-50 border border-stone-200 hover:border-stone-300 rounded-full text-xs font-bold text-stone-800 transition-all shadow-2xs hover:shadow-xs group cursor-pointer"
+                    title="Profil Saya"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-[#c41230] text-white flex items-center justify-center font-bold text-xs uppercase shadow-2xs">
+                      {currentUser?.name?.[0] || 'U'}
+                    </div>
+                    <span className="max-w-[90px] lg:max-w-[120px] truncate group-hover:text-[#c41230] transition-colors">
+                      {currentUser?.name}
                     </span>
-                  )}
-                </Link>
+                    {isAdmin && (
+                      <span className="px-1.5 py-0.2 bg-amber-500 text-white text-[9px] font-extrabold rounded-md shadow-2xs">
+                        Admin
+                      </span>
+                    )}
+                  </Link>
+
+                  {/* Desktop Logout Button */}
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-[#c41230] hover:text-red-700 border border-red-200 rounded-full text-xs font-bold transition-all shadow-2xs hover:shadow-xs cursor-pointer group"
+                    title={language === 'JP' ? 'ログアウト (終了)' : language === 'EN' ? 'Logout' : 'Keluar / Logout'}
+                  >
+                    <span className="material-symbols-outlined text-sm group-hover:scale-110 transition-transform">
+                      logout
+                    </span>
+                    <span>
+                      {language === 'JP' ? 'ログアウト' : language === 'EN' ? 'Logout' : 'Keluar'}
+                    </span>
+                  </button>
+                </div>
               ) : (
                 <Link
-                  to="/profile"
+                  to="/login"
                   className="hidden md:flex items-center gap-2 px-3.5 py-1.5 bg-white hover:bg-stone-50 border border-stone-300 hover:border-[#c41230] rounded-full text-xs font-bold text-stone-800 hover:text-[#c41230] transition-all shadow-2xs hover:shadow-xs group cursor-pointer"
                   title={language === 'JP' ? 'ログイン / 会員登録' : language === 'EN' ? 'Sign In / Register' : 'Masuk / Daftar Akun'}
                 >

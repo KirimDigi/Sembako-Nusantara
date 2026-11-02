@@ -140,9 +140,11 @@ export const ProductDetailPage: React.FC = () => {
               <h1 className="text-2xl sm:text-3xl font-bold text-stone-900 mt-2">
                 {getProductName()}
               </h1>
-              <p className="text-xs text-stone-400 font-medium mt-1">
-                {getProductUnit()}
-              </p>
+              {!getProductName().toLowerCase().includes(getProductUnit().toLowerCase().trim()) && (
+                <p className="text-xs text-stone-400 font-medium mt-1">
+                  {getProductUnit()}
+                </p>
+              )}
             </div>
 
             {/* Rating & Stock */}

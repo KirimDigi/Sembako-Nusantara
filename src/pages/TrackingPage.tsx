@@ -795,8 +795,8 @@ export const TrackingPage: React.FC = () => {
                     : 'Riwayat nomor resi hanya dapat diakses oleh akun pemilik pesanan. Silakan masuk ke akun Anda.'}
                 </p>
                 <Link
-                  to="/account"
-                  className="shrink-0 px-3.5 py-1.5 bg-[#c41230] hover:bg-[#9a0021] text-white rounded-xl font-bold text-[11px] shadow-xs transition-colors flex items-center gap-1"
+                  to="/login?redirect=/tracking"
+                  className="shrink-0 px-3.5 py-1.5 bg-[#c41230] hover:bg-[#9a0021] text-white rounded-xl font-bold text-[11px] shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-xs">login</span>
                   <span>{language === 'JP' ? 'ログイン' : language === 'EN' ? 'Sign In' : 'Masuk Akun'}</span>

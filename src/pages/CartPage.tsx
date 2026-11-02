@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAdmin } from '../context/AdminContext';
@@ -9,6 +10,7 @@ import { resolveProductImage, getPlaceholderImage } from '../components/common/P
 import { useExchangeRate, convertJpyToIdr, formatIdr } from '../utils/currency';
 
 export const CartPage: React.FC = () => {
+  const { isAuthenticated } = useAuth();
   const {
     cart,
     updateQuantity,
@@ -132,7 +134,9 @@ export const CartPage: React.FC = () => {
                         <h3 className="font-bold text-sm text-stone-900 line-clamp-1">
                           {getProductName()}
                         </h3>
-                        <p className="text-xs text-stone-400">{getProductUnit()}</p>
+                        {!getProductName().toLowerCase().includes(getProductUnit().toLowerCase().trim()) && (
+                          <p className="text-xs text-stone-400">{getProductUnit()}</p>
+                        )}
                         <div className="font-bold text-sm text-stone-900 mt-1">
                           ¥{item.product.price.toLocaleString()}{' '}
                           <span className="text-[11px] text-stone-500 font-normal">
@@ -297,11 +301,30 @@ export const CartPage: React.FC = () => {
 
               <Link
                 to="/checkout"
-                className="w-full inline-flex items-center justify-center gap-2 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold py-3.5 px-6 rounded-xl shadow-md active:scale-95 transition-all text-sm"
+                className="w-full inline-flex items-center justify-center gap-2 bg-[#c41230] hover:bg-[#9a0021] text-white font-bold py-3.5 px-6 rounded-xl shadow-md active:scale-95 transition-all text-sm cursor-pointer"
               >
                 <span>{t('proceed_checkout')}</span>
                 <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </Link>
+
+              {!isAuthenticated && (
+                <div className="mt-2.5 p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-center">
+                  <p className="text-[11px] text-amber-900 leading-tight">
+                    {language === 'JP'
+                      ? '⚠️ 会員登録またはログインで配送先入力がスムーズになります。'
+                      : language === 'EN'
+                      ? '⚠️ Sign in to save shipping address and earn reward points.'
+                      : '⚠️ Belum masuk akun? '}
+                    <Link
+                      to="/login?redirect=/checkout"
+                      className="text-[#c41230] font-bold hover:underline inline-flex items-center gap-0.5 ml-1"
+                    >
+                      <span>{language === 'JP' ? 'ログインはこちら' : language === 'EN' ? 'Sign In Here' : 'Masuk / Daftar di sini'}</span>
+                      <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
+                    </Link>
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

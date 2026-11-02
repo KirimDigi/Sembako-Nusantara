@@ -4,7 +4,8 @@ import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useAdmin } from '../../context/AdminContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Voucher, LoyaltyTier, Language } from '../../types';
-import { PromoBanner, getStoredPromoBanners, savePromoBanners, resetPromoBanners, fetchRemotePromoBanners } from '../../utils/banners';
+import { PromoBanner, getStoredPromoBanners, savePromoBanners, resetPromoBanners, fetchRemotePromoBanners, isVideoBanner, getBannerMediaUrl } from '../../utils/banners';
+import { assetUrl } from '../../utils/assets';
 
 export const CRMPage: React.FC = () => {
   const { customers, vouchers, addVoucher, toggleVoucher, deleteVoucher, addCustomer } = useAdmin();
@@ -276,13 +277,18 @@ export const CRMPage: React.FC = () => {
     setVDesc('');
   };
 
-  // Promo Banner Handlers
-  const handleBannerImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  // Promo Banner Handlers (Supports Image & Video with 10s stay)
+  const handleBannerMediaUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Ukuran gambar terlalu besar! Maksimal 5MB.');
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(file.name);
+
+    if (isVideo && file.size > 50 * 1024 * 1024) {
+      alert('Ukuran video terlalu besar! Maksimal 50MB.');
+      return;
+    } else if (!isVideo && file.size > 10 * 1024 * 1024) {
+      alert('Ukuran gambar terlalu besar! Maksimal 10MB.');
       return;
     }
 
@@ -291,14 +297,69 @@ export const CRMPage: React.FC = () => {
       const dataUrl = event.target?.result as string;
       setPromoBanners((prev) => {
         const next = [...prev];
-        next[index] = { ...next[index], imageUrl: dataUrl };
+        if (isVideo) {
+          next[index] = {
+            ...next[index],
+            mediaType: 'video',
+            videoUrl: dataUrl,
+            imageUrl: dataUrl,
+            duration: 10000, // 10 detik khusus video
+            badge: next[index].badge || 'VIDEO PROMO'
+          };
+        } else {
+          next[index] = {
+            ...next[index],
+            mediaType: 'image',
+            imageUrl: dataUrl,
+            videoUrl: undefined,
+            duration: 4000 // Khusus foto 4 detik
+          };
+        }
         return next;
       });
     };
     reader.readAsDataURL(file);
   };
 
-  const handleBannerTextChange = (index: number, field: keyof PromoBanner, val: string) => {
+  const handleSetCatVideo = (index: number) => {
+    setPromoBanners((prev) => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        mediaType: 'video',
+        videoUrl: assetUrl('Cartoon_cat_carrying_groceries_1080p_20261009100736.mp4'),
+        imageUrl: assetUrl('banner-promo-2.jpg'),
+        duration: 10000,
+        badge: 'VIDEO PROMO'
+      };
+      return next;
+    });
+  };
+
+  const handleToggleMediaType = (index: number, type: 'image' | 'video') => {
+    setPromoBanners((prev) => {
+      const next = [...prev];
+      if (type === 'video') {
+        next[index] = {
+          ...next[index],
+          mediaType: 'video',
+          videoUrl: next[index].videoUrl || assetUrl('Cartoon_cat_carrying_groceries_1080p_20261009100736.mp4'),
+          duration: 10000,
+          badge: 'VIDEO PROMO'
+        };
+      } else {
+        next[index] = {
+          ...next[index],
+          mediaType: 'image',
+          duration: 4000, // Khusus foto 4 detik
+          badge: 'PROMO SPESIAL'
+        };
+      }
+      return next;
+    });
+  };
+
+  const handleBannerTextChange = (index: number, field: keyof PromoBanner, val: any) => {
     setPromoBanners((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], [field]: val };
@@ -318,10 +379,10 @@ export const CRMPage: React.FC = () => {
   };
 
   const handleResetBanners = () => {
-    if (window.confirm('Kembalikan semua 3 banner promo ke gambar default?')) {
+    if (window.confirm('Kembalikan semua 3 banner promo ke bawaan (2 Foto, 1 Video Kucing Belanja 10 Detik)?')) {
       const def = resetPromoBanners();
       setPromoBanners(def);
-      setBannerSaveMsg({ text: 'Banner berhasil dikembalikan ke default!', isError: false });
+      setBannerSaveMsg({ text: 'Banner berhasil dikembalikan ke default (2 Foto + 1 Video 10s)!', isError: false });
       setTimeout(() => setBannerSaveMsg(null), 3000);
     }
   };
@@ -666,111 +727,202 @@ export const CRMPage: React.FC = () => {
 
             {/* Grid of 3 Slide Editors */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {promoBanners.map((banner, index) => (
-                <div
-                  key={banner.id || index}
-                  className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden flex flex-col justify-between"
-                >
-                  <div className="p-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
-                    <span className="text-xs font-bold text-stone-800 flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-[#c41230] text-white text-[11px] font-black flex items-center justify-center">
-                        {index + 1}
+              {promoBanners.map((banner, index) => {
+                const isVid = isVideoBanner(banner);
+                return (
+                  <div
+                    key={banner.id || index}
+                    className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden flex flex-col justify-between"
+                  >
+                    <div className="p-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+                      <span className="text-xs font-bold text-stone-800 flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-[#c41230] text-white text-[11px] font-black flex items-center justify-center">
+                          {index + 1}
+                        </span>
+                        <span>Slide {index + 1}</span>
                       </span>
-                      <span>Slide {index + 1}</span>
-                    </span>
-                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-stone-200 text-stone-700">
-                      Rasio 16:9 / 21:9
-                    </span>
-                  </div>
-
-                  {/* Image Preview Box */}
-                  <div className="p-4 space-y-4">
-                    <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-stone-900 border border-stone-200 group">
-                      <img
-                        src={banner.imageUrl}
-                        alt={`Slide ${index + 1}`}
-                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2 text-center text-white text-xs font-semibold">
-                        Preview Slide {index + 1}
-                      </div>
+                      <span className={`text-[10px] uppercase font-bold px-2.5 py-0.5 rounded-full ${
+                        isVid ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-stone-200 text-stone-700'
+                      }`}>
+                        {isVid ? '🎬 VIDEO (10 Detik)' : '📷 FOTO (4 Detik)'}
+                      </span>
                     </div>
 
-                    {/* Change Photo Inputs */}
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-[11px] font-bold text-stone-700 block mb-1">
-                          Unggah Foto dari HP / Komputer:
-                        </label>
-                        <label className="w-full px-3 py-2 bg-stone-50 hover:bg-stone-100 border border-dashed border-stone-300 hover:border-[#c41230] rounded-xl text-xs font-medium text-stone-700 flex items-center justify-center gap-2 cursor-pointer transition-colors">
-                          <span className="material-symbols-outlined text-base text-[#c41230]">add_photo_alternate</span>
-                          <span>Pilih File Foto Baru...</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleBannerImageUpload(index, e)}
-                            className="hidden"
+                    {/* Preview Box (Photo or Video) */}
+                    <div className="p-4 space-y-4">
+                      <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-stone-900 border border-stone-200 group">
+                        {isVid ? (
+                          <video
+                            src={getBannerMediaUrl(banner)}
+                            poster={banner.imageUrl ? assetUrl(banner.imageUrl) : undefined}
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            className="w-full h-full object-cover object-center"
                           />
-                        </label>
+                        ) : (
+                          <img
+                            src={assetUrl(banner.imageUrl)}
+                            alt={`Slide ${index + 1}`}
+                            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-2 text-center text-white text-xs font-semibold">
+                          <span>Preview Slide {index + 1}</span>
+                          <span className="text-[10px] text-stone-300 mt-1">
+                            {isVid ? 'Video Aktif • Durasi Tampil 10 Detik' : 'Foto Aktif • Durasi Tampil 4 Detik'}
+                          </span>
+                        </div>
                       </div>
 
-                      <div>
-                        <label className="text-[11px] font-bold text-stone-700 block mb-1">
-                          Atau Tautan URL Gambar:
-                        </label>
-                        <input
-                          type="text"
-                          value={banner.imageUrl}
-                          onChange={(e) => handleBannerTextChange(index, 'imageUrl', e.target.value)}
-                          placeholder="https://example.com/promo-banner.jpg"
-                          className="w-full px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#c41230]"
-                        />
+                      {/* Media Type Switcher */}
+                      <div className="grid grid-cols-2 gap-2 bg-stone-100 p-1 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleMediaType(index, 'image')}
+                          className={`py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                            !isVid ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-800'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-sm">image</span>
+                          <span>Foto / Gambar</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleMediaType(index, 'video')}
+                          className={`py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                            isVid ? 'bg-emerald-600 text-white shadow-xs' : 'text-stone-500 hover:text-stone-800'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-sm">movie</span>
+                          <span>Video Animasi</span>
+                        </button>
                       </div>
 
-                      <div>
-                        <label className="text-[11px] font-bold text-stone-700 mb-1 flex items-center justify-between">
-                          <span>Judul Slide / Catatan Admin:</span>
-                          <span className="text-[10px] text-stone-400 font-normal">Opsional</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={banner.title}
-                          onChange={(e) => handleBannerTextChange(index, 'title', e.target.value)}
-                          placeholder="Contoh: Promo Spesial Sembako"
-                          className="w-full px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#c41230]"
-                        />
-                      </div>
+                      {/* Inputs & File Upload */}
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-[11px] font-bold text-stone-700 block mb-1">
+                            {isVid ? 'Unggah File Video (MP4/WebM) atau Foto:' : 'Unggah Foto dari HP / Komputer:'}
+                          </label>
+                          <label className="w-full px-3 py-2 bg-stone-50 hover:bg-stone-100 border border-dashed border-stone-300 hover:border-[#c41230] rounded-xl text-xs font-medium text-stone-700 flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                            <span className="material-symbols-outlined text-base text-[#c41230]">
+                              {isVid ? 'video_file' : 'add_photo_alternate'}
+                            </span>
+                            <span>{isVid ? 'Pilih File Video MP4 / Gambar...' : 'Pilih File Foto Baru...'}</span>
+                            <input
+                              type="file"
+                              accept={isVid ? 'video/*,image/*,.mp4,.webm' : 'image/*'}
+                              onChange={(e) => handleBannerMediaUpload(index, e)}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
 
-                      <div>
-                        <label className="text-[11px] font-bold text-stone-700 mb-1 flex items-center justify-between">
-                          <span>Link Tujuan Saat Foto Diklik:</span>
-                          <span className="text-[10px] text-emerald-600 font-bold">Aktif</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={banner.linkUrl}
-                          onChange={(e) => handleBannerTextChange(index, 'linkUrl', e.target.value)}
-                          placeholder="/catalog"
-                          className="w-full px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#c41230]"
-                        />
+                        {/* Quick Preset Button for Cat Video */}
+                        <button
+                          type="button"
+                          onClick={() => handleSetCatVideo(index)}
+                          className="w-full py-1.5 px-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                        >
+                          <span className="material-symbols-outlined text-sm text-amber-600">pets</span>
+                          <span>Pakai Video Kucing Belanja (10s)</span>
+                        </button>
+
+                        <div>
+                          <label className="text-[11px] font-bold text-stone-700 block mb-1">
+                            {isVid ? 'Tautan URL File Video (MP4 / WebM):' : 'Atau Tautan URL Gambar:'}
+                          </label>
+                          <input
+                            type="text"
+                            value={isVid ? (banner.videoUrl || banner.imageUrl) : banner.imageUrl}
+                            onChange={(e) => {
+                              if (isVid) {
+                                handleBannerTextChange(index, 'videoUrl', e.target.value);
+                                handleBannerTextChange(index, 'imageUrl', e.target.value);
+                              } else {
+                                handleBannerTextChange(index, 'imageUrl', e.target.value);
+                              }
+                            }}
+                            placeholder={isVid ? 'Cartoon_cat_carrying_groceries_1080p_20261009100736.mp4' : 'https://example.com/promo-banner.jpg'}
+                            className="w-full px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#c41230]"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[11px] font-bold text-stone-700 block mb-1">
+                              Durasi Stay (Detik):
+                            </label>
+                            <input
+                              type="number"
+                              min={2}
+                              max={60}
+                              value={(banner.duration ? banner.duration / 1000 : (isVid ? 10 : 4))}
+                              onChange={(e) => handleBannerTextChange(index, 'duration', Number(e.target.value) * 1000)}
+                              className="w-full px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#c41230]"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[11px] font-bold text-stone-700 block mb-1">
+                              Badge Teks:
+                            </label>
+                            <input
+                              type="text"
+                              value={banner.badge || ''}
+                              onChange={(e) => handleBannerTextChange(index, 'badge', e.target.value)}
+                              placeholder="PROMO"
+                              className="w-full px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#c41230]"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-bold text-stone-700 mb-1 flex items-center justify-between">
+                            <span>Judul Slide / Catatan Admin:</span>
+                            <span className="text-[10px] text-stone-400 font-normal">Opsional</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={banner.title}
+                            onChange={(e) => handleBannerTextChange(index, 'title', e.target.value)}
+                            placeholder="Contoh: Promo Spesial Sembako"
+                            className="w-full px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#c41230]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-bold text-stone-700 mb-1 flex items-center justify-between">
+                            <span>Link Tujuan Saat Diklik:</span>
+                            <span className="text-[10px] text-emerald-600 font-bold">Aktif</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={banner.linkUrl}
+                            onChange={(e) => handleBannerTextChange(index, 'linkUrl', e.target.value)}
+                            placeholder="/catalog"
+                            className="w-full px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#c41230]"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="p-3 bg-stone-50 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500">
-                    <span>Status: <strong>Aktif di Beranda</strong></span>
-                    <a
-                      href="/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#c41230] font-bold hover:underline flex items-center gap-0.5"
-                    >
-                      <span>Lihat Live</span>
-                      <span className="material-symbols-outlined text-xs">open_in_new</span>
-                    </a>
+                    <div className="p-3 bg-stone-50 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500">
+                      <span>Status: <strong>Aktif di Beranda</strong></span>
+                      <a
+                        href="/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#c41230] font-bold hover:underline flex items-center gap-0.5"
+                      >
+                        <span>Lihat Live</span>
+                        <span className="material-symbols-outlined text-xs">open_in_new</span>
+                      </a>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Bottom Save Action Bar */}

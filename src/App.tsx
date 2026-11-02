@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { LanguageProvider } from './context/LanguageContext';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
 import { AdminProvider } from './context/AdminContext';
@@ -31,6 +31,7 @@ import { GuidePaymentPage } from './pages/GuidePaymentPage';
 import { ContactPage } from './pages/ContactPage';
 import { AboutPage } from './pages/AboutPage';
 import { InstallAppPage } from './pages/InstallAppPage';
+import { LoginPage } from './pages/LoginPage';
 import { PWAUpdateToast } from './components/common/PWAUpdateToast';
 
 // Admin & POS Pages (Protected Behind Login)
@@ -63,10 +64,30 @@ const ScrollToTop: React.FC = () => {
 // Main Layout Router Content
 const AppContent: React.FC = () => {
   const location = useLocation();
+  const { currentUser } = useAuth();
+
+  const isPosAccount =
+    currentUser?.role === 'Kasir (POS)' ||
+    currentUser?.role?.toLowerCase().includes('kasir') ||
+    currentUser?.role?.toLowerCase().includes('pos') ||
+    currentUser?.role?.toLowerCase().includes('supervisor') ||
+    currentUser?.role?.toLowerCase().includes('spv') ||
+    currentUser?.id?.toLowerCase().startsWith('pos-');
+
+  // Akun POS dilarang mengakses halaman belanja / publik / customer:
+  // Jika sedang login dengan akun POS dan membuka rute non-admin, langsung arahkan ke Kasir Scan Barcode
+  if (isPosAccount && !location.pathname.startsWith('/admin') && location.pathname !== '/pos-display') {
+    return <Navigate to="/admin/pos" replace />;
+  }
 
   // Standalone Customer-Facing Display (No Header/Footer, No Sidebar)
   if (location.pathname === '/pos-display' || location.pathname === '/admin/pos/display') {
     return <POSCustomerDisplayPage />;
+  }
+
+  // Standalone Customer Login Page (No Header/Footer/Nav/Banner, Pure Form with Background Logo)
+  if (location.pathname === '/login' || location.pathname === '/masuk') {
+    return <LoginPage />;
   }
 
   const isAdminRoute = location.pathname.startsWith('/admin');
@@ -247,6 +268,8 @@ const AppContent: React.FC = () => {
           <Route path="/wishlist" element={<WishlistPage />} />
           <Route path="/favorit" element={<WishlistPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/masuk" element={<LoginPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/account" element={<ProfilePage />} />
           <Route path="/orders" element={<AccountOrdersPage />} />

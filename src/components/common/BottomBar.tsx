@@ -1,15 +1,22 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useLanguage } from '../../context/LanguageContext';
 
 export const BottomBar: React.FC = () => {
   const location = useLocation();
+  const { isAuthenticated } = useAuth();
   const { totalItems } = useCart();
   const { language } = useLanguage();
 
-  // Hide bottom bar on admin pages
-  if (location.pathname.startsWith('/admin') || location.pathname === '/pos-display') {
+  // Hide bottom bar on admin pages and standalone login page
+  if (
+    location.pathname.startsWith('/admin') ||
+    location.pathname === '/pos-display' ||
+    location.pathname === '/login' ||
+    location.pathname === '/masuk'
+  ) {
     return null;
   }
 
@@ -78,7 +85,7 @@ export const BottomBar: React.FC = () => {
       id: 'profile',
       label: language === 'JP' ? 'マイページ' : language === 'EN' ? 'Account' : 'Akun',
       icon: 'person',
-      to: '/profile',
+      to: isAuthenticated ? '/profile' : '/login',
       isActive: isProfileActive,
       isAction: false
     }

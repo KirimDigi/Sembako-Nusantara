@@ -502,7 +502,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
       label: language === 'JP' ? 'サーマルプリンター設定' : language === 'EN' ? 'Thermal Printer Setup' : 'Atur Printer Thermal',
       path: '/admin/settings?tab=printer',
       icon: 'print',
-      badge: '57x47mm',
+      badge: '58x30mm',
       badgeColor: 'bg-emerald-600 text-white',
       isActive: location.pathname === '/admin/settings' && location.search.includes('tab=printer'),
       allowedRoles: ['Super Admin (Owner)', 'Kasir (POS)']

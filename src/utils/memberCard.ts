@@ -210,15 +210,17 @@ export async function downloadMemberCardPng(options: {
   ctx.font = 'bold 13px system-ui, -apple-system, sans-serif';
   ctx.fillText('JAPAN DIASPORA CARD', 135, 100);
 
-  // Top-Right Gold Badge
-  drawRoundedRect(ctx, width - 230, 56, 170, 38, 19);
-  ctx.fillStyle = '#FBBF24';
-  ctx.fill();
-  ctx.fillStyle = '#1C1917';
-  ctx.font = '900 13px system-ui, -apple-system, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(tier.toUpperCase(), width - 145, 80);
-  ctx.textAlign = 'left';
+  // Top-Right Gold Badge (Super Admin only or when provided)
+  if (tier && tier.trim()) {
+    drawRoundedRect(ctx, width - 230, 56, 170, 38, 19);
+    ctx.fillStyle = '#FBBF24';
+    ctx.fill();
+    ctx.fillStyle = '#1C1917';
+    ctx.font = '900 13px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(tier.toUpperCase(), width - 145, 80);
+    ctx.textAlign = 'left';
+  }
   ctx.restore();
 
   // 4. Member Info

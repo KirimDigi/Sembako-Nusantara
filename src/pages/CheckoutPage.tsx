@@ -69,6 +69,9 @@ export const CheckoutPage: React.FC = () => {
   // Order Success Modal State
   const [completedOrder, setCompletedOrder] = useState<any | null>(null);
 
+  // Automatic Login Reminder Modal for Unauthenticated Customers
+  const [showLoginModal, setShowLoginModal] = useState(!isAuthenticated);
+
   const handleApplyVoucher = () => {
     if (!voucherInput) return;
     const res = applyVoucher(voucherInput, subtotalTax);
@@ -93,6 +96,13 @@ export const CheckoutPage: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isProcessing) return; // Prevent double submission
+
+    // Enforce login reminder before checkout
+    if (!isAuthenticated) {
+      setShowLoginModal(true);
+      return;
+    }
+
     if (cart.length === 0) {
       alert('Keranjang belanja Anda kosong!');
       navigate('/');
@@ -198,15 +208,16 @@ export const CheckoutPage: React.FC = () => {
             <span className="material-symbols-outlined text-amber-700 text-lg">info</span>
             <div>
               <p className="font-bold">Status: Belum Masuk Akun</p>
-              <p className="text-amber-700">Masuk untuk menyimpan riwayat pesanan & mendapatkan poin reward belanja.</p>
+              <p className="text-amber-700">Masuk untuk menyimpan riwayat pesanan & mempercepat pengiriman.</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Link
-              to="/account"
-              className="px-4 py-2 bg-[#c41230] hover:bg-[#9a0021] text-white rounded-xl text-xs font-bold transition-all shadow-xs text-center"
+              to="/login?redirect=/checkout"
+              className="px-4 py-2 bg-[#c41230] hover:bg-[#9a0021] text-white rounded-xl text-xs font-bold transition-all shadow-xs text-center flex items-center gap-1.5 cursor-pointer"
             >
-              Masuk / Login
+              <span className="material-symbols-outlined text-sm">login</span>
+              <span>Masuk / Login</span>
             </Link>
           </div>
         </div>
@@ -938,6 +949,79 @@ export const CheckoutPage: React.FC = () => {
                 <span className="material-symbols-outlined text-sm">receipt</span>
                 <span>Lihat Akun & Invoice</span>
               </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Automatic Login Reminder Modal when customer is not authenticated */}
+      {showLoginModal && !isAuthenticated && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl text-center space-y-5 border border-stone-100 animate-in zoom-in-95 duration-200 relative">
+            <button
+              type="button"
+              onClick={() => setShowLoginModal(false)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center transition-colors cursor-pointer"
+              title="Tutup"
+            >
+              <span className="material-symbols-outlined text-lg">close</span>
+            </button>
+
+            {/* Icon / Brand Badge */}
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-red-50 to-amber-50 border border-red-200/80 flex items-center justify-center text-[#c41230] shadow-inner">
+              <span className="material-symbols-outlined text-3xl">lock_person</span>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="inline-block px-3 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-extrabold border border-amber-200 uppercase tracking-wider">
+                {language === 'JP' ? 'ログインが必要です' : language === 'EN' ? 'Sign In Required' : 'Login Diperlukan Sebelum Checkout'}
+              </span>
+              <h3 className="text-xl font-black text-stone-900 tracking-tight">
+                {language === 'JP' ? 'ご注文の前にログインしてください' : language === 'EN' ? 'Please Sign In to Complete Checkout' : 'Silakan Masuk ke Akun Anda'}
+              </h3>
+              <p className="text-xs text-stone-600 leading-relaxed px-1">
+                {language === 'JP'
+                  ? '配送ステータスのリアルタイム追跡、WhatsAppへの自動通知、およびポイント獲得のため、ログインまたは新規会員登録をお願いいたします。'
+                  : language === 'EN'
+                  ? 'To track your package, receive automated WhatsApp updates, and earn loyalty points, please sign in or register.'
+                  : 'Untuk keamanan pesanan, kemudahan lacak nomor resi otomatis di WhatsApp, serta klaim Poin Belanja, Anda wajib masuk ke akun terlebih dahulu.'}
+              </p>
+            </div>
+
+            {/* Benefit Highlights */}
+            <div className="bg-stone-50 rounded-2xl p-3.5 text-left space-y-2 border border-stone-200 text-xs text-stone-700">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-emerald-600 text-base">verified</span>
+                <span>Alamat & riwayat belanja tersimpan otomatis</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-amber-600 text-base">redeem</span>
+                <span>Dapatkan Poin Loyalitas dari transaksi ini</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#c41230] text-base">chat</span>
+                <span>Notifikasi resi kurir real-time ke WhatsApp</span>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="space-y-2 pt-1">
+              <Link
+                to="/login?redirect=/checkout"
+                className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-[#9E0000] to-[#C41230] hover:from-[#7D0000] hover:to-[#A30F27] text-white font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+              >
+                <span className="material-symbols-outlined text-base">login</span>
+                <span>{language === 'JP' ? 'ログイン画面へ進む' : language === 'EN' ? 'Go to Sign In Page' : 'Masuk / Login Sekarang'}</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => setShowLoginModal(false)}
+                className="w-full py-2 text-xs text-stone-500 hover:text-stone-800 font-semibold cursor-pointer transition-colors"
+              >
+                {language === 'JP' ? '閉じて注文内容を確認する' : language === 'EN' ? 'Close & Review Cart' : 'Tutup & Lengkapi Data Dulu'}
+              </button>
             </div>
           </div>
         </div>

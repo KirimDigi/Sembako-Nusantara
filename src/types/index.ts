@@ -437,8 +437,8 @@ export interface ThermalPrinterSettings {
   printerName: string;
   connectionType: 'browser_driver' | 'bluetooth' | 'usb_direct' | 'network_ip';
   ipAddress?: string;
-  paperWidth: number; // Lebar Kertas mm (Default: 57)
-  rollDiameter: number; // Diameter Lingkaran mm (Default: 47)
+  paperWidth: number; // Lebar Kertas mm (Default: 58)
+  rollDiameter: number; // Diameter Lingkaran mm (Default: 30)
   charPerLine: number; // default: 32
   fontSize: 'small' | 'normal' | 'large';
   autoCut: boolean;
