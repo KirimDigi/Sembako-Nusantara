@@ -461,7 +461,7 @@ export async function generateReceiptPdf(
   // Build compliant PDF 1.4 binary
   const pdfBytes = buildPdfFromJpeg(jpegBytes, canvas.width, canvas.height);
 
-  const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+  const pdfBlob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
   const dataUrl = URL.createObjectURL(pdfBlob);
 
   // Convert pdfBytes to Base64

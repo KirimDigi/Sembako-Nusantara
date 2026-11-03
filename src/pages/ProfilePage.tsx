@@ -1016,7 +1016,7 @@ export const ProfilePage: React.FC = () => {
             <div className="relative">
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white/10 backdrop-blur-md border-2 border-amber-300 overflow-hidden shadow-lg flex items-center justify-center">
                 <img
-                  src={currentUser?.avatar || assetUrl('avatar-jangsan.png')}
+                  src={assetUrl(currentUser?.avatar || 'avatar-jangsan.png')}
                   alt={currentUser?.name || 'Avatar Profile'}
                   className="w-full h-full object-cover"
                   onError={(e) => {

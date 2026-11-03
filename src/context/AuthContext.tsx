@@ -75,6 +75,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (parsed.role === 'Customer') {
             delete parsed.email;
           }
+          if (parsed.avatar) {
+            parsed.avatar = assetUrl(parsed.avatar);
+          }
           return parsed;
         }
       } catch (e) {

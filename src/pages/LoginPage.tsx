@@ -63,7 +63,7 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ initialMode = 'login' }) => {
-  const { login, isAuthenticated, isAdmin, updateProfile } = useAuth();
+  const { login, isAuthenticated, isAdmin, currentUser, updateProfile } = useAuth();
   const { addCustomer, customers } = useAdmin();
   const { language, setLanguage } = useLanguage();
   const navigate = useNavigate();

@@ -1173,7 +1173,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title, subti
           <div className="bg-stone-900 p-3 rounded-xl border border-stone-800 text-[11px] text-stone-400">
             <div className="flex items-center gap-2.5 mb-2">
               <img
-                src={currentUser?.avatar || assetUrl('avatar-jangsan.png')}
+                src={assetUrl(currentUser?.avatar || 'avatar-jangsan.png')}
                 alt="Avatar"
                 className="w-8 h-8 rounded-full border border-stone-700 bg-stone-800 object-cover"
               />

@@ -39,3 +39,5 @@ scripts/
 .playwright-mcp/
 audit_report.json
 *.mp4
+!public/Cartoon_cat_carrying_groceries_*.mp4
+!docs/Cartoon_cat_carrying_groceries_*.mp4
