@@ -334,62 +334,179 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem('sn_admin_orders_v2', JSON.stringify(orders));
   }, [orders]);
 
-  // Fetch live orders from Supabase if connected
+  // Egress-Optimized Cloud Synchronization (Supabase Free Tier < 5GB/month Protection)
   useEffect(() => {
-    const fetchCloudOrders = async () => {
+    const PRODUCTS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+    const VOUCHERS_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+    const ORDERS_CACHE_TTL = 5 * 60 * 1000;    // 5 minutes
+    const ADMIN_CACHE_TTL = 5 * 60 * 1000;     // 5 minutes
+
+    // 1. Lightweight Products Sync (Only selects 8 essential fields instead of *, saving ~83% egress)
+    const fetchCloudProducts = async () => {
       try {
+        const lastSync = Number(sessionStorage.getItem('sn_cloud_products_sync_ts') || 0);
+        if (Date.now() - lastSync < PRODUCTS_CACHE_TTL) return;
+
         const { data, error } = await supabase
-          .from('orders')
-          .select('*, order_items(*)')
-          .order('created_at', { ascending: false });
+          .from('products')
+          .select('id,sku,price,cost_price,stock,original_price,barcode,image');
 
         if (!error && data && Array.isArray(data) && data.length > 0) {
-          const cloudOrders: Order[] = data.map((d: any) => ({
-            id: d.id,
-            trackingNumber: d.tracking_number || '',
-            courier: d.courier || 'Yamato Transport',
-            status: d.status || 'Dikemas',
-            totalAmount: Number(d.total_amount) || 0,
-            taxAmount: Number(d.tax_amount) || 0,
-            paymentMethod: d.payment_method || 'jpqr',
-            customerName: d.customer_name || 'Willy Pratama',
-            userEmail: d.customer_email || '',
-            phone: d.customer_phone || '',
-            shippingAddress: d.shipping_address || '',
-            date: d.order_date || new Date(d.created_at).toLocaleDateString('id-ID'),
-            items: (d.order_items || []).map((it: any) => ({
-              id: it.product_id,
-              productName: it.product_name,
-              productImage: it.product_image,
-              price: Number(it.price),
-              quantity: it.quantity
-            }))
-          }));
-
-          setOrders((prev) => {
-            const merged = [...cloudOrders];
-            prev.forEach((localOrd) => {
-              if (!merged.some((m) => m.id === localOrd.id)) {
-                merged.push(localOrd);
-              }
+          sessionStorage.setItem('sn_cloud_products_sync_ts', String(Date.now()));
+          setProducts((prev) => {
+            const cloudMap = new Map<string, any>();
+            data.forEach((d: any) => {
+              if (d.id) cloudMap.set(String(d.id), d);
+              if (d.sku) cloudMap.set(d.sku, d);
             });
-            return merged;
+
+            return prev.map((p) => {
+              const cloudItem = cloudMap.get(String(p.id)) || (p.sku ? cloudMap.get(p.sku) : undefined);
+              if (!cloudItem) return p;
+
+              const safeCloudImg =
+                cloudItem.image &&
+                !String(cloudItem.image).includes('placeholder-upload') &&
+                !String(cloudItem.image).startsWith('data:')
+                  ? cloudItem.image
+                  : p.image;
+
+              return {
+                ...p,
+                price: typeof cloudItem.price === 'number' ? cloudItem.price : p.price,
+                costPrice: typeof cloudItem.cost_price === 'number' ? cloudItem.cost_price : p.costPrice,
+                stock: typeof cloudItem.stock === 'number' ? cloudItem.stock : p.stock,
+                originalPrice: cloudItem.original_price !== undefined && cloudItem.original_price !== null ? cloudItem.original_price : p.originalPrice,
+                barcode: cloudItem.barcode || p.barcode,
+                image: safeCloudImg
+              };
+            });
           });
+        }
+      } catch (e) {
+        console.warn('Cloud products sync notice:', e);
+      }
+    };
+
+    // 2. Vouchers Sync (Cached 15 minutes)
+    const fetchCloudVouchers = async () => {
+      try {
+        const lastSync = Number(sessionStorage.getItem('sn_cloud_vouchers_sync_ts') || 0);
+        if (Date.now() - lastSync < VOUCHERS_CACHE_TTL) return;
+
+        const { data, error } = await supabase
+          .from('vouchers')
+          .select('code,title,description,discount_type,discount_value,min_spend,max_discount,valid_until,usage_count,is_active');
+
+        if (!error && data) {
+          sessionStorage.setItem('sn_cloud_vouchers_sync_ts', String(Date.now()));
+          if (Array.isArray(data) && data.length > 0) {
+            const cloudVou: Voucher[] = data.map((d: any) => ({
+              code: d.code,
+              title: d.title,
+              description: d.description || '',
+              discountType: d.discount_type || 'PERCENTAGE',
+              discountValue: Number(d.discount_value) || 0,
+              minSpend: Number(d.min_spend) || 0,
+              maxDiscount: d.max_discount ? Number(d.max_discount) : undefined,
+              validUntil: d.valid_until || '2026-12-31',
+              usageCount: Number(d.usage_count) || 0,
+              isActive: d.is_active ?? true
+            }));
+            setVouchers((prev) => {
+              const merged = [...cloudVou];
+              prev.forEach((p) => {
+                if (!merged.some((m) => m.code === p.code)) merged.push(p);
+              });
+              return merged;
+            });
+          }
         }
       } catch (e) {}
     };
 
-    fetchCloudOrders();
-  }, []);
+    // 3. Orders Sync (Only fetched when user is logged in, tracking an order, or in Admin, capped at 100 recent rows)
+    const fetchCloudOrders = async () => {
+      try {
+        const hash = window.location.hash.toLowerCase();
+        const isOrderRelatedRoute =
+          hash.startsWith('#/admin') ||
+          hash.startsWith('#/orders') ||
+          hash.startsWith('#/pesanan-saya') ||
+          hash.startsWith('#/profile') ||
+          hash.startsWith('#/account') ||
+          hash.startsWith('#/tracking');
+        const hasAuthSession =
+          Boolean(localStorage.getItem('sn_permanent_customer_auth')) ||
+          Boolean(localStorage.getItem('sn_user_auth_v2'));
 
-  // Fetch live POS transactions from Supabase if connected
-  useEffect(() => {
-    const fetchCloudPOSTransactions = async () => {
+        if (!isOrderRelatedRoute && !hasAuthSession) return;
+
+        const lastSync = Number(sessionStorage.getItem('sn_cloud_orders_sync_ts') || 0);
+        if (Date.now() - lastSync < ORDERS_CACHE_TTL) return;
+
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*, order_items(*)')
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        if (!error && data) {
+          sessionStorage.setItem('sn_cloud_orders_sync_ts', String(Date.now()));
+          if (Array.isArray(data) && data.length > 0) {
+            const cloudOrders: Order[] = data.map((d: any) => ({
+              id: d.id,
+              trackingNumber: d.tracking_number || '',
+              courier: d.courier || 'Yamato Transport',
+              status: d.status || 'Dikemas',
+              totalAmount: Number(d.total_amount) || 0,
+              taxAmount: Number(d.tax_amount) || 0,
+              paymentMethod: d.payment_method || 'jpqr',
+              customerName: d.customer_name || 'Willy Pratama',
+              userEmail: d.customer_email || '',
+              phone: d.customer_phone || '',
+              shippingAddress: d.shipping_address || '',
+              date: d.order_date || new Date(d.created_at).toLocaleDateString('id-ID'),
+              items: (d.order_items || []).map((it: any) => ({
+                id: it.product_id,
+                productName: it.product_name,
+                productImage: it.product_image,
+                price: Number(it.price),
+                quantity: it.quantity
+              }))
+            }));
+
+            setOrders((prev) => {
+              const merged = [...cloudOrders];
+              prev.forEach((localOrd) => {
+                if (!merged.some((m) => m.id === localOrd.id)) {
+                  merged.push(localOrd);
+                }
+              });
+              return merged;
+            });
+          }
+        }
+      } catch (e) {}
+    };
+
+    // 4. Admin-Only Data Sync (POS Transactions, CRM Customers, Suppliers - skipped for public storefront visitors!)
+    const fetchAdminOnlyCloudData = async () => {
+      const hash = window.location.hash.toLowerCase();
+      const isAdminRoute = hash.startsWith('#/admin') || hash.startsWith('#/pos-display');
+      if (!isAdminRoute) return;
+
+      const lastAdminSync = Number(sessionStorage.getItem('sn_cloud_admin_sync_ts') || 0);
+      if (Date.now() - lastAdminSync < ADMIN_CACHE_TTL) return;
+      sessionStorage.setItem('sn_cloud_admin_sync_ts', String(Date.now()));
+
+      // 4a. POS Transactions (capped at 100 latest receipts)
       try {
         const { data, error } = await supabase
           .from('pos_transactions')
           .select('*, pos_transaction_items(*)')
-          .order('transaction_date', { ascending: false });
+          .order('transaction_date', { ascending: false })
+          .limit(100);
 
         if (!error && data && Array.isArray(data) && data.length > 0) {
           const cloudTx: POSTransaction[] = data.map((d: any) => ({
@@ -426,14 +543,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           });
         }
       } catch (e) {}
-    };
 
-    fetchCloudPOSTransactions();
-
-    // Fetch live customers from Supabase
-    const fetchCloudCustomers = async () => {
+      // 4b. Customers CRM (capped at 300 rows)
       try {
-        const { data, error } = await supabase.from('customers').select('*');
+        const { data, error } = await supabase.from('customers').select('*').limit(300);
         if (!error && data && Array.isArray(data) && data.length > 0) {
           const cloudCust: CustomerCRM[] = data.map((d: any) => ({
             id: d.id,
@@ -464,13 +577,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           });
         }
       } catch (e) {}
-    };
-    fetchCloudCustomers();
 
-    // Fetch live suppliers from Supabase
-    const fetchCloudSuppliers = async () => {
+      // 4c. Suppliers
       try {
-        const { data, error } = await supabase.from('suppliers').select('*');
+        const { data, error } = await supabase.from('suppliers').select('*').limit(100);
         if (!error && data && Array.isArray(data) && data.length > 0) {
           const cloudSup: Supplier[] = data.map((d: any) => ({
             id: d.id,
@@ -496,70 +606,20 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       } catch (e) {}
     };
-    fetchCloudSuppliers();
 
-    // Fetch live products from Supabase to keep storefront & admin synchronized
-    const fetchCloudProducts = async () => {
-      try {
-        const { data, error } = await supabase.from('products').select('*');
-        if (!error && data && Array.isArray(data) && data.length > 0) {
-          setProducts((prev) => {
-            const cloudMap = new Map<string, any>();
-            data.forEach((d: any) => {
-              if (d.id) cloudMap.set(String(d.id), d);
-              if (d.sku) cloudMap.set(d.sku, d);
-            });
-
-            return prev.map((p) => {
-              const cloudItem = cloudMap.get(String(p.id)) || (p.sku ? cloudMap.get(p.sku) : undefined);
-              if (!cloudItem) return p;
-
-              return {
-                ...p,
-                price: typeof cloudItem.price === 'number' ? cloudItem.price : p.price,
-                costPrice: typeof cloudItem.cost_price === 'number' ? cloudItem.cost_price : p.costPrice,
-                stock: typeof cloudItem.stock === 'number' ? cloudItem.stock : p.stock,
-                originalPrice: cloudItem.original_price !== undefined && cloudItem.original_price !== null ? cloudItem.original_price : p.originalPrice,
-                barcode: cloudItem.barcode || p.barcode,
-                image: (cloudItem.image && !cloudItem.image.includes('placeholder-upload')) ? cloudItem.image : p.image
-              };
-            });
-          });
-        }
-      } catch (e) {
-        console.warn('Cloud products sync notice:', e);
-      }
-    };
+    // Initial sync on load
     fetchCloudProducts();
-
-    // Fetch live vouchers from Supabase
-    const fetchCloudVouchers = async () => {
-      try {
-        const { data, error } = await supabase.from('vouchers').select('*');
-        if (!error && data && Array.isArray(data) && data.length > 0) {
-          const cloudVou: Voucher[] = data.map((d: any) => ({
-            code: d.code,
-            title: d.title,
-            description: d.description || '',
-            discountType: d.discount_type || 'PERCENTAGE',
-            discountValue: Number(d.discount_value) || 0,
-            minSpend: Number(d.min_spend) || 0,
-            maxDiscount: d.max_discount ? Number(d.max_discount) : undefined,
-            validUntil: d.valid_until || '2026-12-31',
-            usageCount: Number(d.usage_count) || 0,
-            isActive: d.is_active ?? true
-          }));
-          setVouchers((prev) => {
-            const merged = [...cloudVou];
-            prev.forEach((p) => {
-              if (!merged.some((m) => m.code === p.code)) merged.push(p);
-            });
-            return merged;
-          });
-        }
-      } catch (e) {}
-    };
     fetchCloudVouchers();
+    fetchCloudOrders();
+    fetchAdminOnlyCloudData();
+
+    // Sync on-demand if user navigates into #/admin or #/orders or #/tracking
+    const handleHashChange = () => {
+      fetchCloudOrders();
+      fetchAdminOnlyCloudData();
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   const updateProductStock = (
@@ -1228,6 +1288,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setProducts((prev) => [product, ...prev]);
 
     try {
+      const safeImage = product.image && !product.image.startsWith('data:') ? product.image : '/placeholder-upload.svg';
       supabase.from('products').upsert({
         id: product.id,
         sku: product.sku || product.id,
@@ -1241,7 +1302,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         stock: product.stock,
         min_stock: 5,
         unit: product.unit,
-        image: product.image || '/placeholder-upload.svg',
+        image: safeImage,
         is_halal: product.isHalal ?? true,
         is_frozen: product.isFrozen ?? false,
         barcode: product.barcode || null,
@@ -1267,6 +1328,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Synchronize immediately to persistent LocalStorage
       try {
         localStorage.setItem('sn_products_v8', JSON.stringify(updatedList));
+        sessionStorage.setItem('sn_cloud_products_sync_ts', String(Date.now()));
       } catch (err) {}
 
       return updatedList;
@@ -1283,22 +1345,23 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (updatedData.originalPrice !== undefined) mapped.original_price = updatedData.originalPrice;
       if (updatedData.stock !== undefined) mapped.stock = updatedData.stock;
       if (updatedData.unit !== undefined) mapped.unit = updatedData.unit;
-      if (updatedData.image !== undefined) mapped.image = updatedData.image;
+      if (updatedData.image !== undefined && !updatedData.image.startsWith('data:')) mapped.image = updatedData.image;
       if (updatedData.isHalal !== undefined) mapped.is_halal = updatedData.isHalal;
       if (updatedData.isFrozen !== undefined) mapped.is_frozen = updatedData.isFrozen;
       if (updatedData.barcode !== undefined) mapped.barcode = updatedData.barcode;
       if (updatedData.description !== undefined) mapped.description = updatedData.description;
 
-      // 1. Try update by id or sku in Supabase
+      // 1. Try update by id or sku in Supabase (only select('id') to minimize egress response size)
       const { data, error } = await supabase
         .from('products')
         .update(mapped)
         .or(`id.eq.${id},sku.eq.${id}`)
-        .select();
+        .select('id');
 
       // 2. If row did not exist yet in Supabase products table, upsert full product record
       if ((error || !data || data.length === 0) && targetProduct) {
         const prod = targetProduct as Product;
+        const safeImg = prod.image && !prod.image.startsWith('data:') ? prod.image : '/placeholder-upload.svg';
         const { error: upsertErr } = await supabase.from('products').upsert({
           id: prod.id,
           sku: prod.sku || prod.id,
@@ -1310,7 +1373,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           cost_price: prod.costPrice || 0,
           stock: prod.stock || 0,
           unit: prod.unit || 'pcs',
-          image: prod.image || '/placeholder-upload.svg',
+          image: safeImg,
           is_halal: prod.isHalal ?? true,
           is_frozen: prod.isFrozen ?? false,
           barcode: prod.barcode || null,

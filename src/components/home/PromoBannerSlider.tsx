@@ -114,6 +114,7 @@ export const PromoBannerSlider: React.FC = () => {
                   muted={isMuted}
                   loop
                   playsInline
+                  preload="metadata"
                   className="w-full h-full object-cover object-center select-none"
                   onError={(e) => {
                     console.warn('Video failed to load, falling back to image:', e);

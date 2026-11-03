@@ -14,7 +14,7 @@ export function registerServiceWorker() {
 
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('/sw.js')
+      .register('./sw.js')
       .then((registration) => {
         // Check for updates periodically (once every 30 minutes, very low overhead)
         setInterval(() => {

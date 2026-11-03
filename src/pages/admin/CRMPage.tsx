@@ -277,50 +277,7 @@ export const CRMPage: React.FC = () => {
     setVDesc('');
   };
 
-  // Promo Banner Handlers (Supports Image & Video with 10s stay)
-  const handleBannerMediaUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(file.name);
-
-    if (isVideo && file.size > 50 * 1024 * 1024) {
-      alert('Ukuran video terlalu besar! Maksimal 50MB.');
-      return;
-    } else if (!isVideo && file.size > 10 * 1024 * 1024) {
-      alert('Ukuran gambar terlalu besar! Maksimal 10MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      setPromoBanners((prev) => {
-        const next = [...prev];
-        if (isVideo) {
-          next[index] = {
-            ...next[index],
-            mediaType: 'video',
-            videoUrl: dataUrl,
-            imageUrl: dataUrl,
-            duration: 10000, // 10 detik khusus video
-            badge: next[index].badge || 'VIDEO PROMO'
-          };
-        } else {
-          next[index] = {
-            ...next[index],
-            mediaType: 'image',
-            imageUrl: dataUrl,
-            videoUrl: undefined,
-            duration: 4000 // Khusus foto 4 detik
-          };
-        }
-        return next;
-      });
-    };
-    reader.readAsDataURL(file);
-  };
-
+  // Promo Banner Handlers (Hemat Egress: Hanya URL Eksternal / Aset Statis, Tanpa Base64 FileReader)
   const handleSetCatVideo = (index: number) => {
     setPromoBanners((prev) => {
       const next = [...prev];
@@ -800,26 +757,8 @@ export const CRMPage: React.FC = () => {
                         </button>
                       </div>
 
-                      {/* Inputs & File Upload */}
+                      {/* Inputs & URL Configuration (Zero Base64 Egress) */}
                       <div className="space-y-3">
-                        <div>
-                          <label className="text-[11px] font-bold text-stone-700 block mb-1">
-                            {isVid ? 'Unggah File Video (MP4/WebM) atau Foto:' : 'Unggah Foto dari HP / Komputer:'}
-                          </label>
-                          <label className="w-full px-3 py-2 bg-stone-50 hover:bg-stone-100 border border-dashed border-stone-300 hover:border-[#c41230] rounded-xl text-xs font-medium text-stone-700 flex items-center justify-center gap-2 cursor-pointer transition-colors">
-                            <span className="material-symbols-outlined text-base text-[#c41230]">
-                              {isVid ? 'video_file' : 'add_photo_alternate'}
-                            </span>
-                            <span>{isVid ? 'Pilih File Video MP4 / Gambar...' : 'Pilih File Foto Baru...'}</span>
-                            <input
-                              type="file"
-                              accept={isVid ? 'video/*,image/*,.mp4,.webm' : 'image/*'}
-                              onChange={(e) => handleBannerMediaUpload(index, e)}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
-
                         {/* Quick Preset Button for Cat Video */}
                         <button
                           type="button"

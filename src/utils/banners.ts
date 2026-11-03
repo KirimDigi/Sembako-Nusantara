@@ -113,21 +113,37 @@ export function getStoredPromoBanners(): PromoBanner[] {
   return DEFAULT_PROMO_BANNERS;
 }
 
+const BANNERS_SYNC_TS_KEY = 'sn_banners_sync_ts';
+const BANNERS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 menit hemat egress
+
 /**
- * Mengambil daftar 3 foto sampul dari Supabase table 'promo_banners' secara realtime/cloud
+ * Mengambil daftar 3 foto sampul dari Supabase table 'promo_banners' secara hemat egress (cached 15 menit)
  */
-export async function fetchRemotePromoBanners(): Promise<PromoBanner[]> {
+export async function fetchRemotePromoBanners(forceRefresh = false): Promise<PromoBanner[]> {
   try {
     if (!supabase) return getStoredPromoBanners();
+
+    // Egress Protection: Gunakan cache jika baru saja disinkronkan dalam 15 menit terakhir
+    if (!forceRefresh && typeof window !== 'undefined') {
+      const lastSync = Number(sessionStorage.getItem(BANNERS_SYNC_TS_KEY) || 0);
+      if (Date.now() - lastSync < BANNERS_CACHE_TTL_MS) {
+        return getStoredPromoBanners();
+      }
+    }
+
     const { data, error } = await supabase
       .from('promo_banners')
-      .select('*')
-      .order('id', { ascending: true });
+      .select('id,media_type,image_url,video_url,duration,title,subtitle,link_url,badge')
+      .order('id', { ascending: true })
+      .limit(3);
 
     if (!error && data && data.length >= 3) {
       const formatted: PromoBanner[] = data.slice(0, 3).map((d: any, idx: number) => {
         const def = DEFAULT_PROMO_BANNERS[idx];
-        const isVid = d.media_type === 'video' || (d.video_url && isVideoBanner({ imageUrl: d.video_url, id: d.id, title: '', subtitle: '', linkUrl: '', badge: '' })) || (def && isVideoBanner(def));
+        // Takedown Base64 payload jika ada data: URI besar
+        const safeImgUrl = d.image_url && !String(d.image_url).startsWith('data:') ? d.image_url : '';
+        const safeVidUrl = d.video_url && !String(d.video_url).startsWith('data:') ? d.video_url : '';
+        const isVid = d.media_type === 'video' || (safeVidUrl && isVideoBanner({ imageUrl: safeVidUrl, id: d.id, title: '', subtitle: '', linkUrl: '', badge: '' })) || (def && isVideoBanner(def));
         let duration = d.duration;
         if (!isVid && (!duration || duration === 5000)) {
           duration = 4000;
@@ -137,8 +153,8 @@ export async function fetchRemotePromoBanners(): Promise<PromoBanner[]> {
         return {
           id: d.id,
           mediaType: isVid ? 'video' : 'image',
-          imageUrl: d.image_url ? assetUrl(d.image_url) : def?.imageUrl || assetUrl(`banner-promo-${idx + 1}.jpg`),
-          videoUrl: d.video_url ? assetUrl(d.video_url) : (isVid ? def?.videoUrl : undefined),
+          imageUrl: safeImgUrl ? assetUrl(safeImgUrl) : def?.imageUrl || assetUrl(`banner-promo-${idx + 1}.jpg`),
+          videoUrl: safeVidUrl ? assetUrl(safeVidUrl) : (isVid ? def?.videoUrl : undefined),
           duration,
           title: d.title || def?.title,
           subtitle: d.subtitle || def?.subtitle,
@@ -148,6 +164,7 @@ export async function fetchRemotePromoBanners(): Promise<PromoBanner[]> {
       });
 
       if (typeof window !== 'undefined') {
+        sessionStorage.setItem(BANNERS_SYNC_TS_KEY, String(Date.now()));
         localStorage.setItem(STORAGE_KEY, JSON.stringify(formatted));
         window.dispatchEvent(new CustomEvent('sn_banners_updated', { detail: formatted }));
       }
@@ -160,20 +177,37 @@ export async function fetchRemotePromoBanners(): Promise<PromoBanner[]> {
 }
 
 /**
- * Menyimpan 3 foto/video sampul / banner promo ke localStorage dan sinkronisasi ke Supabase jika tersedia
+ * Menyimpan 3 foto/video sampul / banner promo ke localStorage dan sinkronisasi ke Supabase (tanpa Base64 agar hemat egress)
  */
 export async function savePromoBanners(banners: PromoBanner[]): Promise<{ success: boolean; message: string }> {
   try {
+    // Pastikan tidak ada URL Base64 raksasa yang disimpan
+    const sanitizedBanners = banners.map((b, idx) => {
+      const def = DEFAULT_PROMO_BANNERS[idx];
+      const cleanImage = b.imageUrl && b.imageUrl.startsWith('data:')
+        ? (def?.imageUrl || assetUrl(`banner-promo-${idx + 1}.jpg`))
+        : b.imageUrl;
+      const cleanVideo = b.videoUrl && b.videoUrl.startsWith('data:')
+        ? (def?.videoUrl || assetUrl('Cartoon_cat_carrying_groceries_1080p_20261009100736.mp4'))
+        : b.videoUrl;
+      return {
+        ...b,
+        imageUrl: cleanImage,
+        videoUrl: cleanVideo
+      };
+    });
+
     if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(banners));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizedBanners));
+      sessionStorage.setItem(BANNERS_SYNC_TS_KEY, String(Date.now()));
       // Dispatch custom event to update homepage in real-time
-      window.dispatchEvent(new CustomEvent('sn_banners_updated', { detail: banners }));
+      window.dispatchEvent(new CustomEvent('sn_banners_updated', { detail: sanitizedBanners }));
     }
 
-    // Coba simpan / upsert ke Supabase table 'promo_banners' jika terhubung
+    // Coba simpan / upsert ke Supabase table 'promo_banners' (hanya URL ringan, dilarang Base64)
     try {
       if (supabase) {
-        const payload = banners.map((b) => ({
+        const payload = sanitizedBanners.map((b) => ({
           id: b.id,
           image_url: b.imageUrl,
           video_url: b.videoUrl || null,

@@ -465,14 +465,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialMode = 'login' }) =
             loop
             muted
             playsInline
+            preload="metadata"
             className="w-full h-full object-cover object-center select-none pointer-events-none"
             poster={assetUrl('logo-transparent.png')}
           >
-            <source
-              src={assetUrl('Cartoon_cat_carrying_groceries_full_landscape.mp4')}
-              type="video/mp4"
-            />
-            {/* Fallback video url if any */}
             <source
               src={assetUrl('Cartoon_cat_carrying_groceries_1080p_20261009100736.mp4')}
               type="video/mp4"
