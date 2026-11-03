@@ -1090,21 +1090,44 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const targetOrder = orders.find((o) => o.id === orderId);
     if (!targetOrder) return;
 
-    // Restore stock if not already cancelled
-    if (targetOrder.status !== 'Dibatalkan' && targetOrder.items && Array.isArray(targetOrder.items)) {
-      targetOrder.items.forEach((item: any) => {
-        const prodId = item.id || item.productId;
-        const qty = item.quantity || item.qty || 1;
-        if (prodId) {
-          updateProductStock(
-            prodId,
-            qty,
-            `Pengembalian Stok / Pembatalan Pesanan #${orderId}${reason ? ` (${reason})` : ''}`,
-            'IN_PO',
-            undefined,
-            'wh-tokyo'
-          );
-        }
+    // Restore stock & decrement customer CRM stats if not already cancelled
+    if (targetOrder.status !== 'Dibatalkan') {
+      if (targetOrder.items && Array.isArray(targetOrder.items)) {
+        targetOrder.items.forEach((item: any) => {
+          const prodId = item.id || item.productId;
+          const qty = item.quantity || item.qty || 1;
+          if (prodId) {
+            updateProductStock(
+              prodId,
+              qty,
+              `Pengembalian Stok / Pembatalan Pesanan #${orderId}${reason ? ` (${reason})` : ''}`,
+              'IN_PO',
+              undefined,
+              'wh-tokyo'
+            );
+          }
+        });
+      }
+
+      setCustomers((prev) => {
+        const custPhone = (targetOrder as any).phone || (targetOrder as any).customerPhone;
+        const custName = targetOrder.customerName;
+        return prev.map((c) => {
+          const isPhoneMatch =
+            custPhone &&
+            c.phone &&
+            (c.phone.replace(/\D/g, '').includes(custPhone.replace(/\D/g, '')) ||
+              custPhone.replace(/\D/g, '').includes(c.phone.replace(/\D/g, '')));
+          const isNameMatch = custName && c.name && c.name.trim().toLowerCase() === custName.trim().toLowerCase();
+          if (isPhoneMatch || isNameMatch) {
+            return {
+              ...c,
+              totalOrders: Math.max(0, (c.totalOrders || 0) - 1),
+              totalSpent: Math.max(0, (c.totalSpent || 0) - (targetOrder.totalAmount || 0))
+            };
+          }
+          return c;
+        });
       });
     }
 

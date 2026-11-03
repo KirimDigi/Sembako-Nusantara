@@ -358,10 +358,14 @@ export const AccountingPage: React.FC = () => {
   // =========================================================================
   // 1. FINANCIAL CORE DATA COMPUTATION (DYNAMIC FROM REAL TRANSACTIONS & MODAL AWAL)
   // =========================================================================
+  const validOrders = useMemo(
+    () => orders.filter((o) => o.status !== 'Dibatalkan'),
+    [orders]
+  );
   const totalPosRevenue = posTransactions.reduce((acc, curr) => acc + curr.totalAmount, 0);
-  const totalOnlineRevenue = orders.reduce((acc, curr) => acc + curr.totalAmount, 0);
+  const totalOnlineRevenue = validOrders.reduce((acc, curr) => acc + curr.totalAmount, 0);
   const totalRevenue = totalPosRevenue + totalOnlineRevenue;
-  const totalTransactionCount = posTransactions.length + orders.length;
+  const totalTransactionCount = posTransactions.length + validOrders.length;
 
   // Modal Awal Aggregations
   const totalInitialCapital = initialCapitalList.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
@@ -400,7 +404,7 @@ export const AccountingPage: React.FC = () => {
       });
     });
 
-    orders.forEach((ord) => {
+    validOrders.forEach((ord) => {
       ord.items?.forEach((item) => {
         const prodId = item.id || (item as any).productId;
         const unitCost = prodCostMap.get(prodId) || Math.round((item.price || 0) * 0.65);
@@ -409,7 +413,7 @@ export const AccountingPage: React.FC = () => {
     });
 
     return { posHPP: posH, webHPP: webH, totalHPP: posH + webH };
-  }, [posTransactions, orders, products]);
+  }, [posTransactions, validOrders, products]);
 
   const estimatedHPP = totalHPP;
   const grossProfit = totalRevenue === 0 ? 0 : totalRevenue - estimatedHPP;
@@ -426,7 +430,7 @@ export const AccountingPage: React.FC = () => {
 
   // Japanese Consumption Tax (JCT from real transactions)
   const realTaxPos = posTransactions.reduce((acc, curr) => acc + (Number(curr.taxAmount) || 0), 0);
-  const realTaxWeb = orders.reduce((acc, curr) => acc + (Number(curr.taxAmount) || 0), 0);
+  const realTaxWeb = validOrders.reduce((acc, curr) => acc + (Number(curr.taxAmount) || 0), 0);
   const taxFood8 = totalRevenue === 0 ? 0 : Math.round((totalRevenue / 1.08) * 0.08);
   const taxShipping10 = totalOnlineRevenue === 0 ? 0 : Math.round(((totalOnlineRevenue * 0.15) / 1.1) * 0.1);
   const totalTaxJCT = (realTaxPos + realTaxWeb) || (totalRevenue === 0 ? 0 : taxFood8 + taxShipping10);
@@ -527,8 +531,8 @@ export const AccountingPage: React.FC = () => {
       });
     });
 
-    // 2. Aggregation from Online Customer Orders
-    orders.forEach((order) => {
+    // 2. Aggregation from Online Customer Orders (excluding cancelled orders)
+    validOrders.forEach((order) => {
       order.items?.forEach((item: any) => {
         const prodId = item.id || item.productId || 'unknown';
         const qty = item.quantity || item.qty || 1;
@@ -542,7 +546,7 @@ export const AccountingPage: React.FC = () => {
     });
 
     return map;
-  }, [posTransactions, orders]);
+  }, [posTransactions, validOrders]);
 
   const itemPerformanceList = useMemo(() => {
     return products.map((p) => {
@@ -621,7 +625,7 @@ export const AccountingPage: React.FC = () => {
       dateMap.set(date, existing);
     });
 
-    orders.forEach((ord) => {
+    validOrders.forEach((ord) => {
       const date = ord.date;
       const existing = dateMap.get(date) || { posTx: 0, onlineTx: 0, posRev: 0, onlineRev: 0, payments: [] };
       existing.onlineTx += 1;
@@ -657,7 +661,7 @@ export const AccountingPage: React.FC = () => {
 
     list.sort((a, b) => b.date.localeCompare(a.date));
     return list;
-  }, [posTransactions, orders]);
+  }, [posTransactions, validOrders]);
 
   // =========================================================================
   // 5. TRANSLATION STRINGS (DYNAMIC ID / JP / EN)

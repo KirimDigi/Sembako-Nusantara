@@ -26,11 +26,15 @@ export const AdminDashboardPage: React.FC = () => {
     return `+¥${jpyAmount.toLocaleString('ja-JP')}`;
   };
 
-  // Financial & Operational Computations
+  // Financial & Operational Computations (exclude cancelled orders from revenue & transaction count)
+  const validOrders = useMemo(
+    () => orders.filter((o) => o.status !== 'Dibatalkan'),
+    [orders]
+  );
   const totalPosRevenue = posTransactions.reduce((acc, curr) => acc + curr.totalAmount, 0);
-  const totalOnlineRevenue = orders.reduce((acc, curr) => acc + curr.totalAmount, 0);
+  const totalOnlineRevenue = validOrders.reduce((acc, curr) => acc + curr.totalAmount, 0);
   const totalGrossRevenue = totalPosRevenue + totalOnlineRevenue;
-  const totalTransactionsCount = posTransactions.length + orders.length;
+  const totalTransactionsCount = posTransactions.length + validOrders.length;
   const isZeroState = totalTransactionsCount === 0 || totalGrossRevenue === 0;
 
   // Laba Rugi Estimate
@@ -338,7 +342,7 @@ export const AdminDashboardPage: React.FC = () => {
               {formatMoney(totalOnlineRevenue)}
             </div>
             <p className="text-[11px] text-stone-500 mt-2">
-              {txt.webOrders(orders.length, pendingOrders.length)}
+              {txt.webOrders(validOrders.length, pendingOrders.length)}
             </p>
           </div>
 

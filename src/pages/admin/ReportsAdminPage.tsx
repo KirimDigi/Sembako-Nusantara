@@ -43,12 +43,18 @@ export const ReportsAdminPage: React.FC = () => {
     window.print();
   };
 
+  // Only count non-cancelled orders in revenue & financial reports
+  const validOrders = useMemo(
+    () => orders.filter((o) => o.status !== 'Dibatalkan'),
+    [orders]
+  );
+
   // --- Calculations for Daily Omzet ---
   const dailyData = useMemo(() => {
     // POS transactions for dailyDate
     const dailyPos = posTransactions.filter((tx) => tx.date.startsWith(dailyDate));
-    // Web Orders for dailyDate
-    const dailyOrders = orders.filter((o) => o.date.startsWith(dailyDate));
+    // Web Orders for dailyDate (excluding cancelled)
+    const dailyOrders = validOrders.filter((o) => o.date.startsWith(dailyDate));
 
     const posTotal = dailyPos.reduce((sum, tx) => sum + tx.totalAmount, 0);
     const orderTotal = dailyOrders.reduce((sum, ord) => sum + ord.totalAmount, 0);
@@ -82,12 +88,12 @@ export const ReportsAdminPage: React.FC = () => {
       creditTotal,
       onlineTotal
     };
-  }, [posTransactions, orders, dailyDate]);
+  }, [posTransactions, validOrders, dailyDate]);
 
   // --- Calculations for Monthly Omzet ---
   const monthlyData = useMemo(() => {
     const monthlyPos = posTransactions.filter((tx) => tx.date.startsWith(selectedMonth));
-    const monthlyOrders = orders.filter((o) => o.date.startsWith(selectedMonth));
+    const monthlyOrders = validOrders.filter((o) => o.date.startsWith(selectedMonth));
 
     const posTotal = monthlyPos.reduce((sum, tx) => sum + tx.totalAmount, 0);
     const orderTotal = monthlyOrders.reduce((sum, ord) => sum + ord.totalAmount, 0);
@@ -98,7 +104,7 @@ export const ReportsAdminPage: React.FC = () => {
       const dayNum = i + 1;
       const dayStr = `${selectedMonth}-${dayNum.toString().padStart(2, '0')}`;
       const dayPos = posTransactions.filter((tx) => tx.date.startsWith(dayStr)).reduce((s, tx) => s + tx.totalAmount, 0);
-      const dayOrd = orders.filter((o) => o.date.startsWith(dayStr)).reduce((s, ord) => s + ord.totalAmount, 0);
+      const dayOrd = validOrders.filter((o) => o.date.startsWith(dayStr)).reduce((s, ord) => s + ord.totalAmount, 0);
       return { day: dayNum, date: dayStr, total: dayPos + dayOrd, pos: dayPos, web: dayOrd };
     });
 
@@ -110,12 +116,12 @@ export const ReportsAdminPage: React.FC = () => {
       dailyBreakdown,
       avgDaily: Math.round(totalOmzet / 6) // e.g. 6 days into October
     };
-  }, [posTransactions, orders, selectedMonth]);
+  }, [posTransactions, validOrders, selectedMonth]);
 
   // --- Calculations for YTD / Tahunan ---
   const ytdData = useMemo(() => {
     const ytdPos = posTransactions.filter((tx) => tx.date.startsWith(selectedYear));
-    const ytdOrders = orders.filter((o) => o.date.startsWith(selectedYear));
+    const ytdOrders = validOrders.filter((o) => o.date.startsWith(selectedYear));
 
     const posTotal = ytdPos.reduce((sum, tx) => sum + tx.totalAmount, 0);
     const orderTotal = ytdOrders.reduce((sum, ord) => sum + ord.totalAmount, 0);
@@ -139,7 +145,7 @@ export const ReportsAdminPage: React.FC = () => {
       targetProgress,
       quarters: { q1, q2, q3, q4 }
     };
-  }, [posTransactions, orders, selectedYear]);
+  }, [posTransactions, validOrders, selectedYear]);
 
   // --- Calculations for Neraca (Balance Sheet) from Real Accounting Data ---
   const balanceSheetData = useMemo(() => {
@@ -185,7 +191,7 @@ export const ReportsAdminPage: React.FC = () => {
     const totalAssets = currentAssetsTotal + fixedAssetsTotal;
 
     // Liabilities: Real calculated JCT tax from online orders & POS
-    const accruedJctTax = orders.reduce((sum, o) => sum + (Number(o.taxAmount) || 0), 0) +
+    const accruedJctTax = validOrders.reduce((sum, o) => sum + (Number(o.taxAmount) || 0), 0) +
       posTransactions.reduce((sum, t) => sum + (Number(t.taxAmount) || 0), 0);
     const accountsPayable = directPurchases
       .filter((dp) => dp.paymentStatus === 'TEMPO' || dp.paymentStatus === 'BELUM_BAYAR')
@@ -229,7 +235,7 @@ export const ReportsAdminPage: React.FC = () => {
       totalLiabilitiesAndEquity,
       isBalanced: Math.abs(totalAssets - totalLiabilitiesAndEquity) < 2
     };
-  }, [products, posTransactions, orders, directPurchases]);
+  }, [products, posTransactions, validOrders, directPurchases]);
 
   // --- Calculations for Laba Rugi (Income Statement) from Real Store & Accounting Data ---
   const incomeStatementData = useMemo(() => {
@@ -245,7 +251,7 @@ export const ReportsAdminPage: React.FC = () => {
 
     // Filter transactions in range
     const inRangePos = posTransactions.filter((tx) => tx.date >= plStartDate && tx.date <= `${plEndDate} 23:59:59`);
-    const inRangeOrders = orders.filter((o) => o.date >= plStartDate && o.date <= plEndDate);
+    const inRangeOrders = validOrders.filter((o) => o.date >= plStartDate && o.date <= plEndDate);
     const inRangeCashOut = cashOutList.filter((co) => co.date >= plStartDate && co.date <= plEndDate);
     const inRangeCashIn = cashInList.filter((ci) => ci.date >= plStartDate && ci.date <= plEndDate);
 
@@ -342,7 +348,7 @@ export const ReportsAdminPage: React.FC = () => {
       netIncome,
       netIncomeMargin
     };
-  }, [posTransactions, orders, products, directPurchases, plStartDate, plEndDate]);
+  }, [posTransactions, validOrders, products, directPurchases, plStartDate, plEndDate]);
 
   return (
     <AdminLayout
