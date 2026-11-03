@@ -39,14 +39,13 @@ export const PromoBannerSlider: React.FC = () => {
     };
   }, []);
 
-  // Dynamic slider duration: 10s for video banner, 5s for photo banner
+  // Dynamic slider duration: 5s for photo banner (5000ms), 10s for video
   useEffect(() => {
     if (isPaused || banners.length <= 1) return;
 
     const currentBanner = banners[currentIndex] || banners[0];
     const isVideo = isVideoBanner(currentBanner);
-    // Khusus video stay 10 detik (10000ms), foto 4 detik (4000ms)
-    const duration = currentBanner?.duration || (isVideo ? 10000 : 4000);
+    const duration = currentBanner?.duration || (isVideo ? 10000 : 5000);
 
     const timer = setTimeout(() => {
       setCurrentIndex((prev) => (prev + 1) % banners.length);
@@ -84,7 +83,7 @@ export const PromoBannerSlider: React.FC = () => {
 
   const currentBanner = banners[currentIndex] || banners[0];
   const isCurrentVideo = isVideoBanner(currentBanner);
-  const currentDuration = currentBanner?.duration || (isCurrentVideo ? 10000 : 4000);
+  const currentDuration = currentBanner?.duration || (isCurrentVideo ? 10000 : 5000);
 
   return (
     <div

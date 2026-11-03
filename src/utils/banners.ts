@@ -44,18 +44,17 @@ export const DEFAULT_PROMO_BANNERS: PromoBanner[] = [
     subtitle: 'Belanja Produk Indonesia Otentik di Seluruh 47 Prefektur Jepang!',
     linkUrl: '/catalog',
     badge: 'PROMO SPESIAL',
-    duration: 4000 // Khusus foto 4 detik
+    duration: 5000 // Khusus foto 5 detik
   },
   {
     id: 2,
-    mediaType: 'video',
-    videoUrl: assetUrl('Cartoon_cat_carrying_groceries_1080p_20261009100736.mp4'),
-    imageUrl: assetUrl('banner-promo-2.jpg'), // Thumbnail / Fallback
+    mediaType: 'image',
+    imageUrl: assetUrl('banner-promo-2.jpg'),
     title: 'Gratis Ongkir Se-Jepang!',
     subtitle: 'Gratis Ongkir Otomatis untuk Belanja Minimal ¥15,000 via Yamato & Sagawa',
     linkUrl: '/catalog',
-    badge: 'VIDEO PROMO',
-    duration: 10000 // Khusus video stay 10 detik sesuai permintaan
+    badge: 'PROMO SPESIAL',
+    duration: 5000 // Foto promosi maskot 5 detik
   },
   {
     id: 3,
@@ -65,15 +64,15 @@ export const DEFAULT_PROMO_BANNERS: PromoBanner[] = [
     subtitle: 'Bakso Sapi, Rendang, Bebek Ungkep, Aneka Sambal & Bumbu Masakan Lengkap',
     linkUrl: '/catalog?category=Frozen+Food',
     badge: '100% HALAL & PRAKTIS',
-    duration: 4000 // Khusus foto 4 detik
+    duration: 5000 // Khusus foto 5 detik
   }
 ];
 
-const STORAGE_KEY = 'sn_promo_banners_v2';
-const LEGACY_STORAGE_KEY = 'sn_promo_banners_v1';
+const STORAGE_KEY = 'sn_promo_banners_v3';
+const LEGACY_STORAGE_KEY = 'sn_promo_banners_v2';
 
 /**
- * Mengambil daftar 3 banner promo (mendukung foto & video)
+ * Mengambil daftar 3 banner promo (3 foto slide bergantian setiap 5 detik)
  */
 export function getStoredPromoBanners(): PromoBanner[] {
   if (typeof window === 'undefined') return DEFAULT_PROMO_BANNERS;
@@ -84,25 +83,19 @@ export function getStoredPromoBanners(): PromoBanner[] {
       if (Array.isArray(parsed) && parsed.length >= 3) {
         return parsed.slice(0, 3).map((p: PromoBanner, idx: number) => {
           const def = DEFAULT_PROMO_BANNERS[idx];
-          const isVid = p.mediaType === 'video' || isVideoBanner(p) || (def && isVideoBanner(def));
-          // Jika duration sebelumnya 5000 (default lama), ubah ke 4000 untuk foto
-          let duration = p.duration;
-          if (!isVid && (!duration || duration === 5000)) {
-            duration = 4000;
-          } else if (isVid && (!duration || duration === 5000)) {
-            duration = 10000;
-          }
+          const isVid = p.mediaType === 'video' || isVideoBanner(p);
+          const duration = p.duration || 5000;
           return {
             ...p,
             id: p.id || idx + 1,
-            mediaType: isVid ? 'video' : 'image',
+            mediaType: 'image',
             imageUrl: p.imageUrl ? assetUrl(p.imageUrl) : def?.imageUrl || assetUrl(`banner-promo-${idx + 1}.jpg`),
-            videoUrl: p.videoUrl ? assetUrl(p.videoUrl) : (isVid ? (def?.videoUrl || p.imageUrl) : undefined),
-            duration,
+            videoUrl: undefined,
+            duration: 5000,
             title: p.title || def?.title || '',
             subtitle: p.subtitle || def?.subtitle || '',
             linkUrl: p.linkUrl || '/catalog',
-            badge: p.badge || (isVid ? 'VIDEO PROMO' : 'PROMO')
+            badge: p.badge && p.badge !== 'VIDEO PROMO' ? p.badge : 'PROMO SPESIAL'
           };
         });
       }
@@ -113,7 +106,7 @@ export function getStoredPromoBanners(): PromoBanner[] {
   return DEFAULT_PROMO_BANNERS;
 }
 
-const BANNERS_SYNC_TS_KEY = 'sn_banners_sync_ts';
+const BANNERS_SYNC_TS_KEY = 'sn_banners_sync_ts_v3';
 const BANNERS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 menit hemat egress
 
 /**
@@ -133,7 +126,7 @@ export async function fetchRemotePromoBanners(forceRefresh = false): Promise<Pro
 
     const { data, error } = await supabase
       .from('promo_banners')
-      .select('id,media_type,image_url,video_url,duration,title,subtitle,link_url,badge')
+      .select('id,image_url,title,subtitle,link_url,badge')
       .order('id', { ascending: true })
       .limit(3);
 
@@ -142,24 +135,16 @@ export async function fetchRemotePromoBanners(forceRefresh = false): Promise<Pro
         const def = DEFAULT_PROMO_BANNERS[idx];
         // Takedown Base64 payload jika ada data: URI besar
         const safeImgUrl = d.image_url && !String(d.image_url).startsWith('data:') ? d.image_url : '';
-        const safeVidUrl = d.video_url && !String(d.video_url).startsWith('data:') ? d.video_url : '';
-        const isVid = d.media_type === 'video' || (safeVidUrl && isVideoBanner({ imageUrl: safeVidUrl, id: d.id, title: '', subtitle: '', linkUrl: '', badge: '' })) || (def && isVideoBanner(def));
-        let duration = d.duration;
-        if (!isVid && (!duration || duration === 5000)) {
-          duration = 4000;
-        } else if (isVid && (!duration || duration === 5000)) {
-          duration = 10000;
-        }
         return {
           id: d.id,
-          mediaType: isVid ? 'video' : 'image',
+          mediaType: 'image',
           imageUrl: safeImgUrl ? assetUrl(safeImgUrl) : def?.imageUrl || assetUrl(`banner-promo-${idx + 1}.jpg`),
-          videoUrl: safeVidUrl ? assetUrl(safeVidUrl) : (isVid ? def?.videoUrl : undefined),
-          duration,
+          videoUrl: undefined,
+          duration: 5000,
           title: d.title || def?.title,
           subtitle: d.subtitle || def?.subtitle,
           linkUrl: d.link_url || '/catalog',
-          badge: d.badge || (isVid ? 'VIDEO PROMO' : 'PROMO')
+          badge: d.badge && d.badge !== 'VIDEO PROMO' ? d.badge : 'PROMO SPESIAL'
         };
       });
 
@@ -210,13 +195,11 @@ export async function savePromoBanners(banners: PromoBanner[]): Promise<{ succes
         const payload = sanitizedBanners.map((b) => ({
           id: b.id,
           image_url: b.imageUrl,
-          video_url: b.videoUrl || null,
-          media_type: b.mediaType || (isVideoBanner(b) ? 'video' : 'image'),
-          duration: b.duration || (isVideoBanner(b) ? 10000 : 5000),
           title: b.title,
           subtitle: b.subtitle,
           link_url: b.linkUrl,
           badge: b.badge,
+          is_active: true,
           updated_at: new Date().toISOString()
         }));
 

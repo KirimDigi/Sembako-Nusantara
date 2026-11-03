@@ -311,7 +311,7 @@ export const CRMPage: React.FC = () => {
         next[index] = {
           ...next[index],
           mediaType: 'image',
-          duration: 4000, // Khusus foto 4 detik
+          duration: 5000, // Khusus foto 5 detik
           badge: 'PROMO SPESIAL'
         };
       }
@@ -339,10 +339,10 @@ export const CRMPage: React.FC = () => {
   };
 
   const handleResetBanners = () => {
-    if (window.confirm('Kembalikan semua 3 banner promo ke bawaan (2 Foto, 1 Video Kucing Belanja 10 Detik)?')) {
+    if (window.confirm('Kembalikan semua 3 banner promo ke bawaan (3 Foto Promo Bergantian 5 Detik)?')) {
       const def = resetPromoBanners();
       setPromoBanners(def);
-      setBannerSaveMsg({ text: 'Banner berhasil dikembalikan ke default (2 Foto + 1 Video 10s)!', isError: false });
+      setBannerSaveMsg({ text: 'Banner berhasil dikembalikan ke default (3 Foto Promo 5s)!', isError: false });
       setTimeout(() => setBannerSaveMsg(null), 3000);
     }
   };
@@ -731,7 +731,7 @@ export const CRMPage: React.FC = () => {
                       <span className={`text-[10px] uppercase font-bold px-2.5 py-0.5 rounded-full ${
                         isVid ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-stone-200 text-stone-700'
                       }`}>
-                        {isVid ? '🎬 VIDEO (10 Detik)' : '📷 FOTO (4 Detik)'}
+                        {isVid ? '🎬 VIDEO (10 Detik)' : '📷 FOTO (5 Detik)'}
                       </span>
                     </div>
 
@@ -758,7 +758,7 @@ export const CRMPage: React.FC = () => {
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-2 text-center text-white text-xs font-semibold">
                           <span>Preview Slide {index + 1}</span>
                           <span className="text-[10px] text-stone-300 mt-1">
-                            {isVid ? 'Video Aktif • Durasi Tampil 10 Detik' : 'Foto Aktif • Durasi Tampil 4 Detik'}
+                            {isVid ? 'Video Aktif • Durasi Tampil 10 Detik' : 'Foto Aktif • Durasi Tampil 5 Detik'}
                           </span>
                         </div>
                       </div>
