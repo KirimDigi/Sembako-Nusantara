@@ -5,7 +5,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { Order } from '../../types';
 
 export const OrdersAdminPage: React.FC = () => {
-  const { orders, updateOrderStatus, cancelOrder } = useAdmin();
+  const { orders, updateOrderStatus, cancelOrder, deleteOrder } = useAdmin();
   const { language } = useLanguage();
 
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -21,6 +21,10 @@ export const OrdersAdminPage: React.FC = () => {
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
   const [cancelReason, setCancelReason] = useState<string>('Permintaan Pembeli / Customer Request');
   const [cancelSuccessToast, setCancelSuccessToast] = useState<string | null>(null);
+
+  // Modal State for Permanently Deleting Order
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+  const [isDeletingOrder, setIsDeletingOrder] = useState<boolean>(false);
 
   const filteredOrders = orders.filter((ord) => {
     const matchStatus = filterStatus === 'all' || ord.status === filterStatus;
@@ -56,6 +60,20 @@ export const OrdersAdminPage: React.FC = () => {
     setCancelSuccessToast(`Pesanan #${orderToCancel.id} berhasil dibatalkan.`);
     setTimeout(() => setCancelSuccessToast(null), 3500);
     setOrderToCancel(null);
+  };
+
+  const handleConfirmDeleteOrder = async () => {
+    if (!orderToDelete || isDeletingOrder) return;
+    setIsDeletingOrder(true);
+    try {
+      const targetId = orderToDelete.id;
+      await deleteOrder(targetId);
+      setOrderToDelete(null);
+      setCancelSuccessToast(`Pesanan #${targetId} berhasil dihapus permanen dari database.`);
+      setTimeout(() => setCancelSuccessToast(null), 3500);
+    } finally {
+      setIsDeletingOrder(false);
+    }
   };
 
   const txt = useMemo(() => {
@@ -334,6 +352,16 @@ export const OrdersAdminPage: React.FC = () => {
                             <span>Buka Lagi</span>
                           </button>
                         )}
+
+                        <button
+                          type="button"
+                          onClick={() => setOrderToDelete(ord)}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 transition-all cursor-pointer shadow-2xs"
+                          title={`Hapus Permanen Pesanan #${ord.id}`}
+                          aria-label={`Hapus Permanen Pesanan #${ord.id}`}
+                        >
+                          <span className="material-symbols-outlined text-base">delete</span>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -501,6 +529,68 @@ export const OrdersAdminPage: React.FC = () => {
                 className="flex-1 py-2.5 bg-[#c41230] hover:bg-[#a80f28] text-white rounded-xl font-bold text-xs"
               >
                 {txt.btnSave}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: HAPUS PERMANEN PESANAN DARI DATABASE */}
+      {orderToDelete && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4 text-stone-900 relative">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-2 text-rose-600">
+                <span className="material-symbols-outlined text-2xl">delete_forever</span>
+                <h3 className="font-heading font-bold text-base text-stone-900">
+                  Hapus Pesanan #{orderToDelete.id}?
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOrderToDelete(null)}
+                className="text-stone-400 hover:text-stone-700 cursor-pointer p-1 rounded-full hover:bg-stone-100"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-rose-50/70 rounded-2xl border border-rose-200 text-xs space-y-1.5 text-stone-700">
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">Pelanggan:</span>
+                <span className="font-bold text-stone-900">{orderToDelete.customerName || 'Pelanggan'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">Total Bayar:</span>
+                <span className="font-bold text-rose-700 text-sm">¥{orderToDelete.totalAmount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">Status Saat Ini:</span>
+                <span className="font-bold text-stone-800">{orderToDelete.status}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-stone-600 leading-relaxed">
+              Apakah Anda yakin ingin menghapus data pesanan ini secara permanen? Data pesanan dan item rinciannya akan dihapus dari daftar transaksi serta database cloud Supabase.
+            </p>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeletingOrder}
+                onClick={() => setOrderToDelete(null)}
+                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs cursor-pointer transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingOrder}
+                onClick={handleConfirmDeleteOrder}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs shadow-md cursor-pointer transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-sm">delete</span>
+                <span>{isDeletingOrder ? 'Menghapus...' : 'Ya, Hapus Permanen'}</span>
               </button>
             </div>
           </div>

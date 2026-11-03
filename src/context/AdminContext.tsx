@@ -84,10 +84,12 @@ interface AdminContextType {
     courier?: Order['courier']
   ) => void;
   cancelOrder: (orderId: string, reason?: string) => void;
+  deleteOrder: (orderId: string) => Promise<{ success: boolean; error?: string }> | void;
   addSupplier: (supplierData: Omit<Supplier, 'id'>) => Supplier;
   updateSupplier: (id: string, updatedData: Partial<Supplier>) => void;
   deleteSupplier: (id: string) => void;
   addCustomer: (customerData: Omit<CustomerCRM, 'id' | 'registeredDate'> & { id?: string }) => CustomerCRM;
+  deleteCustomer: (customerId: string) => Promise<{ success: boolean; error?: string }> | void;
   addVoucher: (voucher: Voucher) => void;
   toggleVoucher: (code: string) => void;
   deleteVoucher: (code: string) => void;
@@ -225,27 +227,38 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return saved ? JSON.parse(saved) : INITIAL_POS_TRANSACTIONS;
   });
   const [orders, setOrders] = useState<Order[]>(() => {
+    const deletedOrderIds = new Set<string>(
+      JSON.parse(localStorage.getItem('sn_deleted_order_ids') || '[]')
+    );
     const saved = localStorage.getItem('sn_admin_orders_v2');
-    return saved ? JSON.parse(saved) : INITIAL_ORDERS;
+    const list: Order[] = saved ? JSON.parse(saved) : INITIAL_ORDERS;
+    return Array.isArray(list) ? list.filter((o) => !deletedOrderIds.has(o.id)) : [];
   });
   const [customers, setCustomers] = useState<CustomerCRM[]>(() => {
+    const deletedCustomerIds = new Set<string>(
+      JSON.parse(localStorage.getItem('sn_deleted_customer_ids') || '[]')
+    );
     const saved = localStorage.getItem('sn_customers_v1');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed.map((c: any) => {
-            const clean = { ...c, loyaltyPoints: 0 };
-            delete clean.email;
-            if (!clean.lastOrderDate && (clean.totalOrders > 0 || clean.totalSpent > 0)) {
-              clean.lastOrderDate = clean.id === 'cust-2' ? '2026-10-24 16:45' : '2026-10-26 13:20';
-            }
-            return clean;
-          });
+          return parsed
+            .filter((c: any) => c && c.id && !deletedCustomerIds.has(c.id))
+            .map((c: any) => {
+              const clean = { ...c, loyaltyPoints: 0 };
+              delete clean.email;
+              if (!clean.lastOrderDate && (clean.totalOrders > 0 || clean.totalSpent > 0)) {
+                clean.lastOrderDate = clean.id === 'cust-2' ? '2026-10-24 16:45' : '2026-10-26 13:20';
+              }
+              return clean;
+            });
         }
       } catch (e) {}
     }
-    return INITIAL_CUSTOMERS.map((c) => ({ ...c, loyaltyPoints: 0 }));
+    return INITIAL_CUSTOMERS
+      .filter((c) => !deletedCustomerIds.has(c.id))
+      .map((c) => ({ ...c, loyaltyPoints: 0 }));
   });
   const [vouchers, setVouchers] = useState<Voucher[]>(() => {
     const saved = localStorage.getItem('sn_vouchers_v3');
@@ -489,24 +502,29 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             });
 
             setOrders((prev) => {
+              const deletedOrderIds = new Set<string>(
+                JSON.parse(localStorage.getItem('sn_deleted_order_ids') || '[]')
+              );
               const localMap = new Map<string, Order>();
               prev.forEach((lo) => localMap.set(lo.id, lo));
 
-              const merged = cloudOrders.map((co) => {
-                const localMatch = localMap.get(co.id);
-                if (!localMatch) return co;
-                return {
-                  ...co,
-                  userId: co.userId || localMatch.userId,
-                  accountName: co.accountName || localMatch.accountName,
-                  accountPhone: co.accountPhone || localMatch.accountPhone,
-                  phone: co.phone || localMatch.phone,
-                  userEmail: co.userEmail || localMatch.userEmail
-                };
-              });
+              const merged = cloudOrders
+                .filter((co) => !deletedOrderIds.has(co.id))
+                .map((co) => {
+                  const localMatch = localMap.get(co.id);
+                  if (!localMatch) return co;
+                  return {
+                    ...co,
+                    userId: co.userId || localMatch.userId,
+                    accountName: co.accountName || localMatch.accountName,
+                    accountPhone: co.accountPhone || localMatch.accountPhone,
+                    phone: co.phone || localMatch.phone,
+                    userEmail: co.userEmail || localMatch.userEmail
+                  };
+                });
 
               prev.forEach((localOrd) => {
-                if (!merged.some((m) => m.id === localOrd.id)) {
+                if (!deletedOrderIds.has(localOrd.id) && !merged.some((m) => m.id === localOrd.id)) {
                   merged.push(localOrd);
                 }
               });
@@ -592,9 +610,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             preferredLanguage: d.preferred_language || 'ID'
           }));
           setCustomers((prev) => {
-            const merged = [...cloudCust];
+            const deletedCustomerIds = new Set<string>(
+              JSON.parse(localStorage.getItem('sn_deleted_customer_ids') || '[]')
+            );
+            const merged = cloudCust.filter((cc) => !deletedCustomerIds.has(cc.id));
             prev.forEach((p) => {
-              if (!merged.some((m) => m.id === p.id)) {
+              if (!deletedCustomerIds.has(p.id) && !merged.some((m) => m.id === p.id)) {
                 const cleanP = { ...p, loyaltyPoints: 0 };
                 delete cleanP.email;
                 merged.push(cleanP);
@@ -1090,6 +1111,46 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     updateOrderStatus(orderId, 'Dibatalkan');
   };
 
+  const deleteOrder = async (orderId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const deletedOrderIds: string[] = JSON.parse(localStorage.getItem('sn_deleted_order_ids') || '[]');
+      if (!deletedOrderIds.includes(orderId)) {
+        deletedOrderIds.push(orderId);
+        localStorage.setItem('sn_deleted_order_ids', JSON.stringify(deletedOrderIds));
+      }
+      sessionStorage.removeItem('sn_cloud_orders_sync_ts');
+    } catch (e) {}
+
+    setOrders((prev) => {
+      const updated = prev.filter((o) => o.id !== orderId);
+      try {
+        localStorage.setItem('sn_admin_orders_v2', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    try {
+      const existingUserOrders = JSON.parse(localStorage.getItem(USER_ORDERS_STORAGE_KEY) || '[]');
+      const filteredUserOrders = existingUserOrders.filter(
+        (ord: any) => ord.id !== orderId && ord.orderId !== orderId
+      );
+      localStorage.setItem(USER_ORDERS_STORAGE_KEY, JSON.stringify(filteredUserOrders));
+      localStorage.removeItem(LEGACY_USER_ORDERS_STORAGE_KEY);
+    } catch (e) {}
+
+    try {
+      await supabase.from('order_items').delete().eq('order_id', orderId);
+      const { error } = await supabase.from('orders').delete().eq('id', orderId);
+      if (error) {
+        return { success: false, error: error.message };
+      }
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Gagal menghapus pesanan dari database cloud.' };
+    }
+
+    return { success: true };
+  };
+
   const addSupplier = (supplierData: Omit<Supplier, 'id'>): Supplier => {
     const newSup: Supplier = {
       ...supplierData,
@@ -1172,6 +1233,17 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     try {
+      const deletedCustomerIds: string[] = JSON.parse(localStorage.getItem('sn_deleted_customer_ids') || '[]');
+      if (deletedCustomerIds.includes(newCust.id)) {
+        localStorage.setItem(
+          'sn_deleted_customer_ids',
+          JSON.stringify(deletedCustomerIds.filter((id) => id !== newCust.id))
+        );
+      }
+      sessionStorage.removeItem('sn_cloud_admin_sync_ts');
+    } catch (e) {}
+
+    try {
       supabase.from('customers').upsert({
         id: newCust.id,
         name: newCust.name,
@@ -1190,6 +1262,37 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (e) {}
 
     return newCust;
+  };
+
+  const deleteCustomer = async (customerId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const deletedCustomerIds: string[] = JSON.parse(localStorage.getItem('sn_deleted_customer_ids') || '[]');
+      if (!deletedCustomerIds.includes(customerId)) {
+        deletedCustomerIds.push(customerId);
+        localStorage.setItem('sn_deleted_customer_ids', JSON.stringify(deletedCustomerIds));
+      }
+      localStorage.removeItem(`sn_user_custom_pass_${customerId}`);
+      sessionStorage.removeItem('sn_cloud_admin_sync_ts');
+    } catch (e) {}
+
+    setCustomers((prev) => {
+      const updated = prev.filter((c) => c.id !== customerId);
+      try {
+        localStorage.setItem('sn_customers_v1', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    try {
+      const { error } = await supabase.from('customers').delete().eq('id', customerId);
+      if (error) {
+        return { success: false, error: error.message };
+      }
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Gagal menghapus pelanggan dari database cloud.' };
+    }
+
+    return { success: true };
   };
 
   const addVoucher = (voucher: Voucher) => {
@@ -1610,10 +1713,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addOrder,
         updateOrderStatus,
         cancelOrder,
+        deleteOrder,
         addSupplier,
         updateSupplier,
         deleteSupplier,
         addCustomer,
+        deleteCustomer,
         addVoucher,
         toggleVoucher,
         deleteVoucher,

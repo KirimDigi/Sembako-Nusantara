@@ -3,15 +3,18 @@ import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useAdmin } from '../../context/AdminContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { Voucher, LoyaltyTier, Language } from '../../types';
+import { Voucher, LoyaltyTier, Language, CustomerCRM } from '../../types';
 import { PromoBanner, getStoredPromoBanners, savePromoBanners, resetPromoBanners, fetchRemotePromoBanners, isVideoBanner, getBannerMediaUrl } from '../../utils/banners';
 import { assetUrl } from '../../utils/assets';
 
 export const CRMPage: React.FC = () => {
-  const { customers, vouchers, addVoucher, toggleVoucher, deleteVoucher, addCustomer } = useAdmin();
+  const { customers, vouchers, addVoucher, toggleVoucher, deleteVoucher, addCustomer, deleteCustomer } = useAdmin();
   const { language } = useLanguage();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'members' | 'vouchers' | 'banners'>('members');
+  const [customerToDelete, setCustomerToDelete] = useState<CustomerCRM | null>(null);
+  const [isDeletingCustomer, setIsDeletingCustomer] = useState<boolean>(false);
+  const [customerToast, setCustomerToast] = useState<string | null>(null);
 
   // Promo Banners State (3 Slides)
   const [promoBanners, setPromoBanners] = useState<PromoBanner[]>(() => getStoredPromoBanners());
@@ -344,6 +347,20 @@ export const CRMPage: React.FC = () => {
     }
   };
 
+  const handleConfirmDeleteCustomer = async () => {
+    if (!customerToDelete || isDeletingCustomer) return;
+    setIsDeletingCustomer(true);
+    try {
+      const target = customerToDelete;
+      await deleteCustomer(target.id);
+      setCustomerToDelete(null);
+      setCustomerToast(`Akun pelanggan "${target.name}" (${target.id}) berhasil dihapus permanen dari database.`);
+      setTimeout(() => setCustomerToast(null), 3500);
+    } finally {
+      setIsDeletingCustomer(false);
+    }
+  };
+
   // Filtered customer list
   const filteredCustomers = useMemo(() => {
     const q = customerSearchQuery.toLowerCase().trim();
@@ -468,13 +485,14 @@ export const CRMPage: React.FC = () => {
                       <th className="px-4 py-3.5 text-center">{txt.thPoints}</th>
                       <th className="px-4 py-3.5">{txt.thTotalTx}</th>
                       <th className="px-4 py-3.5">{txt.thLastOrder}</th>
-                      <th className="px-5 py-3.5 text-right">{txt.thLang}</th>
+                      <th className="px-4 py-3.5 text-center">{txt.thLang}</th>
+                      <th className="px-5 py-3.5 text-right">{language === 'JP' ? '操作' : language === 'EN' ? 'Action' : 'Aksi'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100 font-medium text-stone-700">
                     {filteredCustomers.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center py-8 text-stone-400">
+                        <td colSpan={8} className="text-center py-8 text-stone-400">
                           {txt.emptyCustomer}
                         </td>
                       </tr>
@@ -536,10 +554,22 @@ export const CRMPage: React.FC = () => {
                             {c.lastOrderDate || '-'}
                           </td>
 
-                          <td className="px-5 py-3.5 text-right">
+                          <td className="px-4 py-3.5 text-center">
                             <span className="px-2 py-0.5 bg-stone-100 text-stone-700 font-bold rounded-md text-[10px]">
                               {c.preferredLanguage}
                             </span>
+                          </td>
+
+                          <td className="px-5 py-3.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setCustomerToDelete(c)}
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 transition-all cursor-pointer shadow-2xs"
+                              title={`Hapus Akun Pelanggan ${c.name}`}
+                              aria-label={`Hapus Akun Pelanggan ${c.name}`}
+                            >
+                              <span className="material-symbols-outlined text-base">delete</span>
+                            </button>
                           </td>
                         </tr>
                       ))
@@ -1129,6 +1159,76 @@ export const CRMPage: React.FC = () => {
                 className="flex-1 py-2.5 bg-[#c41230] hover:bg-[#a80f28] text-white rounded-xl font-bold text-xs cursor-pointer"
               >
                 {txt.btnSave}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Toast Notification */}
+      {customerToast && (
+        <div className="fixed top-20 right-4 sm:right-8 z-50 bg-stone-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-stone-700 flex items-center gap-3 animate-bounce">
+          <span className="material-symbols-outlined text-emerald-400">check_circle</span>
+          <span className="text-xs sm:text-sm font-semibold">{customerToast}</span>
+        </div>
+      )}
+
+      {/* Modal: Konfirmasi Hapus Akun Pelanggan */}
+      {customerToDelete && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4 text-stone-900">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-2 text-rose-600">
+                <span className="material-symbols-outlined text-2xl">delete_forever</span>
+                <h3 className="font-heading font-bold text-base text-stone-900">
+                  Hapus Akun Pelanggan?
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCustomerToDelete(null)}
+                className="text-stone-400 hover:text-stone-700 cursor-pointer p-1 rounded-full hover:bg-stone-100"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-rose-50/70 rounded-2xl border border-rose-200 text-xs space-y-1.5 text-stone-700">
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">Nama Pelanggan:</span>
+                <span className="font-bold text-stone-900">{customerToDelete.name}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">ID Member:</span>
+                <span className="font-mono font-bold text-stone-800">{customerToDelete.id}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">No. HP / WhatsApp:</span>
+                <span className="font-bold text-stone-800">{customerToDelete.phone || '-'}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-stone-600 leading-relaxed">
+              Apakah Anda yakin ingin menghapus akun pelanggan ini? Data pelanggan akan dihapus secara permanen dari tabel CRM serta database cloud Supabase.
+            </p>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeletingCustomer}
+                onClick={() => setCustomerToDelete(null)}
+                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs cursor-pointer transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingCustomer}
+                onClick={handleConfirmDeleteCustomer}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs shadow-md cursor-pointer transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-sm">delete</span>
+                <span>{isDeletingCustomer ? 'Menghapus...' : 'Ya, Hapus Akun'}</span>
               </button>
             </div>
           </div>

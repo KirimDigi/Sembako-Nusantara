@@ -291,6 +291,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('POS Cashier check error:', e);
     }
 
+    // Check if this customer account was deleted by Admin
+    const deletedCustomerIds = new Set<string>(
+      JSON.parse(localStorage.getItem('sn_deleted_customer_ids') || '[]').map((id: string) => id.toLowerCase())
+    );
+
     // 3. Check Supabase customers table (Live Cloud Database)
     try {
       const cleanDigitsInput = cleanId.replace(/\D/g, '');
@@ -304,7 +309,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .or(filterConditions)
         .maybeSingle();
 
-      if (supaCust && !supaErr) {
+      if (supaCust && !supaErr && !deletedCustomerIds.has(String(supaCust.id).toLowerCase())) {
         const userPassKey = `sn_user_custom_pass_${supaCust.id}`;
         const customPass = localStorage.getItem(userPassKey);
         const expectedPass = customPass || (supaCust as any).password;
@@ -359,7 +364,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return matchId || matchPhone;
         });
 
-        if (matched) {
+        if (matched && !deletedCustomerIds.has(String(matched.id).toLowerCase())) {
           const userPassKey = `sn_user_custom_pass_${matched.id}`;
           const customPass = localStorage.getItem(userPassKey);
           const expectedPass = customPass || matched.password;
@@ -400,9 +405,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 5. Check Built-in Customer Accounts (Demo accounts for testing)
     const cleanDigitsInput = cleanId.replace(/\D/g, '');
     const isWillyAccount =
-      cleanId.toLowerCase() === 'willy' ||
-      cleanId.toLowerCase() === 'cust-willy' ||
-      (cleanDigitsInput.length >= 8 && '08011223344'.endsWith(cleanDigitsInput));
+      !deletedCustomerIds.has('cust-1') &&
+      !deletedCustomerIds.has('willy') &&
+      (cleanId.toLowerCase() === 'willy' ||
+        cleanId.toLowerCase() === 'cust-willy' ||
+        (cleanDigitsInput.length >= 8 && '08011223344'.endsWith(cleanDigitsInput)));
     
     if (isWillyAccount) {
       if (cleanPass === '123456' || cleanPass === 'admin123' || cleanPass === 'willy123') {
@@ -421,9 +428,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const isBudiAccount =
-      cleanId.toLowerCase() === 'customer01' ||
-      cleanId.toLowerCase() === 'budi' ||
-      (cleanDigitsInput.length >= 8 && ('08123456789'.endsWith(cleanDigitsInput) || '08098765432'.endsWith(cleanDigitsInput)));
+      !deletedCustomerIds.has('cust-3') &&
+      !deletedCustomerIds.has('customer01') &&
+      (cleanId.toLowerCase() === 'customer01' ||
+        cleanId.toLowerCase() === 'budi' ||
+        (cleanDigitsInput.length >= 8 && ('08123456789'.endsWith(cleanDigitsInput) || '08098765432'.endsWith(cleanDigitsInput))));
 
     if (isBudiAccount) {
       if (cleanPass === 'customer123' || cleanPass === 'password123' || cleanPass === '123456' || cleanPass === 'admin123') {
@@ -539,11 +548,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteAccount = async (): Promise<{ success: boolean; error?: string }> => {
     if (!currentUser) return { success: false, error: 'Tidak ada sesi akun yang aktif.' };
+    const targetId = currentUser.id;
     try {
+      const deletedCustomerIds: string[] = JSON.parse(localStorage.getItem('sn_deleted_customer_ids') || '[]');
+      if (!deletedCustomerIds.includes(targetId)) {
+        deletedCustomerIds.push(targetId);
+        localStorage.setItem('sn_deleted_customer_ids', JSON.stringify(deletedCustomerIds));
+      }
+      const savedCust = localStorage.getItem('sn_customers_v1');
+      if (savedCust) {
+        const parsedCust = JSON.parse(savedCust);
+        if (Array.isArray(parsedCust)) {
+          localStorage.setItem('sn_customers_v1', JSON.stringify(parsedCust.filter((c: any) => c.id !== targetId)));
+        }
+      }
       localStorage.setItem('sn_user_logged_out_manually', 'true');
-      localStorage.removeItem(`sn_user_custom_pass_${currentUser.id}`);
+      localStorage.removeItem(`sn_user_custom_pass_${targetId}`);
       localStorage.removeItem('sn_user_auth_v2');
       localStorage.removeItem('sn_permanent_customer_auth');
+      await supabase.from('customers').delete().eq('id', targetId);
       await supabase.auth.signOut();
     } catch (e) {}
     setCurrentUser(null);
