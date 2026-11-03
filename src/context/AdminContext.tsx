@@ -297,15 +297,24 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     localStorage.setItem('sn_item_discounts_v1', JSON.stringify(itemDiscounts));
-  }, [itemDiscounts]);
-
-  useEffect(() => {
     localStorage.setItem('sn_product_promos_v1', JSON.stringify(productPromos));
-  }, [productPromos]);
-
-  useEffect(() => {
     localStorage.setItem('sn_wholesale_prices_v1', JSON.stringify(wholesalePrices));
-  }, [wholesalePrices]);
+
+    // Debounced sync to Supabase store_settings.promotions_data
+    const timer = setTimeout(() => {
+      try {
+        supabase
+          .from('store_settings')
+          .update({
+            promotions_data: { itemDiscounts, productPromos, wholesalePrices },
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', 'main_store')
+          .then(() => {}, () => {});
+      } catch (e) {}
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [itemDiscounts, productPromos, wholesalePrices]);
 
   useEffect(() => {
     localStorage.setItem('sn_po_v2', JSON.stringify(purchaseOrders));
@@ -653,6 +662,88 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           });
         }
       } catch (e) {}
+
+      // 4d. Direct Purchases (Pembelian Langsung)
+      try {
+        const { data, error } = await supabase.from('direct_purchases').select('*').limit(200);
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          const cloudDP: DirectPurchaseEntry[] = data.map((d: any) => ({
+            id: d.id,
+            invoiceNumber: d.invoice_number || d.id,
+            supplierName: d.supplier_name || d.seller || 'Supplier',
+            date: d.date,
+            warehouseId: d.warehouse_id || 'wh-tokyo',
+            warehouseName: d.warehouse_name || 'Gudang Utama Tokyo',
+            totalAmount: Number(d.total_amount || d.total_cost) || 0,
+            status: (d.status || 'Diterima') as any,
+            paymentStatus: (d.payment_status || 'LUNAS') as any,
+            paymentMethod: (d.payment_method || 'CASH') as any,
+            notes: d.notes || '',
+            items: Array.isArray(d.raw_items) && d.raw_items.length > 0
+              ? d.raw_items
+              : [
+                  {
+                    productId: '1',
+                    productName: d.item_name || 'Produk Sembako',
+                    quantity: d.qty || 1,
+                    costPrice: Number(d.unit_cost) || 0,
+                    subtotal: Number(d.total_cost) || 0
+                  }
+                ]
+          }));
+          setDirectPurchases((prev) => {
+            const merged = [...cloudDP];
+            prev.forEach((p) => {
+              if (!merged.some((m) => m.id === p.id)) merged.push(p);
+            });
+            return merged;
+          });
+        }
+      } catch (e) {}
+
+      // 4e. Purchase Orders (Supplier PO)
+      try {
+        const { data, error } = await supabase.from('purchase_orders').select('*').limit(200);
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          const cloudPO: PurchaseOrder[] = data.map((d: any) => ({
+            id: d.id,
+            poNumber: d.invoice_number || d.id,
+            supplierId: d.supplier_id || 'sup-1',
+            supplierName: d.supplier_name || 'Vendor',
+            dateCreated: d.date,
+            expectedDate: d.expected_date || d.date,
+            destinationWarehouseId: d.warehouse_id || 'wh-tokyo',
+            totalAmount: Number(d.total_amount) || 0,
+            status: d.status || 'Draft',
+            notes: d.notes || '',
+            items: Array.isArray(d.raw_items) ? d.raw_items : []
+          }));
+          setPurchaseOrders((prev) => {
+            const merged = [...cloudPO];
+            prev.forEach((p) => {
+              if (!merged.some((m) => m.id === p.id)) merged.push(p);
+            });
+            return merged;
+          });
+        }
+      } catch (e) {}
+
+      // 4f. Promotions (Diskon per Item, Promo Produk, Harga Grosir) from store_settings
+      try {
+        const { data, error } = await supabase.from('store_settings').select('promotions_data').eq('id', 'main_store').maybeSingle();
+        if (!error && data && data.promotions_data) {
+          const pd = data.promotions_data;
+          if (Array.isArray(pd.itemDiscounts) && pd.itemDiscounts.length > 0) {
+            setItemDiscounts(pd.itemDiscounts);
+          }
+          if (Array.isArray(pd.productPromos) && pd.productPromos.length > 0) {
+            setProductPromos(pd.productPromos);
+          }
+          if (Array.isArray(pd.wholesalePrices) && pd.wholesalePrices.length > 0) {
+            setWholesalePrices(pd.wholesalePrices);
+          }
+        }
+      } catch (e) {}
     };
 
     // Initial sync on load
@@ -830,6 +921,36 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setPurchaseOrders((prev) => [newPO, ...prev]);
+
+    // Supabase Cloud Synchronization
+    try {
+      supabase.from('purchase_orders').upsert({
+        id: newPO.id,
+        invoice_number: newPO.poNumber,
+        supplier_id: newPO.supplierId,
+        supplier_name: newPO.supplierName,
+        date: newPO.dateCreated,
+        expected_date: newPO.expectedDate,
+        warehouse_id: newPO.destinationWarehouseId,
+        total_amount: newPO.totalAmount,
+        status: newPO.status,
+        notes: newPO.notes || '',
+        raw_items: newPO.items
+      }).then(() => {
+        if (Array.isArray(newPO.items) && newPO.items.length > 0) {
+          const itemsPayload = newPO.items.map((it: any) => ({
+            purchase_id: newPO.id,
+            product_id: it.productId,
+            product_name: it.productName,
+            quantity: it.quantity,
+            cost_price: it.unitCost,
+            subtotal: it.totalCost
+          }));
+          supabase.from('purchase_order_items').insert(itemsPayload).then(() => {}, () => {});
+        }
+      }, () => {});
+    } catch (e) {}
+
     return newPO;
   };
 
@@ -852,16 +973,37 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPurchaseOrders((prev) =>
       prev.map((po) => (po.id === poId ? { ...po, status: 'Received' } : po))
     );
+
+    try {
+      supabase.from('purchase_orders').update({
+        status: 'Received'
+      }).eq('id', poId).then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const updatePurchaseOrder = (id: string, updatedData: Partial<PurchaseOrder>) => {
     setPurchaseOrders((prev) =>
       prev.map((po) => (po.id === id ? { ...po, ...updatedData } : po))
     );
+
+    try {
+      const mapped: any = {};
+      if (updatedData.status !== undefined) mapped.status = updatedData.status;
+      if (updatedData.notes !== undefined) mapped.notes = updatedData.notes;
+      if (updatedData.totalAmount !== undefined) mapped.total_amount = updatedData.totalAmount;
+      if (updatedData.items !== undefined) mapped.raw_items = updatedData.items;
+
+      supabase.from('purchase_orders').update(mapped).eq('id', id).then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const deletePurchaseOrder = (id: string) => {
     setPurchaseOrders((prev) => prev.filter((po) => po.id !== id));
+
+    try {
+      supabase.from('purchase_order_items').delete().eq('purchase_id', id).then(() => {}, () => {});
+      supabase.from('purchase_orders').delete().eq('id', id).then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const addDirectPurchase = (
@@ -887,6 +1029,27 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     setDirectPurchases((prev) => [newEntry, ...prev]);
+
+    // Supabase Cloud Synchronization
+    try {
+      supabase.from('direct_purchases').upsert({
+        id: newEntry.id,
+        invoice_number: newEntry.invoiceNumber,
+        supplier_name: newEntry.supplierName,
+        seller: newEntry.supplierName,
+        date: newEntry.date,
+        warehouse_id: newEntry.warehouseId,
+        warehouse_name: newEntry.warehouseName || 'Gudang Utama Tokyo',
+        total_amount: newEntry.totalAmount,
+        total_cost: newEntry.totalAmount,
+        status: newEntry.status,
+        payment_status: newEntry.paymentStatus || 'LUNAS',
+        payment_method: newEntry.paymentMethod || 'CASH',
+        notes: newEntry.notes || '',
+        raw_items: newEntry.items
+      }).then(() => {}, () => {});
+    } catch (e) {}
+
     return newEntry;
   };
 
@@ -894,10 +1057,24 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setDirectPurchases((prev) =>
       prev.map((dp) => (dp.id === id ? { ...dp, ...updatedData } : dp))
     );
+
+    try {
+      const mapped: any = {};
+      if (updatedData.status !== undefined) mapped.status = updatedData.status;
+      if (updatedData.paymentStatus !== undefined) mapped.payment_status = updatedData.paymentStatus;
+      if (updatedData.notes !== undefined) mapped.notes = updatedData.notes;
+      if (updatedData.items !== undefined) mapped.raw_items = updatedData.items;
+
+      supabase.from('direct_purchases').update(mapped).eq('id', id).then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const deleteDirectPurchase = (id: string) => {
     setDirectPurchases((prev) => prev.filter((dp) => dp.id !== id));
+
+    try {
+      supabase.from('direct_purchases').delete().eq('id', id).then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const addOrder = (newOrder: Order) => {

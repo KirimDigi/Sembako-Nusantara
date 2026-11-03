@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useAdmin } from '../../context/AdminContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { supabase } from '../../lib/supabase';
 
 export type TabType =
   | 'pnl'
@@ -50,6 +51,151 @@ export const AccountingPage: React.FC = () => {
   const itemsPerPage = 15;
 
   // =========================================================================
+  // SUPABASE CLOUD SYNCHRONIZATION ON MOUNT
+  // =========================================================================
+  useEffect(() => {
+    const syncAccountingFromSupabase = async () => {
+      // 1. Sync Kas Keluar (expenses)
+      try {
+        const { data, error } = await supabase.from('expenses').select('*').limit(300);
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          const cloudExpenses = data.map((d: any) => ({
+            id: d.id,
+            date: d.expense_date,
+            refNumber: d.ref_number || d.id,
+            category: d.category,
+            categoryJp: d.category === 'Sewa Gudang & Toko' ? '店舗・倉庫賃料' : d.category === 'Gaji Karyawan' ? 'スタッフ人件費' : '経費支出',
+            categoryEn: d.category === 'Sewa Gudang & Toko' ? 'Rent & Warehouse' : d.category === 'Gaji Karyawan' ? 'Staff Payroll' : 'Operating Expense',
+            sourceAccount: d.payment_method || 'Kas POS Kasir Tokyo',
+            amount: Number(d.amount) || 0,
+            recipient: d.recipient || d.approved_by || 'Vendor Partner',
+            notes: d.description || '-',
+            status: d.status || 'Lunas'
+          }));
+          setCashOutList((prev) => {
+            const merged = [...cloudExpenses];
+            prev.forEach((p) => {
+              if (!merged.some((m) => m.id === p.id)) merged.push(p);
+            });
+            return merged;
+          });
+        }
+      } catch (e) {}
+
+      // 2. Sync Kas Masuk, Transfer, Jurnal Aset, Modal Awal (accounting_journals)
+      try {
+        const { data, error } = await supabase.from('accounting_journals').select('*').limit(500);
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          const inItems: any[] = [];
+          const trfItems: any[] = [];
+          const astItems: any[] = [];
+          const capItems: any[] = [];
+
+          data.forEach((d: any) => {
+            if (d.type === 'CASH_IN') {
+              inItems.push(d.raw_data || {
+                id: d.id,
+                date: d.transaction_date,
+                refNumber: d.reference_id || d.id,
+                category: d.account_category,
+                targetAccount: 'Bank MUFG Tokyo',
+                amount: Number(d.amount) || 0,
+                source: 'Penyetor',
+                notes: d.description || '-',
+                status: 'Diterima'
+              });
+            } else if (d.type === 'CASH_TRANSFER') {
+              trfItems.push(d.raw_data || {
+                id: d.id,
+                date: d.transaction_date,
+                refNumber: d.reference_id || d.id,
+                fromAccount: 'Kas POS Kasir Tokyo',
+                toAccount: 'Kas Brankas Toko',
+                amount: Number(d.amount) || 0,
+                fee: 0,
+                notes: d.description || '-',
+                status: 'Selesai'
+              });
+            } else if (d.type === 'ASSET') {
+              astItems.push(d.raw_data || {
+                id: d.id,
+                code: d.reference_id || d.id,
+                name: d.description,
+                category: d.account_category,
+                acquisitionDate: d.transaction_date,
+                cost: Number(d.amount) || 0,
+                usefulYears: 5,
+                salvageValue: 0,
+                monthlyDepreciation: Math.round((Number(d.amount) || 0) / 60),
+                accumulatedDepreciation: 0,
+                bookValue: Number(d.amount) || 0,
+                location: 'Gudang Tokyo'
+              });
+            } else if (d.type === 'CAPITAL') {
+              capItems.push(d.raw_data || {
+                id: d.id,
+                date: d.transaction_date,
+                refNumber: d.reference_id || d.id,
+                sourceType: 'OWNER_EQUITY',
+                sourceTypeName: 'Modal Disetor Pemilik',
+                sourceName: 'Willy Pratama (Owner)',
+                destinationType: 'BANK',
+                destinationAccount: d.account_category || 'Bank Japan Post',
+                amount: Number(d.amount) || 0,
+                notes: d.description || '-',
+                status: 'Aktif & Tersinkron'
+              });
+            }
+          });
+
+          if (inItems.length > 0) {
+            setCashInList((prev) => {
+              const m = [...inItems];
+              prev.forEach((p) => { if (!m.some((x) => x.id === p.id)) m.push(p); });
+              return m;
+            });
+          }
+          if (trfItems.length > 0) {
+            setCashTransferList((prev) => {
+              const m = [...trfItems];
+              prev.forEach((p) => { if (!m.some((x) => x.id === p.id)) m.push(p); });
+              return m;
+            });
+          }
+          if (astItems.length > 0) {
+            setAssetList((prev) => {
+              const m = [...astItems];
+              prev.forEach((p) => { if (!m.some((x) => x.id === p.id)) m.push(p); });
+              return m;
+            });
+          }
+          if (capItems.length > 0) {
+            setInitialCapitalList((prev) => {
+              const m = [...capItems];
+              prev.forEach((p) => { if (!m.some((x) => x.id === p.id)) m.push(p); });
+              return m;
+            });
+          }
+        }
+      } catch (e) {}
+
+      // 3. Sync Bank Accounts (store_settings)
+      try {
+        const { data, error } = await supabase.from('store_settings').select('bank_accounts_data').eq('id', 'main_store').maybeSingle();
+        if (!error && data && Array.isArray(data.bank_accounts_data) && data.bank_accounts_data.length > 0) {
+          setBankAccountsList((prev) => {
+            const m = [...data.bank_accounts_data];
+            prev.forEach((p) => { if (!m.some((x) => x.id === p.id)) m.push(p); });
+            return m;
+          });
+        }
+      } catch (e) {}
+    };
+
+    syncAccountingFromSupabase();
+  }, []);
+
+  // =========================================================================
   // SUB-MODULE 1: KAS KELUAR (CASH OUTFLOW) STATE & HANDLERS
   // =========================================================================
   const [isCashOutModalOpen, setIsCashOutModalOpen] = useState(false);
@@ -88,6 +234,31 @@ export const AccountingPage: React.FC = () => {
     setCashOutList([item, ...cashOutList]);
     setIsCashOutModalOpen(false);
     setNewCashOut({ category: 'Sewa Gudang & Toko', sourceAccount: 'Kas POS Kasir Tokyo', amount: 15000, recipient: '', notes: '' });
+
+    // Supabase Sync
+    try {
+      supabase.from('expenses').upsert({
+        id: item.id,
+        expense_date: item.date,
+        category: item.category,
+        amount: item.amount,
+        payment_method: item.sourceAccount,
+        description: item.notes,
+        ref_number: item.refNumber,
+        recipient: item.recipient,
+        status: item.status,
+        created_at: new Date().toISOString()
+      }).then(() => {}, () => {});
+    } catch (sbErr) {}
+  };
+
+  const handleDeleteCashOut = (id: string) => {
+    if (confirm(language === 'JP' ? 'この出金記録を削除しますか？' : language === 'EN' ? 'Delete this cash out entry?' : 'Hapus catatan kas keluar ini?')) {
+      setCashOutList((prev) => prev.filter((item) => item.id !== id));
+      try {
+        supabase.from('expenses').delete().eq('id', id).then(() => {}, () => {});
+      } catch (e) {}
+    }
   };
 
   // =========================================================================
@@ -129,6 +300,30 @@ export const AccountingPage: React.FC = () => {
     setCashInList([item, ...cashInList]);
     setIsCashInModalOpen(false);
     setNewCashIn({ category: 'Setoran Modal Pemilik', targetAccount: 'Bank MUFG Tokyo', amount: 50000, source: '', notes: '' });
+
+    // Supabase Sync
+    try {
+      supabase.from('accounting_journals').upsert({
+        id: item.id,
+        transaction_date: item.date,
+        account_category: item.category,
+        type: 'CASH_IN',
+        amount: item.amount,
+        description: item.notes,
+        reference_id: item.refNumber,
+        raw_data: item,
+        created_at: new Date().toISOString()
+      }).then(() => {}, () => {});
+    } catch (e) {}
+  };
+
+  const handleDeleteCashIn = (id: string) => {
+    if (confirm(language === 'JP' ? 'この入金記録を削除しますか？' : language === 'EN' ? 'Delete this cash in entry?' : 'Hapus catatan kas masuk ini?')) {
+      setCashInList((prev) => prev.filter((item) => item.id !== id));
+      try {
+        supabase.from('accounting_journals').delete().eq('id', id).then(() => {}, () => {});
+      } catch (e) {}
+    }
   };
 
   // =========================================================================
@@ -168,6 +363,30 @@ export const AccountingPage: React.FC = () => {
     setCashTransferList([item, ...cashTransferList]);
     setIsCashTransferModalOpen(false);
     setNewTransfer({ fromAccount: 'Kas POS Kasir Tokyo', toAccount: 'Kas Brankas Toko', amount: 50000, fee: 0, notes: '' });
+
+    // Supabase Sync
+    try {
+      supabase.from('accounting_journals').upsert({
+        id: item.id,
+        transaction_date: item.date,
+        account_category: 'Transfer Rekening',
+        type: 'CASH_TRANSFER',
+        amount: item.amount,
+        description: `${item.fromAccount} -> ${item.toAccount}`,
+        reference_id: item.refNumber,
+        raw_data: item,
+        created_at: new Date().toISOString()
+      }).then(() => {}, () => {});
+    } catch (e) {}
+  };
+
+  const handleDeleteTransfer = (id: string) => {
+    if (confirm(language === 'JP' ? 'この振替記録を削除しますか？' : language === 'EN' ? 'Delete this cash transfer entry?' : 'Hapus catatan transfer kas ini?')) {
+      setCashTransferList((prev) => prev.filter((item) => item.id !== id));
+      try {
+        supabase.from('accounting_journals').delete().eq('id', id).then(() => {}, () => {});
+      } catch (e) {}
+    }
   };
 
   // =========================================================================
@@ -216,6 +435,30 @@ export const AccountingPage: React.FC = () => {
     setAssetList([...assetList, item]);
     setIsAssetModalOpen(false);
     setNewAsset({ code: '', name: '', category: 'Peralatan Toko & IT', cost: 100000, usefulYears: 5, location: 'Gudang Tokyo' });
+
+    // Supabase Sync
+    try {
+      supabase.from('accounting_journals').upsert({
+        id: item.id,
+        transaction_date: item.acquisitionDate,
+        account_category: item.category,
+        type: 'ASSET',
+        amount: item.cost,
+        description: item.name,
+        reference_id: item.code,
+        raw_data: item,
+        created_at: new Date().toISOString()
+      }).then(() => {}, () => {});
+    } catch (e) {}
+  };
+
+  const handleDeleteAsset = (id: string) => {
+    if (confirm(language === 'JP' ? 'この資産仕訳を削除しますか？' : language === 'EN' ? 'Delete this asset entry?' : 'Hapus catatan aset ini?')) {
+      setAssetList((prev) => prev.filter((item) => item.id !== id));
+      try {
+        supabase.from('accounting_journals').delete().eq('id', id).then(() => {}, () => {});
+      } catch (e) {}
+    }
   };
 
   // =========================================================================
@@ -259,7 +502,8 @@ export const AccountingPage: React.FC = () => {
       notes: newBankAccount.notes || '-',
       createdAt: new Date().toISOString().substring(0, 10)
     };
-    setBankAccountsList([...bankAccountsList, item]);
+    const updated = [...bankAccountsList, item];
+    setBankAccountsList(updated);
     setIsBankAccountModalOpen(false);
     setNewBankAccount({
       accountName: '',
@@ -272,15 +516,37 @@ export const AccountingPage: React.FC = () => {
       initialBalance: 0,
       notes: ''
     });
+
+    // Supabase Sync to store_settings.bank_accounts_data
+    try {
+      supabase.from('store_settings').update({
+        bank_accounts_data: updated,
+        updated_at: new Date().toISOString()
+      }).eq('id', 'main_store').then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const handleToggleAccountStatus = (id: string) => {
-    setBankAccountsList(bankAccountsList.map((acc) => acc.id === id ? { ...acc, isActive: !acc.isActive } : acc));
+    const updated = bankAccountsList.map((acc) => acc.id === id ? { ...acc, isActive: !acc.isActive } : acc);
+    setBankAccountsList(updated);
+    try {
+      supabase.from('store_settings').update({
+        bank_accounts_data: updated,
+        updated_at: new Date().toISOString()
+      }).eq('id', 'main_store').then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const handleDeleteAccount = (id: string) => {
     if (confirm(language === 'JP' ? 'この口座を削除しますか？' : language === 'EN' ? 'Delete this bank account?' : 'Hapus akun/rekening ini?')) {
-      setBankAccountsList(bankAccountsList.filter((acc) => acc.id !== id));
+      const updated = bankAccountsList.filter((acc) => acc.id !== id);
+      setBankAccountsList(updated);
+      try {
+        supabase.from('store_settings').update({
+          bank_accounts_data: updated,
+          updated_at: new Date().toISOString()
+        }).eq('id', 'main_store').then(() => {}, () => {});
+      } catch (e) {}
     }
   };
 
@@ -347,11 +613,29 @@ export const AccountingPage: React.FC = () => {
       amount: 500000,
       notes: 'Setoran modal awal usaha Sembako Nusantara Jepang'
     });
+
+    // Supabase Sync
+    try {
+      supabase.from('accounting_journals').upsert({
+        id: item.id,
+        transaction_date: item.date,
+        account_category: item.destinationAccount,
+        type: 'CAPITAL',
+        amount: item.amount,
+        description: item.notes,
+        reference_id: item.refNumber,
+        raw_data: item,
+        created_at: new Date().toISOString()
+      }).then(() => {}, () => {});
+    } catch (e) {}
   };
 
   const handleDeleteCapital = (id: string) => {
     if (confirm(language === 'JP' ? 'この資本金記録を削除しますか？' : language === 'EN' ? 'Delete this capital entry?' : 'Hapus catatan setoran modal awal ini?')) {
-      setInitialCapitalList(initialCapitalList.filter((c) => c.id !== id));
+      setInitialCapitalList((prev) => prev.filter((c) => c.id !== id));
+      try {
+        supabase.from('accounting_journals').delete().eq('id', id).then(() => {}, () => {});
+      } catch (e) {}
     }
   };
 
@@ -2246,6 +2530,7 @@ export const AccountingPage: React.FC = () => {
                       <th className="py-3 px-3">{txt.thCashOutRecipient}</th>
                       <th className="py-3 px-3">{txt.thCashOutNotes}</th>
                       <th className="py-3 px-3 text-center">{txt.thCashOutStatus}</th>
+                      <th className="py-3 px-3 text-right">{txt.thAction}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100">
@@ -2266,6 +2551,16 @@ export const AccountingPage: React.FC = () => {
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                             {item.status}
                           </span>
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCashOut(item.id)}
+                            className="p-1 rounded-lg text-rose-500 hover:text-white hover:bg-rose-600 transition-colors cursor-pointer"
+                            title="Hapus Kas Keluar"
+                          >
+                            <span className="material-symbols-outlined text-base">delete</span>
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -2336,6 +2631,7 @@ export const AccountingPage: React.FC = () => {
                       <th className="py-3 px-3">{txt.thCashInSource}</th>
                       <th className="py-3 px-3">{txt.thCashInNotes}</th>
                       <th className="py-3 px-3 text-center">{txt.thCashInStatus}</th>
+                      <th className="py-3 px-3 text-right">{txt.thAction}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100">
@@ -2356,6 +2652,16 @@ export const AccountingPage: React.FC = () => {
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                             {item.status}
                           </span>
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCashIn(item.id)}
+                            className="p-1 rounded-lg text-rose-500 hover:text-white hover:bg-rose-600 transition-colors cursor-pointer"
+                            title="Hapus Kas Masuk"
+                          >
+                            <span className="material-symbols-outlined text-base">delete</span>
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -2427,6 +2733,7 @@ export const AccountingPage: React.FC = () => {
                       <th className="py-3 px-3 text-right">{txt.thTransferFee}</th>
                       <th className="py-3 px-3">{txt.thTransferNotes}</th>
                       <th className="py-3 px-3 text-center">{txt.thTransferStatus}</th>
+                      <th className="py-3 px-3 text-right">{txt.thAction}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100">
@@ -2444,6 +2751,16 @@ export const AccountingPage: React.FC = () => {
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
                             {item.status}
                           </span>
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTransfer(item.id)}
+                            className="p-1 rounded-lg text-rose-500 hover:text-white hover:bg-rose-600 transition-colors cursor-pointer"
+                            title="Hapus Transfer"
+                          >
+                            <span className="material-symbols-outlined text-base">delete</span>
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -2520,6 +2837,7 @@ export const AccountingPage: React.FC = () => {
                       <th className="py-3 px-3 text-right">{txt.thAssetAccumDep}</th>
                       <th className="py-3 px-3 text-right">{txt.thAssetBookVal}</th>
                       <th className="py-3 px-3">{txt.thAssetLoc}</th>
+                      <th className="py-3 px-3 text-right">{txt.thAction}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100">
@@ -2541,6 +2859,16 @@ export const AccountingPage: React.FC = () => {
                         <td className="py-3 px-3 text-right font-mono text-red-600">-¥{item.accumulatedDepreciation.toLocaleString()}</td>
                         <td className="py-3 px-3 text-right font-mono font-black text-emerald-600">¥{item.bookValue.toLocaleString()}</td>
                         <td className="py-3 px-3 text-stone-500">{item.location}</td>
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAsset(item.id)}
+                            className="p-1 rounded-lg text-rose-500 hover:text-white hover:bg-rose-600 transition-colors cursor-pointer"
+                            title="Hapus Aset"
+                          >
+                            <span className="material-symbols-outlined text-base">delete</span>
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

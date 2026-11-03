@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useLanguage } from '../../context/LanguageContext';
 import { VendorProductPriceComparison, VendorPurchaseQuote } from '../../types';
 import { INITIAL_VENDOR_LIST, INITIAL_VENDOR_COMPARISONS } from '../../data/vendorPricingMockData';
+import { supabase } from '../../lib/supabase';
 
 export const CompetitorPricingPage: React.FC = () => {
   const { language } = useLanguage();
@@ -30,10 +31,29 @@ export const CompetitorPricingPage: React.FC = () => {
   const [formInvoice, setFormInvoice] = useState<string>('');
   const [formNotes, setFormNotes] = useState<string>('');
 
-  // Persist comparisons
+  // Sync from Supabase on mount
+  useEffect(() => {
+    const fetchCloudVendorComparisons = async () => {
+      try {
+        const { data, error } = await supabase.from('store_settings').select('competitor_comparisons_data').eq('id', 'main_store').maybeSingle();
+        if (!error && data && Array.isArray(data.competitor_comparisons_data) && data.competitor_comparisons_data.length > 0) {
+          setComparisons(data.competitor_comparisons_data);
+        }
+      } catch (e) {}
+    };
+    fetchCloudVendorComparisons();
+  }, []);
+
+  // Persist comparisons to localStorage & Supabase
   const updateComparisons = (newList: VendorProductPriceComparison[]) => {
     setComparisons(newList);
     localStorage.setItem('sn_vendor_comparisons_v1', JSON.stringify(newList));
+    try {
+      supabase.from('store_settings').update({
+        competitor_comparisons_data: newList,
+        updated_at: new Date().toISOString()
+      }).eq('id', 'main_store').then(() => {}, () => {});
+    } catch (e) {}
   };
 
   // Dashboard Aggregates
