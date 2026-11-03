@@ -34,6 +34,12 @@ import {
 } from '../data/adminMockData';
 import { supabase } from '../lib/supabase';
 import { sendOrderDeliveredWhatsApp } from '../services/whatsappGateway';
+import {
+  extractOrderOwnerNotes,
+  formatOrderOwnerNotes,
+  USER_ORDERS_STORAGE_KEY,
+  LEGACY_USER_ORDERS_STORAGE_KEY
+} from '../utils/orderOwnership';
 
 interface AdminContextType {
   products: Product[];
@@ -454,30 +460,51 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!error && data) {
           sessionStorage.setItem('sn_cloud_orders_sync_ts', String(Date.now()));
           if (Array.isArray(data) && data.length > 0) {
-            const cloudOrders: Order[] = data.map((d: any) => ({
-              id: d.id,
-              trackingNumber: d.tracking_number || '',
-              courier: d.courier || 'Yamato Transport',
-              status: d.status || 'Dikemas',
-              totalAmount: Number(d.total_amount) || 0,
-              taxAmount: Number(d.tax_amount) || 0,
-              paymentMethod: d.payment_method || 'jpqr',
-              customerName: d.customer_name || 'Willy Pratama',
-              userEmail: d.customer_email || '',
-              phone: d.customer_phone || '',
-              shippingAddress: d.shipping_address || '',
-              date: d.order_date || new Date(d.created_at).toLocaleDateString('id-ID'),
-              items: (d.order_items || []).map((it: any) => ({
-                id: it.product_id,
-                productName: it.product_name,
-                productImage: it.product_image,
-                price: Number(it.price),
-                quantity: it.quantity
-              }))
-            }));
+            const cloudOrders: Order[] = data.map((d: any) => {
+              const ownerMeta = extractOrderOwnerNotes(d.notes);
+              return {
+                id: d.id,
+                trackingNumber: d.tracking_number || '',
+                courier: d.courier || 'Yamato Transport',
+                status: d.status || 'Dikemas',
+                totalAmount: Number(d.total_amount) || 0,
+                taxAmount: Number(d.tax_amount) || 0,
+                paymentMethod: d.payment_method || 'jpqr',
+                customerName: d.customer_name || 'Pelanggan',
+                userId: ownerMeta.userId,
+                accountName: ownerMeta.accountName,
+                userEmail: d.customer_email || '',
+                phone: d.customer_phone || '',
+                notes: d.notes || '',
+                shippingAddress: d.shipping_address || '',
+                date: d.order_date || new Date(d.created_at).toLocaleDateString('id-ID'),
+                items: (d.order_items || []).map((it: any) => ({
+                  id: it.product_id,
+                  productName: it.product_name,
+                  productImage: it.product_image,
+                  price: Number(it.price),
+                  quantity: it.quantity
+                }))
+              };
+            });
 
             setOrders((prev) => {
-              const merged = [...cloudOrders];
+              const localMap = new Map<string, Order>();
+              prev.forEach((lo) => localMap.set(lo.id, lo));
+
+              const merged = cloudOrders.map((co) => {
+                const localMatch = localMap.get(co.id);
+                if (!localMatch) return co;
+                return {
+                  ...co,
+                  userId: co.userId || localMatch.userId,
+                  accountName: co.accountName || localMatch.accountName,
+                  accountPhone: co.accountPhone || localMatch.accountPhone,
+                  phone: co.phone || localMatch.phone,
+                  userEmail: co.userEmail || localMatch.userEmail
+                };
+              });
+
               prev.forEach((localOrd) => {
                 if (!merged.some((m) => m.id === localOrd.id)) {
                   merged.push(localOrd);
@@ -878,13 +905,16 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return updated;
     });
 
-    // Also sync to customer user orders history
+    // Also sync to customer user orders history (strictly tagged with userId & accountName)
     try {
-      const existingUserOrders = JSON.parse(localStorage.getItem('sn_user_orders') || '[]');
+      localStorage.removeItem(LEGACY_USER_ORDERS_STORAGE_KEY);
+      const existingUserOrders = JSON.parse(localStorage.getItem(USER_ORDERS_STORAGE_KEY) || '[]');
       const userOrderSummary = {
         id: newOrder.id,
         orderId: newOrder.id,
         userId: newOrder.userId || (newOrder as any).userId,
+        accountName: newOrder.accountName || (newOrder as any).accountName || newOrder.customerName,
+        accountPhone: newOrder.accountPhone || (newOrder as any).accountPhone || newOrder.phone,
         userEmail: newOrder.userEmail || (newOrder as any).userEmail,
         trackingNumber: newOrder.trackingNumber,
         courier: newOrder.courier,
@@ -911,7 +941,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
       const filteredUserOrders = existingUserOrders.filter((o: any) => o.id !== newOrder.id && o.orderId !== newOrder.id);
       filteredUserOrders.unshift(userOrderSummary);
-      localStorage.setItem('sn_user_orders', JSON.stringify(filteredUserOrders));
+      localStorage.setItem(USER_ORDERS_STORAGE_KEY, JSON.stringify(filteredUserOrders));
     } catch (e) {}
 
     // Update customer CRM stats (totalOrders, totalSpent, lastOrderDate)
@@ -946,7 +976,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         total_amount: newOrder.totalAmount || 0,
         tax_amount: newOrder.taxAmount || 0,
         payment_method: newOrder.paymentMethod || 'jpqr',
-        customer_name: newOrder.customerName || 'Willy Pratama',
+        customer_name: newOrder.customerName || 'Pelanggan',
+        customer_phone: newOrder.phone || '',
+        customer_email: newOrder.userEmail || '',
+        notes: formatOrderOwnerNotes(newOrder.userId, newOrder.accountName || newOrder.customerName),
         shipping_address: newOrder.shippingAddress || '',
         order_date: newOrder.date
       }).then(() => {
@@ -994,7 +1027,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Synchronize to customer user orders history so customer tracking page & account page immediately gets the updated status
     try {
-      const existingUserOrders = JSON.parse(localStorage.getItem('sn_user_orders') || '[]');
+      const existingUserOrders = JSON.parse(localStorage.getItem(USER_ORDERS_STORAGE_KEY) || '[]');
       const updatedUserOrders = existingUserOrders.map((ord: any) => {
         if (ord.id === orderId || ord.orderId === orderId) {
           return {
@@ -1006,7 +1039,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         return ord;
       });
-      localStorage.setItem('sn_user_orders', JSON.stringify(updatedUserOrders));
+      localStorage.setItem(USER_ORDERS_STORAGE_KEY, JSON.stringify(updatedUserOrders));
     } catch (e) {}
 
     // Cloud Database Status Update (Supabase)
@@ -1412,7 +1445,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setOrders([]);
     localStorage.removeItem('sn_pos_tx_v2');
     localStorage.removeItem('sn_admin_orders_v2');
-    localStorage.removeItem('sn_user_orders');
+    localStorage.removeItem(LEGACY_USER_ORDERS_STORAGE_KEY);
+    localStorage.removeItem(USER_ORDERS_STORAGE_KEY);
   };
 
   const batchApplyStockOpname = (

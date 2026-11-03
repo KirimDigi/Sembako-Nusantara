@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom';
 import { useAdmin } from '../../context/AdminContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import {
+  isOrderOwnedByUser,
+  USER_ORDERS_STORAGE_KEY,
+  LEGACY_USER_ORDERS_STORAGE_KEY
+} from '../../utils/orderOwnership';
 
 export const CustomerLiveOrderStatusBanner: React.FC = () => {
   const { orders } = useAdmin();
@@ -32,7 +37,8 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
 
     let localUserOrders: any[] = [];
     try {
-      const saved = localStorage.getItem('sn_user_orders');
+      localStorage.removeItem(LEGACY_USER_ORDERS_STORAGE_KEY);
+      const saved = localStorage.getItem(USER_ORDERS_STORAGE_KEY);
       if (saved) localUserOrders = JSON.parse(saved);
     } catch (e) {}
 
@@ -43,28 +49,7 @@ export const CustomerLiveOrderStatusBanner: React.FC = () => {
       }
     });
 
-    const cId = currentUser.id?.toLowerCase().trim();
-    const cEmail = currentUser.email?.toLowerCase().trim();
-    const cName = currentUser.name?.toLowerCase().trim();
-    const cPhone = currentUser.phone ? currentUser.phone.replace(/[^0-9]/g, '') : '';
-
-    const matched = pool.filter((ord: any) => {
-      // Jangan tampilkan dummy test order ke pelanggan kecuali benar-benar dimiliki akunnya
-      if (ord.id?.includes('DUMMY') && ord.userId !== currentUser.id) return false;
-      if (ord.userId && String(ord.userId).toLowerCase().trim() === cId) return true;
-      const ordEmail = (ord.userEmail || ord.email || '')?.toLowerCase().trim();
-      if (ordEmail && cEmail && ordEmail === cEmail) return true;
-      const ordName = (ord.customerName || '')?.toLowerCase().trim();
-      if (ordName && cName && (ordName === cName || ordName.includes(cName) || cName.includes(ordName))) return true;
-      if (ord.phone && cPhone) {
-        const ordPhoneClean = String(ord.phone).replace(/[^0-9]/g, '');
-        if (ordPhoneClean && ordPhoneClean.length >= 8 && (ordPhoneClean.includes(cPhone) || cPhone.includes(ordPhoneClean))) return true;
-      }
-      return false;
-    });
-
-    // Hanya kembalikan pesanan milik user yang cocok. Jika tidak ada pesanan, kosongkan (jangan tampilkan banner).
-    return matched;
+    return pool.filter((ord: any) => isOrderOwnedByUser(ord, currentUser));
   }, [isAuthenticated, currentUser, orders]);
 
   // Check latest order from relevantOrders

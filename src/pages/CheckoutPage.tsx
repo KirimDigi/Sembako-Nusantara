@@ -23,12 +23,12 @@ export const CheckoutPage: React.FC = () => {
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>('JPY');
   const exchangeRate = getActiveExchangeRate();
   const [formData, setFormData] = useState({
-    fullName: currentUser?.name || 'Willy Pratama',
-    phone: currentUser?.phone || '+81 80-1122-3344',
-    postalCode: currentUser?.postalCode || '134-0088',
+    fullName: currentUser?.name || '',
+    phone: currentUser?.phone || '',
+    postalCode: currentUser?.postalCode || '',
     prefecture: currentUser?.prefecture || 'Tokyo-to (東京都)',
-    city: currentUser?.city || 'Edogawa-ku (江戸川区)',
-    address: currentUser?.address || 'Nishi-Kasai 3-1-4, Mansion Sakura #302',
+    city: currentUser?.city || '',
+    address: currentUser?.address || '',
     deliveryTime: 'bebas'
   });
 
@@ -128,6 +128,8 @@ export const CheckoutPage: React.FC = () => {
       taxAmount: foodTaxAmount,
       date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
       userId: currentUser?.id,
+      accountName: currentUser?.name,
+      accountPhone: currentUser?.phone,
       userEmail: currentUser?.email,
       customerName: formData.fullName ? `${formData.fullName}` : currentUser?.name || 'Pelanggan Diaspora',
       phone: formData.phone || currentUser?.phone,

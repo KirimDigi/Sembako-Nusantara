@@ -3,6 +3,11 @@ import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAdmin } from '../context/AdminContext';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  isOrderOwnedByUser,
+  USER_ORDERS_STORAGE_KEY,
+  LEGACY_USER_ORDERS_STORAGE_KEY
+} from '../utils/orderOwnership';
 
 export const TrackingPage: React.FC = () => {
   const { language } = useLanguage();
@@ -18,7 +23,8 @@ export const TrackingPage: React.FC = () => {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('sn_user_orders');
+      localStorage.removeItem(LEGACY_USER_ORDERS_STORAGE_KEY);
+      const saved = localStorage.getItem(USER_ORDERS_STORAGE_KEY);
       if (saved) {
         setUserOrders(JSON.parse(saved));
       }
@@ -38,35 +44,7 @@ export const TrackingPage: React.FC = () => {
       }
     });
 
-    const currentId = currentUser.id?.toLowerCase().trim();
-    const currentEmail = currentUser.email?.toLowerCase().trim();
-    const currentName = currentUser.name?.toLowerCase().trim();
-    const currentPhone = currentUser.phone ? currentUser.phone.replace(/[^0-9]/g, '') : '';
-
-    return allSourceOrders.filter((ord: any) => {
-      // 1. Cocokkan ID akun
-      if (ord.userId && String(ord.userId).toLowerCase().trim() === currentId) {
-        return true;
-      }
-      // 2. Cocokkan Email
-      const ordEmail = (ord.userEmail || ord.email || '')?.toLowerCase().trim();
-      if (ordEmail && currentEmail && ordEmail === currentEmail) {
-        return true;
-      }
-      // 3. Cocokkan Nama Pelanggan
-      const ordName = (ord.customerName || '')?.toLowerCase().trim();
-      if (ordName && currentName && (ordName === currentName || ordName.includes(currentName) || currentName.includes(ordName))) {
-        return true;
-      }
-      // 4. Cocokkan Nomor HP
-      if (ord.phone && currentPhone) {
-        const ordPhoneClean = String(ord.phone).replace(/[^0-9]/g, '');
-        if (ordPhoneClean && ordPhoneClean.length >= 8 && (ordPhoneClean.includes(currentPhone) || currentPhone.includes(ordPhoneClean))) {
-          return true;
-        }
-      }
-      return false;
-    });
+    return allSourceOrders.filter((ord: any) => isOrderOwnedByUser(ord, currentUser));
   }, [isAuthenticated, currentUser, userOrders, orders]);
 
   useEffect(() => {

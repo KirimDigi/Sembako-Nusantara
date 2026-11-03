@@ -65,9 +65,12 @@ export interface Order {
   items: OrderItem[];
   shippingAddress: string;
   customerName?: string;
+  accountName?: string;
+  accountPhone?: string;
   userId?: string;
   userEmail?: string;
   phone?: string;
+  notes?: string;
   paymentMethod?: string;
   taxAmount?: number;
   currency?: 'JPY' | 'IDR';

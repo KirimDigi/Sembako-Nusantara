@@ -3,6 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAdmin } from '../context/AdminContext';
 import { assetUrl } from '../utils/assets';
+import {
+  isOrderOwnedByUser,
+  USER_ORDERS_STORAGE_KEY,
+  LEGACY_USER_ORDERS_STORAGE_KEY
+} from '../utils/orderOwnership';
 
 export const AccountOrdersPage: React.FC = () => {
   const { isAuthenticated, currentUser, login, loginWithGoogle, logout, isAdmin } = useAuth();
@@ -56,28 +61,38 @@ export const AccountOrdersPage: React.FC = () => {
     }
   };
 
-  // Real-time synchronization: 100% identik dengan menu pesanan profil & adminOrders
+  // Real-time synchronization: HANYA menampilkan pesanan milik akun yang sedang login (100% terisolasi per akun)
   const orders = React.useMemo(() => {
+    if (!isAuthenticated || !currentUser) {
+      return [];
+    }
+
     let localUserOrders: any[] = [];
     try {
-      const saved = localStorage.getItem('sn_user_orders');
+      // Bersihkan key lama yang sebelumnya sempat tercampur semua pesanan
+      localStorage.removeItem(LEGACY_USER_ORDERS_STORAGE_KEY);
+      const saved = localStorage.getItem(USER_ORDERS_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) localUserOrders = parsed;
       }
     } catch (e) {}
 
-    // Map all adminOrders (exact 1:1 match with ProfilePage order history)
+    const ownedAdminOrders = adminOrders.filter((ao) => isOrderOwnedByUser(ao, currentUser));
+    const ownedLocalOrders = localUserOrders.filter((uo) => isOrderOwnedByUser(uo, currentUser));
+
     const adminOrdersMap = new Map<string, any>();
 
-    adminOrders.forEach((ao) => {
+    ownedAdminOrders.forEach((ao) => {
       const ordId = ao.id;
-      const localMatch = localUserOrders.find((uo: any) => (uo.id || uo.orderId) === ordId);
+      const localMatch = ownedLocalOrders.find((uo: any) => (uo.id || uo.orderId) === ordId);
       const isLocallyCancelled = localCancelledIds.includes(ordId);
 
       adminOrdersMap.set(ordId, {
         id: ordId,
         orderId: ordId,
+        userId: ao.userId || localMatch?.userId || currentUser.id,
+        accountName: ao.accountName || localMatch?.accountName || currentUser.name,
         trackingNumber: ao.trackingNumber || localMatch?.trackingNumber || `SN-TRK-${ordId.replace(/\D/g, '') || '8821'}`,
         courier: ao.courier || localMatch?.courier || 'Yamato Transport',
         status: isLocallyCancelled ? 'Dibatalkan' : ao.status,
@@ -85,8 +100,9 @@ export const AccountOrdersPage: React.FC = () => {
         totalAmount: ao.totalAmount ?? localMatch?.totalAmount ?? localMatch?.total ?? 0,
         taxAmount: ao.taxAmount ?? localMatch?.taxAmount ?? 0,
         date: ao.date || localMatch?.date || '1 Nov 2026',
-        customerName: ao.customerName || localMatch?.customerName || currentUser?.name || 'Pelanggan',
-        shippingAddress: ao.shippingAddress || localMatch?.shippingAddress || localMatch?.address || currentUser?.address || '〒144-0051 Tokyo, Ota-ku, Nishikamata 5-9-16',
+        customerName: ao.customerName || localMatch?.customerName || currentUser.name || 'Pelanggan',
+        phone: ao.phone || localMatch?.phone || currentUser.phone || '',
+        shippingAddress: ao.shippingAddress || localMatch?.shippingAddress || localMatch?.address || currentUser.address || '-',
         paymentMethod: ao.paymentMethod || localMatch?.paymentMethod || 'TRANSFER / QRIS',
         items: (ao.items && ao.items.length > 0 ? ao.items : localMatch?.items || []).map((it: any) => ({
           id: it.id || it.productId,
@@ -101,8 +117,8 @@ export const AccountOrdersPage: React.FC = () => {
       });
     });
 
-    // Also include any local order not yet in adminOrders
-    localUserOrders.forEach((uo: any) => {
+    // Sertakan pesanan lokal milik akun ini yang belum ter-sinkron ke adminOrders
+    ownedLocalOrders.forEach((uo: any) => {
       const ordId = uo.id || uo.orderId;
       if (ordId && !adminOrdersMap.has(ordId)) {
         adminOrdersMap.set(ordId, {
@@ -116,17 +132,8 @@ export const AccountOrdersPage: React.FC = () => {
       }
     });
 
-    const result = Array.from(adminOrdersMap.values());
-
-    // Sync back to local storage
-    try {
-      if (result.length > 0) {
-        localStorage.setItem('sn_user_orders', JSON.stringify(result));
-      }
-    } catch (e) {}
-
-    return result;
-  }, [adminOrders, localCancelledIds, currentUser]);
+    return Array.from(adminOrdersMap.values());
+  }, [adminOrders, localCancelledIds, isAuthenticated, currentUser]);
 
 
   const copyToClipboard = (text: string, orderId: string) => {
@@ -335,7 +342,7 @@ export const AccountOrdersPage: React.FC = () => {
 
             <div>
               <h2 className="font-heading font-bold text-lg text-stone-900">
-                {currentUser?.name || 'Willy Pratama'}
+                {currentUser?.name || 'Pelanggan Nusantara'}
               </h2>
               {isAdmin && (
                 <div className="mt-1">
@@ -350,11 +357,11 @@ export const AccountOrdersPage: React.FC = () => {
             <div className="border-t border-stone-100 pt-4 text-left text-xs text-stone-600 space-y-2.5">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-sm text-[#c41230]">location_on</span>
-                <span className="truncate">{currentUser?.address || 'Tokyo, Edogawa-ku, Nishi-Kasai 3-1-4'}</span>
+                <span className="truncate">{currentUser?.address || 'Tokyo, Jepang'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-sm text-[#c41230]">call</span>
-                <span>{currentUser?.phone || '+81 80-1122-3344'}</span>
+                <span>{currentUser?.phone || '-'}</span>
               </div>
               {currentUser?.email && (
                 <div className="flex items-center gap-2">

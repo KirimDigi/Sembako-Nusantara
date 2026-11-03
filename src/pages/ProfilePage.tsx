@@ -9,6 +9,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { assetUrl } from '../utils/assets';
 import { getMemberId, getCode39BarcodeBars, downloadMemberCardPng } from '../utils/memberCard';
 import { sendRegistrationWhatsApp } from '../services/whatsappGateway';
+import { filterOrdersForUser } from '../utils/orderOwnership';
 
 type ActiveTab = 'overview' | 'barcode' | 'orders' | 'wishlist' | 'cart' | 'security' | 'edit_profile';
 
@@ -66,9 +67,15 @@ export const ProfilePage: React.FC = () => {
   const { isAuthenticated, currentUser, login, loginWithGoogle, logout, updateProfile, changePassword, deleteAccount, isAdmin } = useAuth();
   const { wishlist, removeFromWishlist, clearWishlist, totalWishlistItems } = useWishlist();
   const { cart, totalItems, subtotalTax: totalPrice, removeFromCart, updateQuantity } = useCart();
-  const { orders, addCustomer } = useAdmin();
+  const { orders: allAdminOrders, addCustomer } = useAdmin();
   const { language } = useLanguage();
   const navigate = useNavigate();
+
+  // Hanya tampilkan pesanan milik akun yang sedang login (100% terisolasi per akun)
+  const orders = useMemo(
+    () => filterOrdersForUser(allAdminOrders, currentUser),
+    [allAdminOrders, currentUser]
+  );
 
   // Active Profile Tab State (Defaults to 'overview')
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
@@ -1419,19 +1426,19 @@ export const ProfilePage: React.FC = () => {
                     <span className="text-stone-400 font-bold block uppercase text-[10px]">
                       {language === 'JP' ? 'WhatsApp / 日本の電話番号' : language === 'EN' ? 'WhatsApp / Phone Number' : 'Nomor WhatsApp / HP'}
                     </span>
-                    <span className="font-bold text-stone-800 text-sm">{currentUser?.phone || '+81 80-1122-3344'}</span>
+                    <span className="font-bold text-stone-800 text-sm">{currentUser?.phone || '-'}</span>
                   </div>
                   <div className="p-4 rounded-2xl bg-stone-50 border border-stone-100 space-y-1">
                     <span className="text-stone-400 font-bold block uppercase text-[10px]">
                       {language === 'JP' ? '会員ID (ID番号)' : language === 'EN' ? 'Member ID' : 'ID Pelanggan (Member ID)'}
                     </span>
-                    <span className="font-bold text-stone-800 text-sm font-mono truncate block">{currentUser?.id || 'cust-1'}</span>
+                    <span className="font-bold text-stone-800 text-sm font-mono truncate block">{currentUser?.id || '-'}</span>
                   </div>
                   <div className="sm:col-span-2 p-4 rounded-2xl bg-stone-50 border border-stone-100 space-y-1">
                     <span className="text-stone-400 font-bold block uppercase text-[10px]">
                       {language === 'JP' ? '日本国内の主なお届け先住所' : language === 'EN' ? 'Primary Shipping Address in Japan' : 'Alamat Pengiriman Utama di Jepang'}
                     </span>
-                    <span className="font-bold text-stone-800 text-sm">{currentUser?.address || 'Tokyo-to, Edogawa-ku, Nishi-Kasai 3-1-4'}</span>
+                    <span className="font-bold text-stone-800 text-sm">{currentUser?.address || '-'}</span>
                   </div>
                 </div>
 
