@@ -315,7 +315,10 @@ export const POSKasirPage: React.FC = () => {
           border-color: #000000 !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
-          line-height: 1.15 !important;
+          font-weight: 700 !important;
+          line-height: 1.18 !important;
+          -webkit-font-smoothing: antialiased !important;
+          text-rendering: geometricPrecision !important;
         }
         #pos-thermal-receipt-print-area {
           position: fixed !important;
@@ -328,13 +331,23 @@ export const POSKasirPage: React.FC = () => {
           padding: 0.5mm 1mm !important;
           background: #ffffff !important;
           color: #000000 !important;
-          font-family: 'Courier New', Courier, monospace !important;
+          font-family: 'Segoe UI', Arial, 'Helvetica Neue', 'Courier New', monospace !important;
           font-size: ${fontSizePx} !important;
-          line-height: 1.15 !important;
+          font-weight: 700 !important;
+          line-height: 1.18 !important;
           box-shadow: none !important;
           border: none !important;
           overflow: hidden !important;
           word-break: break-word !important;
+        }
+        #pos-thermal-receipt-print-area h3,
+        #pos-thermal-receipt-print-area .font-black,
+        #pos-thermal-receipt-print-area .font-extrabold {
+          font-weight: 900 !important;
+        }
+        #pos-thermal-receipt-print-area [class*="border"] {
+          border-color: #000000 !important;
+          opacity: 1 !important;
         }
         #pos-thermal-receipt-print-area .no-print {
           display: none !important;
@@ -2980,51 +2993,51 @@ export const POSKasirPage: React.FC = () => {
               )}
             </div>
 
-            {/* RECEIPT PRINT CONTAINER (100% Monochrome Black & Less Paper Compact) */}
+            {/* RECEIPT PRINT CONTAINER (100% Monochrome Black & Less Paper Compact - High Contrast BOLD) */}
             <div
               id="pos-thermal-receipt-print-area"
-              className="bg-white p-2 border border-dashed border-black rounded-xl space-y-1 font-mono text-black text-[10px] leading-tight select-none shadow-xs max-w-full overflow-hidden"
+              className="bg-white p-2 border-2 border-dashed border-black rounded-xl space-y-1 font-mono font-bold text-black text-[10px] leading-tight select-none shadow-xs max-w-full overflow-hidden"
             >
               {/* Thermal Struk Header */}
-              <div className="text-center space-y-0 pb-1 border-b border-dashed border-black">
+              <div className="text-center space-y-0.5 pb-1 border-b-2 border-dashed border-black">
                 {printerSettings.showLogo && (
                   <div className="text-[11px] font-black tracking-wider text-black mb-0.5 font-sans">
                     せんばこ ぬさんたら にほん
                   </div>
                 )}
-                <h3 className="font-black text-[11px] text-black tracking-wider uppercase">
+                <h3 className="font-black text-[12px] text-black tracking-wider uppercase">
                   {printerSettings.storeName || txt.receiptHeaderStore}
                 </h3>
-                <p className="text-[9px] text-black leading-tight">
+                <p className="text-[9.5px] font-bold text-black leading-tight">
                   {printerSettings.storeAddress || txt.receiptStoreAddr}
                 </p>
                 {printerSettings.storePhone && (
-                  <p className="text-[8.5px] text-black">Telp: {printerSettings.storePhone}</p>
+                  <p className="text-[9px] font-bold text-black">Telp: {printerSettings.storePhone}</p>
                 )}
               </div>
 
               {/* Struk Metadata */}
-              <div className="text-[9px] space-y-0.5 text-black py-0.5 border-b border-dashed border-black">
+              <div className="text-[9.5px] font-bold space-y-0.5 text-black py-0.5 border-b-2 border-dashed border-black">
                 <div className="flex justify-between items-center">
-                  <span>No:</span>
-                  <span className="font-bold text-black truncate max-w-[16ch]">{completedTx.receiptNumber}</span>
+                  <span className="font-bold">No:</span>
+                  <span className="font-black text-black truncate max-w-[16ch]">{completedTx.receiptNumber}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span>Tgl:</span>
-                  <span className="text-black">{new Date(completedTx.date).toLocaleDateString('id-ID')}</span>
+                  <span className="font-bold">Tgl:</span>
+                  <span className="font-bold text-black">{new Date(completedTx.date).toLocaleDateString('id-ID')}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span>Kasir:</span>
-                  <span className="text-black truncate max-w-[14ch]">{completedTx.cashierName}</span>
+                  <span className="font-bold">Kasir:</span>
+                  <span className="font-bold text-black truncate max-w-[14ch]">{completedTx.cashierName}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span>Pelanggan:</span>
-                  <span className="font-bold text-black truncate max-w-[14ch]">{completedTx.customerName || 'Walk-in'}</span>
+                  <span className="font-bold">Pelanggan:</span>
+                  <span className="font-black text-black truncate max-w-[14ch]">{completedTx.customerName || 'Walk-in'}</span>
                 </div>
               </div>
 
               {/* Items List (Berdempetan persis sama & less paper, full-line name for 30mm width) */}
-              <div className="space-y-1 max-h-48 overflow-y-auto text-[9.5px] py-1 border-b border-dashed border-black">
+              <div className="space-y-1.5 max-h-48 overflow-y-auto text-[10px] font-bold py-1 border-b-2 border-dashed border-black">
                 {completedTx.items.map((item, idx) => {
                   const isIdr = completedTx.currency === 'IDR';
                   const rate = completedTx.exchangeRate || exchangeRate;
@@ -3035,15 +3048,15 @@ export const POSKasirPage: React.FC = () => {
                     ? formatIdr(convertJpyToIdr(item.subtotal, rate))
                     : `¥${item.subtotal.toLocaleString()}`;
                   return (
-                    <div key={idx} className="border-b border-dotted border-stone-200 pb-0.5 text-black">
-                      <div className="font-semibold text-black break-words leading-tight">
+                    <div key={idx} className="border-b border-dashed border-black pb-0.5 text-black">
+                      <div className="font-black text-black break-words leading-tight">
                         {item.productName}
                       </div>
-                      <div className="flex justify-between items-center text-[8.5px] text-black">
+                      <div className="flex justify-between items-center text-[9px] font-bold text-black">
                         <span>
                           {itemPriceStr} × {item.quantity}
                         </span>
-                        <span className="font-bold text-black text-right shrink-0">
+                        <span className="font-black text-black text-right shrink-0">
                           {itemSubtotalStr}
                         </span>
                       </div>
@@ -3054,43 +3067,43 @@ export const POSKasirPage: React.FC = () => {
 
               {/* Catatan / Keterangan Transaksi pada Struk */}
               {completedTx.notes && (
-                <div className="text-[8.5px] p-1 bg-white rounded border border-dashed border-black text-black">
-                  <span className="font-bold block uppercase mb-0.5">Catatan:</span>
+                <div className="text-[9px] font-bold p-1 bg-white rounded border border-dashed border-black text-black">
+                  <span className="font-black block uppercase mb-0.5">Catatan:</span>
                   <span>{completedTx.notes}</span>
                 </div>
               )}
 
               {/* Totals */}
-              <div className="space-y-0.5 text-[9.5px] text-black">
-                <div className="flex justify-between text-black text-[8.5px] pb-0.5 border-b border-dashed border-black">
+              <div className="space-y-0.5 text-[10px] font-bold text-black">
+                <div className="flex justify-between text-black text-[9px] font-bold pb-0.5 border-b border-dashed border-black">
                   <span>Jml Item:</span>
-                  <span className="font-bold text-black">
+                  <span className="font-black text-black">
                     {completedTx.items.length} Item ({completedTx.items.reduce((s, i) => s + i.quantity, 0)} pcs)
                   </span>
                 </div>
                 <div className="flex justify-between text-black">
-                  <span>Subtotal:</span>
-                  <span className="text-black">
+                  <span className="font-bold">Subtotal:</span>
+                  <span className="font-bold text-black">
                     {completedTx.currency === 'IDR'
                       ? formatIdr(convertJpyToIdr(completedTx.subtotal, completedTx.exchangeRate || exchangeRate))
                       : `¥${completedTx.subtotal.toLocaleString()}`}
                   </span>
                 </div>
                 {completedTx.discountAmount > 0 && (
-                  <div className="flex justify-between text-black font-semibold">
+                  <div className="flex justify-between text-black font-bold">
                     <span>Diskon:</span>
-                    <span>-¥{completedTx.discountAmount.toLocaleString()}</span>
+                    <span className="font-bold">-¥{completedTx.discountAmount.toLocaleString()}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-black">
-                  <span>Pajak (8%):</span>
-                  <span className="text-black">
+                  <span className="font-bold">Pajak (8%):</span>
+                  <span className="font-bold text-black">
                     {completedTx.currency === 'IDR'
                       ? formatIdr(convertJpyToIdr(completedTx.taxAmount, completedTx.exchangeRate || exchangeRate))
                       : `¥${completedTx.taxAmount.toLocaleString()}`}
                   </span>
                 </div>
-                <div className="flex justify-between font-bold text-[10.5px] text-black pt-0.5 border-t border-black">
+                <div className="flex justify-between font-black text-[11.5px] text-black pt-1 border-t-2 border-black">
                   <span>TOTAL:</span>
                   <div className="text-right">
                     <span>
@@ -3100,19 +3113,19 @@ export const POSKasirPage: React.FC = () => {
                     </span>
                   </div>
                 </div>
-                <div className="flex justify-between text-black pt-0.5 border-t border-dashed border-black">
+                <div className="flex justify-between text-black pt-0.5 border-t border-dashed border-black font-bold">
                   <span>
                     Bayar ({completedTx.paymentMethod} {completedTx.currency === 'IDR' ? 'Rp' : '¥'}):
                   </span>
-                  <span className="text-black">
+                  <span className="font-black text-black">
                     {completedTx.currency === 'IDR'
                       ? formatIdr(completedTx.amountPaidOriginal || completedTx.amountPaid)
                       : formatJpy(completedTx.amountPaid)}
                   </span>
                 </div>
-                <div className="flex justify-between text-black">
+                <div className="flex justify-between text-black font-bold">
                   <span>Kembali:</span>
-                  <span className="font-bold text-black">
+                  <span className="font-black text-black">
                     {completedTx.currency === 'IDR'
                       ? formatIdr(completedTx.changeAmountOriginal || completedTx.changeAmount)
                       : formatJpy(completedTx.changeAmount)}
@@ -3121,12 +3134,12 @@ export const POSKasirPage: React.FC = () => {
               </div>
 
               {/* Footer Note & Store Policy */}
-              <div className="text-center pt-1 border-t border-dashed border-black space-y-0.5 text-black">
-                <p className="text-[9.5px] text-black font-bold leading-tight">
+              <div className="text-center pt-1 border-t-2 border-dashed border-black space-y-0.5 text-black font-bold">
+                <p className="text-[10px] text-black font-black leading-tight">
                   {printerSettings.footerNote || txt.receiptThanks}
                 </p>
                 {printerSettings.storePolicyNote && (
-                  <p className="text-[8px] text-black leading-tight">
+                  <p className="text-[8.5px] text-black font-bold leading-tight">
                     {printerSettings.storePolicyNote}
                   </p>
                 )}

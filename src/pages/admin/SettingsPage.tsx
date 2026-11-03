@@ -815,7 +815,10 @@ export const SettingsPage: React.FC = () => {
           border-color: #000000 !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
-          line-height: 1.15 !important;
+          font-weight: 700 !important;
+          line-height: 1.18 !important;
+          -webkit-font-smoothing: antialiased !important;
+          text-rendering: geometricPrecision !important;
         }
         #thermal-receipt-preview-area {
           position: fixed !important;
@@ -828,13 +831,23 @@ export const SettingsPage: React.FC = () => {
           padding: 0.5mm 1mm !important;
           background: #ffffff !important;
           color: #000000 !important;
-          font-family: 'Courier New', Courier, monospace !important;
+          font-family: 'Segoe UI', Arial, 'Helvetica Neue', 'Courier New', monospace !important;
           font-size: ${fontSizePx} !important;
-          line-height: 1.15 !important;
+          font-weight: 700 !important;
+          line-height: 1.18 !important;
           box-shadow: none !important;
           border: none !important;
           overflow: hidden !important;
           word-break: break-word !important;
+        }
+        #thermal-receipt-preview-area h3,
+        #thermal-receipt-preview-area .font-black,
+        #thermal-receipt-preview-area .font-extrabold {
+          font-weight: 900 !important;
+        }
+        #thermal-receipt-preview-area [class*="border"] {
+          border-color: #000000 !important;
+          opacity: 1 !important;
         }
       }
     `;
@@ -1827,98 +1840,98 @@ export const SettingsPage: React.FC = () => {
                     Berikut adalah simulasi visual nota kasir yang akan keluar dari printer thermal <strong>{printerSettings.paperWidth}x{printerSettings.rollDiameter} mm</strong>:
                   </p>
 
-                  {/* Printable Thermal Receipt Box (Monochrome Black & Less Paper Compact) */}
+                  {/* Printable Thermal Receipt Box (Monochrome Black & Less Paper Compact - High Contrast BOLD) */}
                   <div className="flex justify-center p-3 bg-stone-100 rounded-2xl overflow-hidden">
                     <div
                       id="thermal-receipt-preview-area"
                       style={{
                         width: `${Math.min(320, printerSettings.paperWidth * 4.5)}px`
                       }}
-                      className="bg-white p-2.5 shadow-md rounded-md text-black font-mono text-[11px] leading-tight space-y-1.5 border-t-4 border-black transition-all select-none"
+                      className="bg-white p-2.5 shadow-md rounded-md text-black font-mono font-bold text-[11px] leading-tight space-y-1.5 border-t-4 border-black transition-all select-none"
                     >
                       {/* Header */}
-                      <div className="text-center space-y-0 pb-1 border-b border-dashed border-black">
+                      <div className="text-center space-y-0.5 pb-1 border-b-2 border-dashed border-black">
                         {printerSettings.showLogo && (
                           <div className="text-xs font-black tracking-wider text-black mb-0.5 font-sans">
                             せんばこ ぬさんたら にほん
                           </div>
                         )}
-                        <div className="font-bold text-xs uppercase text-black">{printerSettings.storeName}</div>
-                        <div className="text-[9.5px] text-black leading-tight">{printerSettings.storeAddress}</div>
-                        <div className="text-[9px] text-black">Telp: {printerSettings.storePhone}</div>
+                        <div className="font-black text-xs uppercase text-black">{printerSettings.storeName}</div>
+                        <div className="text-[10px] font-bold text-black leading-tight">{printerSettings.storeAddress}</div>
+                        <div className="text-[9.5px] font-bold text-black">Telp: {printerSettings.storePhone}</div>
                       </div>
 
                       {/* Metadata */}
-                      <div className="text-[10px] space-y-0 py-0.5 border-b border-dashed border-black text-black">
+                      <div className="text-[10px] font-bold space-y-0.5 py-0.5 border-b-2 border-dashed border-black text-black">
                         <div className="flex justify-between">
-                          <span>No: SN-POS-88910</span>
-                          <span>{new Date().toLocaleDateString('id-ID')}</span>
+                          <span className="font-bold">No: SN-POS-88910</span>
+                          <span className="font-bold">{new Date().toLocaleDateString('id-ID')}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Kasir: Siti Rahmawati</span>
-                          <span>Shift: Pagi</span>
+                          <span className="font-bold">Kasir: Siti Rahmawati</span>
+                          <span className="font-bold">Shift: Pagi</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Pelanggan: Walk-in (Umum)</span>
-                          <span>14:30 JST</span>
+                          <span className="font-bold">Pelanggan: Walk-in (Umum)</span>
+                          <span className="font-bold">14:30 JST</span>
                         </div>
                       </div>
 
                       {/* Items (Berdempetan persis sama) */}
-                      <div className="py-1 space-y-1 border-b border-dashed border-black text-[10px] text-black">
-                        <div className="flex justify-between items-start">
+                      <div className="py-1 space-y-1 border-b-2 border-dashed border-black text-[10px] text-black">
+                        <div className="flex justify-between items-start border-b border-dashed border-black pb-0.5">
                           <div className="leading-tight">
-                            <div className="font-bold text-black">Indomie Goreng (DUS)</div>
-                            <div className="text-[9px] text-black">¥4,500 × 1</div>
+                            <div className="font-black text-black">Indomie Goreng (DUS)</div>
+                            <div className="text-[9.5px] font-bold text-black">¥4,500 × 1</div>
                           </div>
-                          <div className="font-bold text-black">¥4,500</div>
+                          <div className="font-black text-black">¥4,500</div>
+                        </div>
+
+                        <div className="flex justify-between items-start border-b border-dashed border-black pb-0.5">
+                          <div className="leading-tight">
+                            <div className="font-black text-black">Kecap Bango 550ml</div>
+                            <div className="text-[9.5px] font-bold text-black">¥450 × 2</div>
+                          </div>
+                          <div className="font-black text-black">¥900</div>
                         </div>
 
                         <div className="flex justify-between items-start">
                           <div className="leading-tight">
-                            <div className="font-bold text-black">Kecap Bango 550ml</div>
-                            <div className="text-[9px] text-black">¥450 × 2</div>
+                            <div className="font-black text-black">Teh Botol Kotak 250ml</div>
+                            <div className="text-[9.5px] font-bold text-black">¥120 × 3</div>
                           </div>
-                          <div className="font-bold text-black">¥900</div>
-                        </div>
-
-                        <div className="flex justify-between items-start">
-                          <div className="leading-tight">
-                            <div className="font-bold text-black">Teh Botol Kotak 250ml</div>
-                            <div className="text-[9px] text-black">¥120 × 3</div>
-                          </div>
-                          <div className="font-bold text-black">¥360</div>
+                          <div className="font-black text-black">¥360</div>
                         </div>
                       </div>
 
                       {/* Totals */}
-                      <div className="text-[10px] space-y-0.5 py-0.5 border-b border-dashed border-black text-black">
+                      <div className="text-[10px] font-bold space-y-0.5 py-0.5 border-b-2 border-dashed border-black text-black">
                         <div className="flex justify-between">
-                          <span>Subtotal:</span>
-                          <span>¥5,760</span>
+                          <span className="font-bold">Subtotal:</span>
+                          <span className="font-bold">¥5,760</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Pajak Konsumsi (8%):</span>
-                          <span>¥460</span>
+                          <span className="font-bold">Pajak Konsumsi (8%):</span>
+                          <span className="font-bold">¥460</span>
                         </div>
-                        <div className="flex justify-between font-bold text-xs pt-0.5 border-t border-black">
+                        <div className="flex justify-between font-black text-xs pt-0.5 border-t-2 border-black">
                           <span>TOTAL BAYAR:</span>
                           <span>¥6,220</span>
                         </div>
-                        <div className="flex justify-between pt-0.5">
+                        <div className="flex justify-between pt-0.5 font-bold">
                           <span>Metode Bayar (Tunai JPY):</span>
-                          <span>¥10,000</span>
+                          <span className="font-black">¥10,000</span>
                         </div>
-                        <div className="flex justify-between font-bold">
+                        <div className="flex justify-between font-black">
                           <span>KEMBALIAN:</span>
                           <span>¥3,780</span>
                         </div>
                       </div>
 
                       {/* Footer Notes */}
-                      <div className="text-center text-[9px] text-black pt-1 space-y-0.5">
-                        <div className="font-bold">{printerSettings.footerNote}</div>
-                        <div className="text-[8px] text-black leading-tight">
+                      <div className="text-center text-[9.5px] text-black pt-1 space-y-0.5 font-bold">
+                        <div className="font-black">{printerSettings.footerNote}</div>
+                        <div className="text-[8.5px] font-bold text-black leading-tight">
                           {printerSettings.storePolicyNote}
                         </div>
                       </div>

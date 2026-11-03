@@ -113,14 +113,14 @@ export async function generateReceiptPdf(
   currentY += 28;
 
   // Store Main Name
-  ctx.fillStyle = '#1c1917';
+  ctx.fillStyle = '#000000';
   ctx.font = `bold 20px ${primaryFont}`;
   ctx.fillText('SEMBAKO NUSANTARA JEPANG', baseWidth / 2, currentY);
   currentY += 22;
 
   // Subtitle / Store Tagline
   ctx.font = `bold 12px ${primaryFont}`;
-  ctx.fillStyle = '#78716c';
+  ctx.fillStyle = '#000000';
   if (isJp) {
     ctx.fillText('センバコ・ヌサンタラ日本 (東京本店 / 蒲田)', baseWidth / 2, currentY);
   } else {
@@ -129,16 +129,16 @@ export async function generateReceiptPdf(
   currentY += 18;
 
   // Store Address & Phone
-  ctx.font = `10px ${primaryFont}`;
-  ctx.fillStyle = '#57534e';
+  ctx.font = `bold 10.5px ${primaryFont}`;
+  ctx.fillStyle = '#000000';
   ctx.fillText('〒144-0051 東京都大田区西蒲田5丁目9-16 (Tokyo, Ota-ku)', baseWidth / 2, currentY);
   currentY += 15;
   ctx.fillText('TEL: 03-5678-9012  •  WhatsApp: 0895-3293-32135', baseWidth / 2, currentY);
   currentY += 15;
 
   if (isJp) {
-    ctx.font = `bold 10px ${monoFont}`;
-    ctx.fillStyle = '#44403c';
+    ctx.font = `bold 10.5px ${monoFont}`;
+    ctx.fillStyle = '#000000';
     ctx.fillText('インボイス登録番号: T1234567890123 (適格簡易請求書)', baseWidth / 2, currentY);
     currentY += 20;
   } else {
@@ -159,8 +159,8 @@ export async function generateReceiptPdf(
 
   // 3. RECEIPT METADATA (Receipt No, Date, Cashier, Customer)
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#44403c';
-  ctx.font = `11px ${primaryFont}`;
+  ctx.fillStyle = '#000000';
+  ctx.font = `bold 11px ${primaryFont}`;
 
   const dateStr = isJp
     ? `${year}年${month}月${day}日 ${txDate.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} (JST)`
@@ -181,7 +181,7 @@ export async function generateReceiptPdf(
 
   // Row 3: Customer Name
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#1c1917';
+  ctx.fillStyle = '#000000';
   ctx.font = `bold 11px ${primaryFont}`;
   const custName = tx.customerName || (isJp ? '店頭来店客 (非会員)' : 'Walk-in Customer');
   ctx.fillText(isJp ? `お客様名: ${custName} 様` : `Pelanggan: ${custName}`, 20, currentY);
@@ -191,8 +191,8 @@ export async function generateReceiptPdf(
   currentY += 14;
 
   // 4. ITEMS TABLE HEADER
-  ctx.fillStyle = '#78716c';
-  ctx.font = `bold 10px ${primaryFont}`;
+  ctx.fillStyle = '#000000';
+  ctx.font = `bold 11px ${primaryFont}`;
   ctx.textAlign = 'left';
   ctx.fillText(isJp ? '品名 / 仕様' : 'Nama Produk / Item', 20, currentY);
   ctx.textAlign = 'center';
@@ -211,7 +211,7 @@ export async function generateReceiptPdf(
 
   tx.items.forEach((item, index) => {
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#1c1917';
+    ctx.fillStyle = '#000000';
     ctx.font = `bold 11px ${primaryFont}`;
     
     // Truncate product name if too long
@@ -223,8 +223,8 @@ export async function generateReceiptPdf(
 
     // Qty
     ctx.textAlign = 'center';
-    ctx.font = `11px ${monoFont}`;
-    ctx.fillStyle = '#44403c';
+    ctx.font = `bold 11px ${monoFont}`;
+    ctx.fillStyle = '#000000';
     ctx.fillText(`${item.quantity}`, 330, currentY);
 
     // Price & Subtotal
@@ -234,12 +234,12 @@ export async function generateReceiptPdf(
       const itemSubtotalIdr = Math.round(item.subtotal * exchangeRate);
       ctx.fillText(`Rp ${itemPriceIdr.toLocaleString()}`, 420, currentY);
       ctx.font = `bold 11px ${monoFont}`;
-      ctx.fillStyle = '#1c1917';
+      ctx.fillStyle = '#000000';
       ctx.fillText(`Rp ${itemSubtotalIdr.toLocaleString()}`, baseWidth - 20, currentY);
     } else {
       ctx.fillText(`¥${item.price.toLocaleString()}`, 420, currentY);
       ctx.font = `bold 11px ${monoFont}`;
-      ctx.fillStyle = '#1c1917';
+      ctx.fillStyle = '#000000';
       ctx.fillText(`¥${item.subtotal.toLocaleString()}`, baseWidth - 20, currentY);
     }
 
@@ -255,8 +255,8 @@ export async function generateReceiptPdf(
 
   // Item count summary row
   ctx.textAlign = 'left';
-  ctx.font = `10px ${primaryFont}`;
-  ctx.fillStyle = '#57534e';
+  ctx.font = `bold 10.5px ${primaryFont}`;
+  ctx.fillStyle = '#000000';
   ctx.fillText(
     isJp
       ? `お買上点数: ${tx.items.length} 品目 (${totalPhysicalQty} 個)`
@@ -267,11 +267,11 @@ export async function generateReceiptPdf(
   currentY += 16;
 
   // Subtotal
-  ctx.font = `11px ${primaryFont}`;
-  ctx.fillStyle = '#44403c';
+  ctx.font = `bold 11px ${primaryFont}`;
+  ctx.fillStyle = '#000000';
   ctx.fillText(isJp ? '小計 (税抜)' : 'Subtotal Item', 20, currentY);
   ctx.textAlign = 'right';
-  ctx.font = `11px ${monoFont}`;
+  ctx.font = `bold 11px ${monoFont}`;
   if (isIdrTx) {
     const subIdr = Math.round(tx.subtotal * exchangeRate);
     ctx.fillText(`Rp ${subIdr.toLocaleString()}`, baseWidth - 20, currentY);
@@ -283,8 +283,8 @@ export async function generateReceiptPdf(
   // Discount (if any)
   if (tx.discountAmount > 0) {
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#047857';
-    ctx.font = `11px ${primaryFont}`;
+    ctx.fillStyle = '#000000';
+    ctx.font = `bold 11px ${primaryFont}`;
     ctx.fillText(isJp ? '特別割引 / 値引' : 'Potongan Diskon Kasir', 20, currentY);
     ctx.textAlign = 'right';
     ctx.font = `bold 11px ${monoFont}`;
@@ -299,11 +299,11 @@ export async function generateReceiptPdf(
 
   // Tax (8% JCT / Consumption Tax)
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#57534e';
-  ctx.font = `11px ${primaryFont}`;
+  ctx.fillStyle = '#000000';
+  ctx.font = `bold 11px ${primaryFont}`;
   ctx.fillText(isJp ? '内消費税等 (8% 軽減税率対象)' : 'Pajak Konsumsi (8% Makanan / Sembako)', 20, currentY);
   ctx.textAlign = 'right';
-  ctx.font = `11px ${monoFont}`;
+  ctx.font = `bold 11px ${monoFont}`;
   if (isIdrTx) {
     const taxIdr = Math.round(tx.taxAmount * exchangeRate);
     ctx.fillText(`Rp ${taxIdr.toLocaleString()}`, baseWidth - 20, currentY);
@@ -355,11 +355,11 @@ export async function generateReceiptPdf(
   const payLabel = isJp ? (payMethodMapJp[tx.paymentMethod] || tx.paymentMethod) : (payMethodMapId[tx.paymentMethod] || tx.paymentMethod);
 
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#44403c';
-  ctx.font = `11px ${primaryFont}`;
+  ctx.fillStyle = '#000000';
+  ctx.font = `bold 11px ${primaryFont}`;
   ctx.fillText(isJp ? `支払方法 (${payLabel})` : `Bayar (${payLabel})`, 20, currentY);
   ctx.textAlign = 'right';
-  ctx.font = `11px ${monoFont}`;
+  ctx.font = `bold 11px ${monoFont}`;
   if (isIdrTx) {
     const paidIdr = tx.amountPaidOriginal || Math.round(tx.amountPaid * exchangeRate);
     ctx.fillText(`Rp ${paidIdr.toLocaleString()}`, baseWidth - 20, currentY);
@@ -371,7 +371,7 @@ export async function generateReceiptPdf(
   // Change amount
   ctx.textAlign = 'left';
   ctx.font = `bold 11px ${primaryFont}`;
-  ctx.fillStyle = '#1c1917';
+  ctx.fillStyle = '#000000';
   ctx.fillText(isJp ? 'お釣り' : 'Kembalian', 20, currentY);
   ctx.textAlign = 'right';
   ctx.font = `bold 12px ${monoFont}`;
@@ -389,11 +389,11 @@ export async function generateReceiptPdf(
     currentY += 14;
     ctx.textAlign = 'left';
     ctx.font = `bold 10px ${primaryFont}`;
-    ctx.fillStyle = '#57534e';
+    ctx.fillStyle = '#000000';
     ctx.fillText(isJp ? '【 備考 / メモ 】' : '【 CATATAN TRANSAKSI 】', 20, currentY);
     currentY += 14;
-    ctx.font = `10px ${primaryFont}`;
-    ctx.fillStyle = '#292524';
+    ctx.font = `bold 10px ${primaryFont}`;
+    ctx.fillStyle = '#000000';
     ctx.fillText(tx.notes, 20, currentY);
     currentY += 16;
   }
@@ -403,7 +403,7 @@ export async function generateReceiptPdf(
 
   // 8. BARCODE VISUAL REVEAL
   ctx.save();
-  ctx.fillStyle = '#1c1917';
+  ctx.fillStyle = '#000000';
   const barStartY = currentY;
   const barHeight = 28;
   const barTotalWidth = baseWidth - 80;
@@ -424,19 +424,19 @@ export async function generateReceiptPdf(
 
   // Barcode text
   ctx.textAlign = 'center';
-  ctx.font = `10px ${monoFont}`;
-  ctx.fillStyle = '#78716c';
+  ctx.font = `bold 10px ${monoFont}`;
+  ctx.fillStyle = '#000000';
   ctx.fillText(`* ${tx.receiptNumber || tx.id} *`, baseWidth / 2, currentY);
   currentY += 18;
 
   // 9. FOOTER & STORE POLICIES
   ctx.font = `bold 11px ${primaryFont}`;
-  ctx.fillStyle = '#1c1917';
+  ctx.fillStyle = '#000000';
   if (isJp) {
     ctx.fillText('毎度ご来店いただき誠にありがとうございます。', baseWidth / 2, currentY);
     currentY += 16;
-    ctx.font = `9.5px ${primaryFont}`;
-    ctx.fillStyle = '#78716c';
+    ctx.font = `bold 9.5px ${primaryFont}`;
+    ctx.fillStyle = '#000000';
     ctx.fillText('※食品衛生上、お買い上げ商品の返品・交換はご容赦願います。', baseWidth / 2, currentY);
     currentY += 14;
     ctx.fillText('※本領収書は適格請求書（簡易インボイス）として大切に保管してください。', baseWidth / 2, currentY);
@@ -445,8 +445,8 @@ export async function generateReceiptPdf(
   } else {
     ctx.fillText('Terima kasih banyak telah berbelanja di Sembako Nusantara! 🙏', baseWidth / 2, currentY);
     currentY += 16;
-    ctx.font = `9.5px ${primaryFont}`;
-    ctx.fillStyle = '#78716c';
+    ctx.font = `bold 9.5px ${primaryFont}`;
+    ctx.fillStyle = '#000000';
     ctx.fillText('Barang yang sudah dibeli tidak dapat ditukar atau dikembalikan.', baseWidth / 2, currentY);
     currentY += 14;
     ctx.fillText('Simpan struk nota ini sebagai bukti pembayaran transaksi kasir yang sah.', baseWidth / 2, currentY);
