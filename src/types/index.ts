@@ -448,6 +448,7 @@ export interface ThermalPrinterSettings {
   openCashDrawer: boolean;
   showLogo: boolean;
   storeName: string;
+  storeNameJp?: string;
   storeAddress: string;
   storePhone: string;
   footerNote: string;

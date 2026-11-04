@@ -274,20 +274,117 @@ export const POSKasirPage: React.FC = () => {
     }
   }, [completedTx, customers]);
 
-  // Fungsi Cetak Nota Thermal POS (menggunakan CSS @page dengan lebar kertas dinamis)
-  const handlePrintReceipt = () => {
+  // Fungsi Cetak Nota Thermal POS (menggunakan hidden iframe terisolasi agar langsung printout tanpa redirect/href)
+  const handlePrintReceipt = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const currentSettings = getCleanPrinterSettings(localStorage.getItem('sn_pos_printer_settings'));
     setPrinterSettings(currentSettings);
 
+    const receiptEl = document.getElementById('pos-thermal-receipt-print-area');
     const printWidth = currentSettings.paperWidth || 58;
-    // Pada printer thermal 58mm, lebar print head fisik adalah 48mm (384 dots).
-    // Menyetel printable width ke 48mm memastikan sisi kanan nota tidak terpotong!
     const printableWidth = printWidth === 58 ? 48 : printWidth <= 50 ? printWidth - 4 : printWidth - 8;
-    const existingStyle = document.getElementById('pos-thermal-print-override');
-    if (existingStyle) existingStyle.remove();
-
     const fontSizePx =
       currentSettings.fontSize === 'small' ? '9px' : currentSettings.fontSize === 'large' ? '12px' : '10px';
+
+    if (receiptEl) {
+      // Buat atau gunakan hidden iframe agar browser tidak melakukan redirect/href atau membuka tab baru
+      let printFrame = document.getElementById('pos-thermal-hidden-frame') as HTMLIFrameElement | null;
+      if (printFrame) {
+        printFrame.remove();
+      }
+
+      printFrame = document.createElement('iframe');
+      printFrame.id = 'pos-thermal-hidden-frame';
+      printFrame.style.position = 'fixed';
+      printFrame.style.right = '0';
+      printFrame.style.bottom = '0';
+      printFrame.style.width = '0px';
+      printFrame.style.height = '0px';
+      printFrame.style.border = 'none';
+      printFrame.style.visibility = 'hidden';
+      document.body.appendChild(printFrame);
+
+      const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+      if (frameDoc) {
+        frameDoc.open();
+        frameDoc.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>POS Receipt</title>
+              <style>
+                @page {
+                  size: ${printWidth}mm auto;
+                  margin: 0mm;
+                }
+                * {
+                  box-sizing: border-box;
+                  margin: 0;
+                  padding: 0;
+                  color: #000000 !important;
+                  -webkit-text-fill-color: #000000 !important;
+                  border-color: #000000 !important;
+                  font-weight: 700 !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                  line-height: 1.18 !important;
+                  font-family: 'Segoe UI', Arial, 'Helvetica Neue', 'Courier New', monospace !important;
+                }
+                html, body {
+                  width: ${printableWidth}mm !important;
+                  max-width: ${printableWidth}mm !important;
+                  margin: 0 !important;
+                  padding: 0.5mm 1mm !important;
+                  background: #ffffff !important;
+                  font-size: ${fontSizePx} !important;
+                  font-weight: 700 !important;
+                  word-break: break-word !important;
+                  overflow: hidden !important;
+                }
+                .text-center { text-align: center; }
+                .text-right { text-align: right; }
+                .flex { display: flex; }
+                .justify-between { justify-content: space-between; }
+                .items-center { align-items: center; }
+                .items-start { align-items: flex-start; }
+                .uppercase { text-transform: uppercase; }
+                .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .font-black, h3, .total-bold { font-weight: 900 !important; }
+                .border-b { border-bottom: 1px dashed #000000; }
+                .border-b-2 { border-bottom: 2px dashed #000000; }
+                .border-t { border-top: 1px dashed #000000; }
+                .border-t-2 { border-top: 2px solid #000000; }
+                .border-dashed { border-style: dashed; }
+                .no-print { display: none !important; }
+              </style>
+            </head>
+            <body>
+              <div style="width: ${printableWidth}mm;">
+                ${receiptEl.innerHTML}
+              </div>
+            </body>
+          </html>
+        `);
+        frameDoc.close();
+
+        setTimeout(() => {
+          try {
+            printFrame?.contentWindow?.focus();
+            printFrame?.contentWindow?.print();
+          } catch {
+            window.print();
+          }
+        }, 120);
+        return;
+      }
+    }
+
+    // Fallback standard print override jika iframe diblokir
+    const existingStyle = document.getElementById('pos-thermal-print-override');
+    if (existingStyle) existingStyle.remove();
 
     const styleEl = document.createElement('style');
     styleEl.id = 'pos-thermal-print-override';
@@ -2994,157 +3091,223 @@ export const POSKasirPage: React.FC = () => {
             </div>
 
             {/* RECEIPT PRINT CONTAINER (100% Monochrome Black & Less Paper Compact - High Contrast BOLD) */}
-            <div
-              id="pos-thermal-receipt-print-area"
-              className="bg-white p-2 border-2 border-dashed border-black rounded-xl space-y-1 font-mono font-bold text-black text-[10px] leading-tight select-none shadow-xs max-w-full overflow-hidden"
-            >
-              {/* Thermal Struk Header */}
-              <div className="text-center space-y-0.5 pb-1 border-b-2 border-dashed border-black">
-                {printerSettings.showLogo && (
-                  <div className="text-[11px] font-black tracking-wider text-black mb-0.5 font-sans">
-                    せんばこ ぬさんたら にほん
-                  </div>
-                )}
-                <h3 className="font-black text-[12px] text-black tracking-wider uppercase">
-                  {printerSettings.storeName || txt.receiptHeaderStore}
-                </h3>
-                <p className="text-[9.5px] font-bold text-black leading-tight">
-                  {printerSettings.storeAddress || txt.receiptStoreAddr}
-                </p>
-                {printerSettings.storePhone && (
-                  <p className="text-[9px] font-bold text-black">Telp: {printerSettings.storePhone}</p>
-                )}
-              </div>
-
-              {/* Struk Metadata */}
-              <div className="text-[9.5px] font-bold space-y-0.5 text-black py-0.5 border-b-2 border-dashed border-black">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold">No:</span>
-                  <span className="font-black text-black truncate max-w-[16ch]">{completedTx.receiptNumber}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-bold">Tgl:</span>
-                  <span className="font-bold text-black">{new Date(completedTx.date).toLocaleDateString('id-ID')}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-bold">Kasir:</span>
-                  <span className="font-bold text-black truncate max-w-[14ch]">{completedTx.cashierName}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-bold">Pelanggan:</span>
-                  <span className="font-black text-black truncate max-w-[14ch]">{completedTx.customerName || 'Walk-in'}</span>
-                </div>
-              </div>
-
-              {/* Items List (Berdempetan persis sama & less paper, full-line name for 30mm width) */}
-              <div className="space-y-1.5 max-h-48 overflow-y-auto text-[10px] font-bold py-1 border-b-2 border-dashed border-black">
-                {completedTx.items.map((item, idx) => {
-                  const isIdr = completedTx.currency === 'IDR';
-                  const rate = completedTx.exchangeRate || exchangeRate;
-                  const itemPriceStr = isIdr
-                    ? formatIdr(convertJpyToIdr(item.price, rate))
-                    : `¥${item.price.toLocaleString()}`;
-                  const itemSubtotalStr = isIdr
-                    ? formatIdr(convertJpyToIdr(item.subtotal, rate))
-                    : `¥${item.subtotal.toLocaleString()}`;
-                  return (
-                    <div key={idx} className="border-b border-dashed border-black pb-0.5 text-black">
-                      <div className="font-black text-black break-words leading-tight">
-                        {item.productName}
+            {(() => {
+              const isJpReceipt = completedTx.currency !== 'IDR';
+              return (
+                <div
+                  id="pos-thermal-receipt-print-area"
+                  className="bg-white p-2 border-2 border-dashed border-black rounded-xl space-y-1 font-mono font-bold text-black text-[10px] leading-tight select-none shadow-xs max-w-full overflow-hidden"
+                >
+                  {/* Thermal Struk Header */}
+                  <div className="text-center space-y-0.5 pb-1 border-b-2 border-dashed border-black">
+                    {printerSettings.showLogo && (
+                      <div className="text-[11px] font-black tracking-wider text-black mb-0.5 font-sans">
+                        {isJpReceipt ? 'せんばこ ぬさんたら にほん' : 'SEMBAKO NUSANTARA JEPANG'}
                       </div>
-                      <div className="flex justify-between items-center text-[9px] font-bold text-black">
+                    )}
+                    <h3 className="font-black text-[12px] text-black tracking-wider uppercase">
+                      {isJpReceipt
+                        ? (printerSettings.storeNameJp || 'センバコ・ヌサンタラ日本 (東京本店)')
+                        : (printerSettings.storeName || txt.receiptHeaderStore)}
+                    </h3>
+                    <p className="text-[9.5px] font-bold text-black leading-tight">
+                      {isJpReceipt
+                        ? '〒144-0051 東京都大田区西蒲田5丁目9-16 (東京蒲田店)'
+                        : (printerSettings.storeAddress || txt.receiptStoreAddr)}
+                    </p>
+                    <p className="text-[9px] font-bold text-black">
+                      TEL: {printerSettings.storePhone || '03-5678-9012'}
+                    </p>
+                    {isJpReceipt && (
+                      <p className="text-[8.5px] font-bold text-black">
+                        登録番号: T1234567890123 (適格簡易請求書)
+                      </p>
+                    )}
+                    <div className="text-[11px] font-black text-black pt-0.5 tracking-wider">
+                      {isJpReceipt ? '【 領  収  証 】' : 'STRUK BUKTI PEMBAYARAN'}
+                    </div>
+                  </div>
+
+                  {/* Struk Metadata */}
+                  <div className="text-[9.5px] font-bold space-y-0.5 text-black py-0.5 border-b-2 border-dashed border-black">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold">{isJpReceipt ? '伝票番号:' : 'No:'}</span>
+                      <span className="font-black text-black truncate max-w-[16ch]">{completedTx.receiptNumber}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold">{isJpReceipt ? '日時:' : 'Tgl:'}</span>
+                      <span className="font-bold text-black">
+                        {isJpReceipt
+                          ? `${new Date(completedTx.date).toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' })} ${new Date(completedTx.date).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} (JST)`
+                          : `${new Date(completedTx.date).toLocaleDateString('id-ID')} ${new Date(completedTx.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold">{isJpReceipt ? 'レジ担当:' : 'Kasir:'}</span>
+                      <span className="font-bold text-black truncate max-w-[14ch]">{completedTx.cashierName}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold">{isJpReceipt ? 'お客様名:' : 'Pelanggan:'}</span>
+                      <span className="font-black text-black truncate max-w-[14ch]">
+                        {isJpReceipt
+                          ? (completedTx.customerName ? `${completedTx.customerName} 様` : '店頭来店客 様')
+                          : (completedTx.customerName || 'Walk-in')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Items List (Berdempetan persis sama & less paper, full-line name for 30mm width) */}
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto text-[10px] font-bold py-1 border-b-2 border-dashed border-black">
+                    {completedTx.items.map((item, idx) => {
+                      const isIdr = completedTx.currency === 'IDR';
+                      const rate = completedTx.exchangeRate || exchangeRate;
+                      const itemPriceStr = isIdr
+                        ? formatIdr(convertJpyToIdr(item.price, rate))
+                        : `¥${item.price.toLocaleString()}`;
+                      const itemSubtotalStr = isIdr
+                        ? formatIdr(convertJpyToIdr(item.subtotal, rate))
+                        : `¥${item.subtotal.toLocaleString()}`;
+
+                      // Jika nota Jepang, prioritaskan nama Jepang dari master produk
+                      const prod = products.find(p => p.id === item.productId || (p as any).sku === item.productId);
+                      const displayName = isJpReceipt && prod?.nameJp ? prod.nameJp : item.productName;
+
+                      return (
+                        <div key={idx} className="border-b border-dashed border-black pb-0.5 text-black">
+                          <div className="font-black text-black break-words leading-tight">
+                            {displayName}
+                          </div>
+                          <div className="flex justify-between items-center text-[9px] font-bold text-black">
+                            <span>
+                              {itemPriceStr} × {item.quantity}{isJpReceipt ? '点' : ''}
+                            </span>
+                            <span className="font-black text-black text-right shrink-0">
+                              {itemSubtotalStr}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Catatan / Keterangan Transaksi pada Struk */}
+                  {completedTx.notes && (
+                    <div className="text-[9px] font-bold p-1 bg-white rounded border border-dashed border-black text-black">
+                      <span className="font-black block uppercase mb-0.5">
+                        {isJpReceipt ? '備考 / メモ:' : 'Catatan:'}
+                      </span>
+                      <span>{completedTx.notes}</span>
+                    </div>
+                  )}
+
+                  {/* Totals */}
+                  <div className="space-y-0.5 text-[10px] font-bold text-black">
+                    <div className="flex justify-between text-black text-[9px] font-bold pb-0.5 border-b border-dashed border-black">
+                      <span>{isJpReceipt ? 'お買上点数:' : 'Jml Item:'}</span>
+                      <span className="font-black text-black">
+                        {isJpReceipt
+                          ? `${completedTx.items.length} 品目 (${completedTx.items.reduce((s, i) => s + i.quantity, 0)} 点)`
+                          : `${completedTx.items.length} Item (${completedTx.items.reduce((s, i) => s + i.quantity, 0)} pcs)`}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-black">
+                      <span className="font-bold">{isJpReceipt ? '小計 (税抜):' : 'Subtotal:'}</span>
+                      <span className="font-bold text-black">
+                        {completedTx.currency === 'IDR'
+                          ? formatIdr(convertJpyToIdr(completedTx.subtotal, completedTx.exchangeRate || exchangeRate))
+                          : `¥${completedTx.subtotal.toLocaleString()}`}
+                      </span>
+                    </div>
+                    {completedTx.discountAmount > 0 && (
+                      <div className="flex justify-between text-black font-bold">
+                        <span>{isJpReceipt ? '特別値引:' : 'Diskon:'}</span>
+                        <span className="font-bold">-¥{completedTx.discountAmount.toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-black">
+                      <span className="font-bold">
+                        {isJpReceipt ? '内消費税等 (8% 軽減税率):' : 'Pajak Konsumsi (8%):'}
+                      </span>
+                      <span className="font-bold text-black">
+                        {completedTx.currency === 'IDR'
+                          ? formatIdr(convertJpyToIdr(completedTx.taxAmount, completedTx.exchangeRate || exchangeRate))
+                          : `¥${completedTx.taxAmount.toLocaleString()}`}
+                      </span>
+                    </div>
+                    <div className="flex justify-between font-black text-[11.5px] text-black pt-1 border-t-2 border-black">
+                      <span>{isJpReceipt ? '合計金額 (税込):' : 'TOTAL:'}</span>
+                      <div className="text-right">
                         <span>
-                          {itemPriceStr} × {item.quantity}
-                        </span>
-                        <span className="font-black text-black text-right shrink-0">
-                          {itemSubtotalStr}
+                          {completedTx.currency === 'IDR'
+                            ? formatIdr(completedTx.amountPaidOriginal || convertJpyToIdr(completedTx.totalAmount, completedTx.exchangeRate))
+                            : formatJpy(completedTx.totalAmount)}
                         </span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-
-              {/* Catatan / Keterangan Transaksi pada Struk */}
-              {completedTx.notes && (
-                <div className="text-[9px] font-bold p-1 bg-white rounded border border-dashed border-black text-black">
-                  <span className="font-black block uppercase mb-0.5">Catatan:</span>
-                  <span>{completedTx.notes}</span>
-                </div>
-              )}
-
-              {/* Totals */}
-              <div className="space-y-0.5 text-[10px] font-bold text-black">
-                <div className="flex justify-between text-black text-[9px] font-bold pb-0.5 border-b border-dashed border-black">
-                  <span>Jml Item:</span>
-                  <span className="font-black text-black">
-                    {completedTx.items.length} Item ({completedTx.items.reduce((s, i) => s + i.quantity, 0)} pcs)
-                  </span>
-                </div>
-                <div className="flex justify-between text-black">
-                  <span className="font-bold">Subtotal:</span>
-                  <span className="font-bold text-black">
-                    {completedTx.currency === 'IDR'
-                      ? formatIdr(convertJpyToIdr(completedTx.subtotal, completedTx.exchangeRate || exchangeRate))
-                      : `¥${completedTx.subtotal.toLocaleString()}`}
-                  </span>
-                </div>
-                {completedTx.discountAmount > 0 && (
-                  <div className="flex justify-between text-black font-bold">
-                    <span>Diskon:</span>
-                    <span className="font-bold">-¥{completedTx.discountAmount.toLocaleString()}</span>
+                    <div className="flex justify-between text-black pt-0.5 border-t border-dashed border-black font-bold">
+                      <span>
+                        {isJpReceipt ? (
+                          (() => {
+                            const m = String(completedTx.paymentMethod);
+                            const label = m === 'Cash' || m === 'Tunai' ? '現金'
+                              : m === 'Credit Card' || m === 'Kartu Kredit' ? 'クレジット'
+                              : m === 'PayPay' ? 'PayPay'
+                              : m === 'LINE Pay' ? 'LINE Pay'
+                              : m === 'IC Card' || m === 'Kartu IC' ? '交通系IC'
+                              : m.includes('JPQR') || m.includes('QRIS') ? 'JPQRコード'
+                              : m;
+                            return `お預かり (${label}):`;
+                          })()
+                        ) : (
+                          `Bayar (${completedTx.paymentMethod} ${completedTx.currency === 'IDR' ? 'Rp' : '¥'}):`
+                        )}
+                      </span>
+                      <span className="font-black text-black">
+                        {completedTx.currency === 'IDR'
+                          ? formatIdr(completedTx.amountPaidOriginal || completedTx.amountPaid)
+                          : formatJpy(completedTx.amountPaid)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-black font-bold">
+                      <span>{isJpReceipt ? 'お釣り:' : 'Kembali:'}</span>
+                      <span className="font-black text-black">
+                        {completedTx.currency === 'IDR'
+                          ? formatIdr(completedTx.changeAmountOriginal || completedTx.changeAmount)
+                          : formatJpy(completedTx.changeAmount)}
+                      </span>
+                    </div>
                   </div>
-                )}
-                <div className="flex justify-between text-black">
-                  <span className="font-bold">Pajak (8%):</span>
-                  <span className="font-bold text-black">
-                    {completedTx.currency === 'IDR'
-                      ? formatIdr(convertJpyToIdr(completedTx.taxAmount, completedTx.exchangeRate || exchangeRate))
-                      : `¥${completedTx.taxAmount.toLocaleString()}`}
-                  </span>
-                </div>
-                <div className="flex justify-between font-black text-[11.5px] text-black pt-1 border-t-2 border-black">
-                  <span>TOTAL:</span>
-                  <div className="text-right">
-                    <span>
-                      {completedTx.currency === 'IDR'
-                        ? formatIdr(completedTx.amountPaidOriginal || convertJpyToIdr(completedTx.totalAmount, completedTx.exchangeRate))
-                        : formatJpy(completedTx.totalAmount)}
-                    </span>
+
+                  {/* Footer Note & Store Policy */}
+                  <div className="text-center pt-1 border-t-2 border-dashed border-black space-y-0.5 text-black font-bold">
+                    {isJpReceipt ? (
+                      <>
+                        <p className="text-[10px] text-black font-black leading-tight">
+                          毎度ご来店いただき誠にありがとうございます。
+                        </p>
+                        <p className="text-[8.5px] text-black font-bold leading-tight">
+                          ※食品衛生上、お買い上げ商品の返品・交換はご容赦願います。
+                        </p>
+                        <p className="text-[8px] text-black font-bold leading-tight">
+                          ※本領収書はインボイス制度対応の適格簡易請求書です。
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[10px] text-black font-black leading-tight">
+                          {printerSettings.footerNote || txt.receiptThanks}
+                        </p>
+                        {printerSettings.storePolicyNote && (
+                          <p className="text-[8.5px] text-black font-bold leading-tight">
+                            {printerSettings.storePolicyNote}
+                          </p>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
-                <div className="flex justify-between text-black pt-0.5 border-t border-dashed border-black font-bold">
-                  <span>
-                    Bayar ({completedTx.paymentMethod} {completedTx.currency === 'IDR' ? 'Rp' : '¥'}):
-                  </span>
-                  <span className="font-black text-black">
-                    {completedTx.currency === 'IDR'
-                      ? formatIdr(completedTx.amountPaidOriginal || completedTx.amountPaid)
-                      : formatJpy(completedTx.amountPaid)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-black font-bold">
-                  <span>Kembali:</span>
-                  <span className="font-black text-black">
-                    {completedTx.currency === 'IDR'
-                      ? formatIdr(completedTx.changeAmountOriginal || completedTx.changeAmount)
-                      : formatJpy(completedTx.changeAmount)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Footer Note & Store Policy */}
-              <div className="text-center pt-1 border-t-2 border-dashed border-black space-y-0.5 text-black font-bold">
-                <p className="text-[10px] text-black font-black leading-tight">
-                  {printerSettings.footerNote || txt.receiptThanks}
-                </p>
-                {printerSettings.storePolicyNote && (
-                  <p className="text-[8.5px] text-black font-bold leading-tight">
-                    {printerSettings.storePolicyNote}
-                  </p>
-                )}
-              </div>
-            </div>
+              );
+            })()}
 
             {/* WHATSAPP PDF STRUK NOTA GATEWAY INTEGRATION */}
             <div className="p-3 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl space-y-2.5 text-xs">

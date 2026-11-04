@@ -780,14 +780,112 @@ export const SettingsPage: React.FC = () => {
   };
 
   // Test Print Thermal Receipt
-  const handleTestPrint = () => {
-    // Inject dynamic print styling for the exact paper width
+  const handleTestPrint = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    handleSavePrinterSettings();
+
+    const receiptEl = document.getElementById('thermal-receipt-preview-area');
     const printWidth = printerSettings.paperWidth || 58;
-    // Pada printer thermal 58mm, lebar print head fisik adalah 48mm (384 dots).
-    // Menyetel printable width ke 48mm memastikan sisi kanan nota tidak terpotong!
     const printableWidth = printWidth === 58 ? 48 : printWidth <= 50 ? printWidth - 4 : printWidth - 8;
     const fontSizePx =
       printerSettings.fontSize === 'small' ? '9px' : printerSettings.fontSize === 'large' ? '12px' : '10px';
+
+    if (receiptEl) {
+      let printFrame = document.getElementById('settings-thermal-hidden-frame') as HTMLIFrameElement | null;
+      if (printFrame) {
+        printFrame.remove();
+      }
+
+      printFrame = document.createElement('iframe');
+      printFrame.id = 'settings-thermal-hidden-frame';
+      printFrame.style.position = 'fixed';
+      printFrame.style.right = '0';
+      printFrame.style.bottom = '0';
+      printFrame.style.width = '0px';
+      printFrame.style.height = '0px';
+      printFrame.style.border = 'none';
+      printFrame.style.visibility = 'hidden';
+      document.body.appendChild(printFrame);
+
+      const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+      if (frameDoc) {
+        frameDoc.open();
+        frameDoc.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>POS Test Receipt</title>
+              <style>
+                @page {
+                  size: ${printWidth}mm auto;
+                  margin: 0mm;
+                }
+                * {
+                  box-sizing: border-box;
+                  margin: 0;
+                  padding: 0;
+                  color: #000000 !important;
+                  -webkit-text-fill-color: #000000 !important;
+                  border-color: #000000 !important;
+                  font-weight: 700 !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                  line-height: 1.18 !important;
+                  font-family: 'Segoe UI', Arial, 'Helvetica Neue', 'Courier New', monospace !important;
+                }
+                html, body {
+                  width: ${printableWidth}mm !important;
+                  max-width: ${printableWidth}mm !important;
+                  margin: 0 !important;
+                  padding: 0.5mm 1mm !important;
+                  background: #ffffff !important;
+                  font-size: ${fontSizePx} !important;
+                  font-weight: 700 !important;
+                  word-break: break-word !important;
+                  overflow: hidden !important;
+                }
+                .text-center { text-align: center; }
+                .text-right { text-align: right; }
+                .flex { display: flex; }
+                .justify-between { justify-content: space-between; }
+                .items-center { align-items: center; }
+                .items-start { align-items: flex-start; }
+                .uppercase { text-transform: uppercase; }
+                .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .font-black, h3, .total-bold { font-weight: 900 !important; }
+                .border-b { border-bottom: 1px dashed #000000; }
+                .border-b-2 { border-bottom: 2px dashed #000000; }
+                .border-t { border-top: 1px dashed #000000; }
+                .border-t-2 { border-top: 2px solid #000000; }
+                .border-dashed { border-style: dashed; }
+              </style>
+            </head>
+            <body>
+              <div style="width: ${printableWidth}mm;">
+                ${receiptEl.innerHTML}
+              </div>
+            </body>
+          </html>
+        `);
+        frameDoc.close();
+
+        setTimeout(() => {
+          try {
+            printFrame?.contentWindow?.focus();
+            printFrame?.contentWindow?.print();
+          } catch {
+            window.print();
+          }
+        }, 120);
+        return;
+      }
+    }
+
+    const existingStyle = document.getElementById('thermal-print-override');
+    if (existingStyle) existingStyle.remove();
 
     const styleEl = document.createElement('style');
     styleEl.id = 'thermal-print-override';
@@ -853,7 +951,6 @@ export const SettingsPage: React.FC = () => {
     `;
     document.head.appendChild(styleEl);
 
-    handleSavePrinterSettings();
     window.print();
   };
 
@@ -1856,24 +1953,36 @@ export const SettingsPage: React.FC = () => {
                             せんばこ ぬさんたら にほん
                           </div>
                         )}
-                        <div className="font-black text-xs uppercase text-black">{printerSettings.storeName}</div>
-                        <div className="text-[10px] font-bold text-black leading-tight">{printerSettings.storeAddress}</div>
-                        <div className="text-[9.5px] font-bold text-black">Telp: {printerSettings.storePhone}</div>
+                        <div className="font-black text-xs uppercase text-black">
+                          {printerSettings.storeNameJp || 'センバコ・ヌサンタラ日本 (東京本店)'}
+                        </div>
+                        <div className="text-[10px] font-bold text-black leading-tight">
+                          〒144-0051 東京都大田区西蒲田5丁目9-16 (東京蒲田店)
+                        </div>
+                        <div className="text-[9.5px] font-bold text-black">
+                          TEL: {printerSettings.storePhone || '03-5678-9012'}
+                        </div>
+                        <div className="text-[8.5px] font-bold text-black">
+                          登録番号: T1234567890123 (適格簡易請求書)
+                        </div>
+                        <div className="text-[11px] font-black text-black pt-0.5 tracking-wider">
+                          【 領  収  証 】
+                        </div>
                       </div>
 
                       {/* Metadata */}
                       <div className="text-[10px] font-bold space-y-0.5 py-0.5 border-b-2 border-dashed border-black text-black">
                         <div className="flex justify-between">
-                          <span className="font-bold">No: SN-POS-88910</span>
-                          <span className="font-bold">{new Date().toLocaleDateString('id-ID')}</span>
+                          <span className="font-bold">伝票番号: SN-POS-88910</span>
+                          <span className="font-bold">2026/11/04 14:30 (JST)</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="font-bold">Kasir: Siti Rahmawati</span>
-                          <span className="font-bold">Shift: Pagi</span>
+                          <span className="font-bold">レジ担当: Siti Rahmawati</span>
+                          <span className="font-bold">端末: POS-01</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="font-bold">Pelanggan: Walk-in (Umum)</span>
-                          <span className="font-bold">14:30 JST</span>
+                          <span className="font-bold">お客様名: 店頭来店客 様</span>
+                          <span className="font-bold">会員: 一般</span>
                         </div>
                       </div>
 
@@ -1881,24 +1990,24 @@ export const SettingsPage: React.FC = () => {
                       <div className="py-1 space-y-1 border-b-2 border-dashed border-black text-[10px] text-black">
                         <div className="flex justify-between items-start border-b border-dashed border-black pb-0.5">
                           <div className="leading-tight">
-                            <div className="font-black text-black">Indomie Goreng (DUS)</div>
-                            <div className="text-[9.5px] font-bold text-black">¥4,500 × 1</div>
+                            <div className="font-black text-black">インドミーラーメン (箱 / 40袋)</div>
+                            <div className="text-[9.5px] font-bold text-black">¥4,500 × 1点</div>
                           </div>
                           <div className="font-black text-black">¥4,500</div>
                         </div>
 
                         <div className="flex justify-between items-start border-b border-dashed border-black pb-0.5">
                           <div className="leading-tight">
-                            <div className="font-black text-black">Kecap Bango 550ml</div>
-                            <div className="text-[9.5px] font-bold text-black">¥450 × 2</div>
+                            <div className="font-black text-black">ブンゴ甘口醤油 550ml</div>
+                            <div className="text-[9.5px] font-bold text-black">¥450 × 2点</div>
                           </div>
                           <div className="font-black text-black">¥900</div>
                         </div>
 
                         <div className="flex justify-between items-start">
                           <div className="leading-tight">
-                            <div className="font-black text-black">Teh Botol Kotak 250ml</div>
-                            <div className="text-[9.5px] font-bold text-black">¥120 × 3</div>
+                            <div className="font-black text-black">ジャスミンティーパック 250ml</div>
+                            <div className="text-[9.5px] font-bold text-black">¥120 × 3点</div>
                           </div>
                           <div className="font-black text-black">¥360</div>
                         </div>
@@ -1907,32 +2016,39 @@ export const SettingsPage: React.FC = () => {
                       {/* Totals */}
                       <div className="text-[10px] font-bold space-y-0.5 py-0.5 border-b-2 border-dashed border-black text-black">
                         <div className="flex justify-between">
-                          <span className="font-bold">Subtotal:</span>
+                          <span className="font-bold">お買上点数:</span>
+                          <span className="font-black">3 品目 (6 点)</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-bold">小計 (税抜):</span>
                           <span className="font-bold">¥5,760</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="font-bold">Pajak Konsumsi (8%):</span>
+                          <span className="font-bold">内消費税等 (8% 軽減税率):</span>
                           <span className="font-bold">¥460</span>
                         </div>
                         <div className="flex justify-between font-black text-xs pt-0.5 border-t-2 border-black">
-                          <span>TOTAL BAYAR:</span>
+                          <span>合計金額 (税込):</span>
                           <span>¥6,220</span>
                         </div>
                         <div className="flex justify-between pt-0.5 font-bold">
-                          <span>Metode Bayar (Tunai JPY):</span>
+                          <span>お預かり (現金):</span>
                           <span className="font-black">¥10,000</span>
                         </div>
                         <div className="flex justify-between font-black">
-                          <span>KEMBALIAN:</span>
+                          <span>お釣り:</span>
                           <span>¥3,780</span>
                         </div>
                       </div>
 
                       {/* Footer Notes */}
                       <div className="text-center text-[9.5px] text-black pt-1 space-y-0.5 font-bold">
-                        <div className="font-black">{printerSettings.footerNote}</div>
+                        <div className="font-black">毎度ご来店いただき誠にありがとうございます。</div>
                         <div className="text-[8.5px] font-bold text-black leading-tight">
-                          {printerSettings.storePolicyNote}
+                          ※食品衛生上、お買い上げ商品の返品・交換はご容赦願います。
+                        </div>
+                        <div className="text-[8px] font-bold text-black leading-tight">
+                          ※本領収書はインボイス制度対応の適格簡易請求書です。
                         </div>
                       </div>
                     </div>

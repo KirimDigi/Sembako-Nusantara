@@ -29,8 +29,8 @@ export async function generateReceiptPdf(
   tx: POSTransaction,
   languageOverride?: 'JP' | 'ID'
 ): Promise<ReceiptPdfResult> {
-  // Determine language: JPY -> Japanese, IDR -> Indonesian
-  const isJp = languageOverride ? languageOverride === 'JP' : tx.currency === 'JPY';
+  // Determine language: JPY (Yen) -> Japanese, IDR (Rupiah) -> Indonesian
+  const isJp = tx.currency !== 'IDR';
 
   // Format date for filename: DD-MM-YYYY
   const txDate = tx.date ? new Date(tx.date) : new Date();
