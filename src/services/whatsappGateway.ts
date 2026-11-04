@@ -191,12 +191,13 @@ export async function sendWhatsAppDocument(
     to: cleanNumber,
     phone: cleanNumber,
     receiver: cleanNumber,
+    message: caption || 'Nota struk kasir pdf',
+    caption: caption || 'Nota struk kasir pdf',
     file: fileBase64OrUrl,
     document: fileBase64OrUrl,
     media: fileBase64OrUrl,
     pdf: fileBase64OrUrl,
     filename: filename,
-    caption: caption, // User rule: "Nota struk kasir pdf"
     mimetype: 'application/pdf'
   };
 
@@ -209,7 +210,7 @@ export async function sendWhatsAppDocument(
 
   console.log(`[WA Gateway] Mengirim file PDF "${filename}" ke ${cleanNumber} (Caption: "${caption}")`);
 
-  const endpoints = ['/api/send-file', '/api/send-document', '/api/send'];
+  const endpoints = ['/api/send', '/api/send-file', '/api/send-document'];
 
   const tryEndpoints = async (targetUrl: string, sessionName: string) => {
     let lastError: any = null;
@@ -250,13 +251,15 @@ export async function sendWhatsAppDocument(
     let result: { ok: boolean; data: any };
     try {
       result = await tryEndpoints(config.baseUrl, primarySession);
-    } catch (err) {
-      // Fallback endpoint if primary baseUrl fails
-      const altUrl = config.baseUrl.includes('localhost')
-        ? 'https://nonleaking-cameron-eagerly.ngrok-free.dev'
-        : 'http://localhost:2026';
-      console.log(`[WA Gateway] Mencoba fallback endpoint dokumen: ${altUrl}`);
-      result = await tryEndpoints(altUrl, primarySession);
+    } catch (err: any) {
+      // Fallback only if baseUrl was localhost
+      if (config.baseUrl.includes('localhost')) {
+        const altUrl = 'https://nonleaking-cameron-eagerly.ngrok-free.dev';
+        console.log(`[WA Gateway] Mencoba fallback endpoint dokumen: ${altUrl}`);
+        result = await tryEndpoints(altUrl, primarySession);
+      } else {
+        throw err;
+      }
     }
 
     console.log('[WA Gateway] File dokumen PDF berhasil terkirim:', result.data);

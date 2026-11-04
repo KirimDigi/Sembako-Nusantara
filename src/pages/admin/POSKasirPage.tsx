@@ -196,6 +196,7 @@ export const POSKasirPage: React.FC = () => {
   }>({ status: 'idle' });
   const [manualWaPhone, setManualWaPhone] = useState<string>('');
   const [isManualSending, setIsManualSending] = useState<boolean>(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
 
   // Manual trigger kirim Struk PDF ke WhatsApp dari Modal Struk
   const handleSendWaReceiptManual = async (targetPhone: string) => {
@@ -246,6 +247,28 @@ export const POSKasirPage: React.FC = () => {
     } catch (e) {
       console.error('Error downloading receipt PDF:', e);
     }
+  };
+
+  // Unduh Shortcut Windows agar Chrome Kasir mencetak langsung otomatis tanpa dialog print preview
+  const handleDownloadKioskShortcut = () => {
+    const currentUrl = window.location.href;
+    const batContent = `@echo off
+echo ====================================================
+echo  MEMBUKA CHROME KASIR POS - MODE CETAK LANGSUNG OTOMATIS
+echo  (Tanpa Pop-up Dialog Google Print / Silent Print)
+echo ====================================================
+start "" chrome.exe --kiosk-printing "${currentUrl}"
+exit
+`;
+    const blob = new Blob([batContent], { type: 'application/x-bat' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Buka_Kasir_Cetak_Otomatis.bat';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Thermal Printer Settings State (Sinkron otomatis dengan menu Pengaturan)
@@ -299,12 +322,11 @@ export const POSKasirPage: React.FC = () => {
       printFrame = document.createElement('iframe');
       printFrame.id = 'pos-thermal-hidden-frame';
       printFrame.style.position = 'fixed';
-      printFrame.style.right = '0';
-      printFrame.style.bottom = '0';
-      printFrame.style.width = '0px';
-      printFrame.style.height = '0px';
+      printFrame.style.top = '-9999px';
+      printFrame.style.left = '-9999px';
+      printFrame.style.width = `${printableWidth}mm`;
+      printFrame.style.height = '100mm';
       printFrame.style.border = 'none';
-      printFrame.style.visibility = 'hidden';
       document.body.appendChild(printFrame);
 
       const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
@@ -1349,6 +1371,10 @@ export const POSKasirPage: React.FC = () => {
       alert(txt.alertCashNotEnough);
       return;
     }
+    if (isProcessingPayment) return;
+
+    // 1. Aktifkan status loading spinner 3 detik pada tombol
+    setIsProcessingPayment(true);
 
     const change = paymentMethod === 'Cash' ? cashGiven - activeTotalDue : 0;
 
@@ -1393,14 +1419,10 @@ export const POSKasirPage: React.FC = () => {
     };
 
     const savedTx = addPOSTransaction(txPayload);
-    setIsPaymentOpen(false);
-    setCart([]);
-    setDiscountPercent(0);
-    setTxNotes('');
-    setCompletedTx(savedTx);
 
-    // Otomatis kirim File PDF Struk Nota jika kolom pelanggan diisi & nomor WA terdaftar
+    // 2. Deteksi nomor HP pelanggan untuk pengiriman otomatis struk PDF via WhatsApp
     const customerInput = selectedCustomer.trim();
+    let targetPhone = '';
     if (customerInput) {
       const matchedCustomer =
         selectedCustomerObj ||
@@ -1411,56 +1433,68 @@ export const POSKasirPage: React.FC = () => {
             c.id.toLowerCase() === customerInput.toLowerCase()
         );
 
-      const targetPhone =
+      const candidatePhone =
         matchedCustomer?.phone ||
         (customerInput.replace(/\D/g, '').length >= 8 ? customerInput : '');
 
-      if (targetPhone) {
-        setWaDeliveryStatus({ status: 'sending', phone: targetPhone });
-        setManualWaPhone(targetPhone);
+      if (candidatePhone && candidatePhone.replace(/\D/g, '').length >= 8) {
+        targetPhone = candidatePhone;
+      }
+    }
 
-        sendPOSTransactionReceiptWhatsApp(savedTx, targetPhone)
-          .then((res) => {
-            if (res.success) {
-              setWaDeliveryStatus({
-                status: 'success',
-                filename: res.filename,
-                phone: targetPhone,
-                dataUrl: res.dataUrl
-              });
-            } else {
-              setWaDeliveryStatus({
-                status: 'error',
-                message: res.error || 'Gagal mengirim dokumen PDF',
-                phone: targetPhone
-              });
-            }
-          })
-          .catch((err) => {
+    // Aturan User: Jika ada nomor HP, otomatis kirim PDF nota oleh WA Gateway.
+    // Namun jika TIDAK ADA nomor HP, maka TIDAK USAH kirim struk PDF tersebut.
+    if (targetPhone) {
+      setWaDeliveryStatus({ status: 'sending', phone: targetPhone });
+      setManualWaPhone(targetPhone);
+
+      sendPOSTransactionReceiptWhatsApp(savedTx, targetPhone)
+        .then((res) => {
+          if (res.success) {
+            setWaDeliveryStatus({
+              status: 'success',
+              filename: res.filename,
+              phone: targetPhone,
+              dataUrl: res.dataUrl
+            });
+          } else {
             setWaDeliveryStatus({
               status: 'error',
-              message: err?.message || 'Gateway offline',
+              message: res.error || 'Gagal mengirim dokumen PDF',
               phone: targetPhone
             });
+          }
+        })
+        .catch((err) => {
+          setWaDeliveryStatus({
+            status: 'error',
+            message: err?.message || 'Gateway offline',
+            phone: targetPhone
           });
-      } else {
-        setWaDeliveryStatus({
-          status: 'idle',
-          message: 'Nomor WhatsApp pelanggan belum terdaftar'
         });
-        setManualWaPhone('');
-      }
     } else {
-      setWaDeliveryStatus({ status: 'idle' });
+      // TIDAK ADA NOMOR HP: TIDAK USAH KIRIM STRUK PDF
+      setWaDeliveryStatus({
+        status: 'idle',
+        message: 'Tidak ada nomor WhatsApp (Struk PDF tidak dikirim)'
+      });
       setManualWaPhone('');
     }
 
-    // Auto-Cetak Nota jika opsi autoPrintOnCheckout aktif
-    if (printerSettings.autoPrintOnCheckout) {
+    // 3. Loading spinner tepat selama 3 detik (3000 ms) di button Selesaikan & Cetak Struk
+    setTimeout(() => {
+      setIsPaymentOpen(false);
+      setCart([]);
+      setDiscountPercent(0);
+      setTxNotes('');
+      setCompletedTx(savedTx);
+      setIsProcessingPayment(false);
+
+      // Otomatis cetak nota thermal secara langsung
       setTimeout(() => {
         handlePrintReceipt();
-      }, 450);
-    }
+      }, 350);
+    }, 3000);
   };
 
 
@@ -2994,17 +3028,34 @@ export const POSKasirPage: React.FC = () => {
             {/* Action Buttons */}
             <div className="flex gap-2 pt-2">
               <button
-                onClick={() => setIsPaymentOpen(false)}
-                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                type="button"
+                disabled={isProcessingPayment}
+                onClick={() => !isProcessingPayment && setIsPaymentOpen(false)}
+                className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Batal
               </button>
               <button
+                type="button"
+                disabled={isProcessingPayment}
                 onClick={handleProcessPayment}
-                className="flex-1 py-2.5 bg-[#c41230] hover:bg-[#a80f28] text-white rounded-xl text-xs font-bold shadow-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  isProcessingPayment
+                    ? 'bg-amber-600 text-white cursor-wait opacity-95 ring-2 ring-amber-400/50'
+                    : 'bg-[#c41230] hover:bg-[#a80f28] text-white active:scale-98'
+                }`}
               >
-                <span className="material-symbols-outlined text-sm">receipt</span>
-                <span>{txt.btnCompletePay}</span>
+                {isProcessingPayment ? (
+                  <>
+                    <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+                    <span>Memproses & Cetak (3s)...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-sm">receipt</span>
+                    <span>{txt.btnCompletePay}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -3417,6 +3468,15 @@ export const POSKasirPage: React.FC = () => {
               <p className="text-[10px] text-stone-500 leading-tight">
                 ⚡ <strong>Cetak Langsung Otomatis (Tanpa Dialog Pop-up Google):</strong> Tambahkan <code className="bg-white px-1 py-0.5 rounded border border-stone-300 font-mono text-[9px] font-bold text-stone-800">--kiosk-printing</code> pada shortcut Google Chrome kasir.
               </p>
+              <button
+                type="button"
+                onClick={handleDownloadKioskShortcut}
+                className="w-full mt-1.5 py-1.5 px-2 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                title="Unduh file .bat untuk membuka kasir mode cetak langsung tanpa pop-up dialog"
+              >
+                <span className="material-symbols-outlined text-xs text-emerald-600">terminal</span>
+                <span>Unduh Shortcut Windows Cetak Otomatis (.bat)</span>
+              </button>
             </div>
 
             {/* ACTION BUTTONS */}

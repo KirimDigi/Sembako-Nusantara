@@ -1,6 +1,6 @@
 // Sembako Nusantara Jepang - PWA Service Worker
 // Super Lightweight, Zero-Egress Preservation Architecture
-const CACHE_VERSION = 'sn-pwa-v1.1.4';
+const CACHE_VERSION = 'sn-pwa-v1.1.5';
 const STATIC_CACHE = `sn-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `sn-runtime-${CACHE_VERSION}`;
 
