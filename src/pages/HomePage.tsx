@@ -12,10 +12,12 @@ import { assetUrl } from '../utils/assets';
 
 export const HomePage: React.FC = () => {
   const { language } = useLanguage();
-  const { itemDiscounts } = useAdmin();
+  const { itemDiscounts, products } = useAdmin();
+
+  const currentProducts = products && products.length > 0 ? products : PRODUCTS_DATA;
 
   // Find products that currently have active discounts set by Admin
-  const discountedProducts = PRODUCTS_DATA.filter((p) =>
+  const discountedProducts = currentProducts.filter((p) =>
     itemDiscounts.some(
       (d) => d.isActive && (d.productId === p.id || d.productSku === (p as any).sku || d.productName?.toLowerCase() === p.name.toLowerCase())
     )

@@ -18,9 +18,10 @@ export const ProductDetailPage: React.FC = () => {
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { language, t } = useLanguage();
   const exchangeRate = useExchangeRate();
-  const { itemDiscounts } = useAdmin();
+  const { itemDiscounts, products } = useAdmin();
 
-  const product = PRODUCTS_DATA.find((p) => p.id === id) || PRODUCTS_DATA[0];
+  const currentProducts = products && products.length > 0 ? products : PRODUCTS_DATA;
+  const product = currentProducts.find((p) => p.id === id || (p.sku && p.sku === id)) || currentProducts[0];
   const isWishlisted = isInWishlist(product.id);
 
   // Dynamic discount calculation strictly synchronized with Admin Dashboard

@@ -131,6 +131,39 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 const INITIAL_ORDERS: Order[] = [];
 
+function createCompleteProduct(d: any): Product {
+  const price = typeof d.price === 'number' ? d.price : 0;
+  return {
+    id: String(d.id),
+    sku: d.sku || String(d.id),
+    name: d.name || '',
+    nameJp: d.name_jp || d.name || '',
+    nameEn: d.name_en || d.name || '',
+    category: d.category || 'Sembako',
+    categoryJp: d.category_jp || d.category || '食材・調味料',
+    categoryEn: d.category_en || d.category || 'Groceries',
+    price: price,
+    costPrice: typeof d.cost_price === 'number' ? d.cost_price : (typeof d.costPrice === 'number' ? d.costPrice : 0),
+    priceTax: Math.round(price * 1.08),
+    originalPrice: d.original_price !== null && d.original_price !== undefined ? Number(d.original_price) : (d.originalPrice || undefined),
+    stock: typeof d.stock === 'number' ? d.stock : 0,
+    unit: d.unit || 'pcs',
+    unitJp: d.unit_jp || d.unit || '個',
+    unitEn: d.unit_en || d.unit || 'pcs',
+    image: d.image && !String(d.image).includes('placeholder-upload') ? d.image : '/placeholder-upload.svg',
+    isHalal: d.is_halal ?? d.isHalal ?? true,
+    isFrozen: d.is_frozen ?? d.isFrozen ?? false,
+    barcode: d.barcode || undefined,
+    description: d.description || '',
+    descriptionJp: d.description_jp || d.description || '',
+    descriptionEn: d.description_en || d.description || '',
+    rating: 5,
+    reviewCount: 0,
+    brand: d.brand || 'Sembako Nusantara',
+    status: 'ACTIVE'
+  };
+}
+
 // Intelligent Non-Destructive Product Merging
 // Ensures builds, updates, and deploys NEVER reset user stock, prices, HPP, or transactions
 function loadAndMergeProducts(): Product[] {
@@ -164,6 +197,10 @@ function loadAndMergeProducts(): Product[] {
       // Preserve user modifications while updating any new code translations or attributes
       return {
         ...codeItem,
+        name: existing.name || codeItem.name,
+        nameJp: existing.nameJp || codeItem.nameJp,
+        nameEn: existing.nameEn || codeItem.nameEn,
+        category: existing.category || codeItem.category,
         stock: typeof existing.stock === 'number' ? existing.stock : codeItem.stock,
         costPrice: typeof existing.costPrice === 'number' ? existing.costPrice : codeItem.costPrice,
         price: typeof existing.price === 'number' ? existing.price : codeItem.price,
@@ -173,6 +210,8 @@ function loadAndMergeProducts(): Product[] {
         reviewCount: existing.reviewCount || codeItem.reviewCount,
         // Preserve custom uploaded photo if set
         image: (existing.image && !existing.image.includes('placeholder-upload')) ? existing.image : codeItem.image,
+        barcode: existing.barcode || codeItem.barcode,
+        description: existing.description || codeItem.description,
       };
     });
 
@@ -280,7 +319,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeRole, setActiveRole] = useState<UserRole>('Super Admin (Owner)');
 
   useEffect(() => {
-    localStorage.setItem('sn_products_v7', JSON.stringify(products));
+    try {
+      localStorage.setItem('sn_products_v8', JSON.stringify(products));
+    } catch (e) {}
   }, [products]);
 
   useEffect(() => {
@@ -369,15 +410,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const ORDERS_CACHE_TTL = 5 * 60 * 1000;    // 5 minutes
     const ADMIN_CACHE_TTL = 5 * 60 * 1000;     // 5 minutes
 
-    // 1. Lightweight Products Sync (Only selects 8 essential fields instead of *, saving ~83% egress)
+    // 1. Real-time Live Products Sync & Cloud Persistence (Always fresh on deploy/load)
     const fetchCloudProducts = async () => {
       try {
-        const lastSync = Number(sessionStorage.getItem('sn_cloud_products_sync_ts') || 0);
-        if (Date.now() - lastSync < PRODUCTS_CACHE_TTL) return;
-
         const { data, error } = await supabase
           .from('products')
-          .select('id,sku,price,cost_price,stock,original_price,barcode,image');
+          .select('id,sku,name,name_jp,name_en,category,price,cost_price,stock,original_price,barcode,image,unit,is_halal,is_frozen,description');
 
         if (!error && data && Array.isArray(data) && data.length > 0) {
           sessionStorage.setItem('sn_cloud_products_sync_ts', String(Date.now()));
@@ -388,7 +426,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               if (d.sku) cloudMap.set(d.sku, d);
             });
 
-            return prev.map((p) => {
+            const updatedList = prev.map((p) => {
               const cloudItem = cloudMap.get(String(p.id)) || (p.sku ? cloudMap.get(p.sku) : undefined);
               if (!cloudItem) return p;
 
@@ -401,14 +439,39 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
               return {
                 ...p,
+                name: cloudItem.name || p.name,
+                nameJp: cloudItem.name_jp || p.nameJp,
+                nameEn: cloudItem.name_en || p.nameEn,
+                category: cloudItem.category || p.category,
                 price: typeof cloudItem.price === 'number' ? cloudItem.price : p.price,
                 costPrice: typeof cloudItem.cost_price === 'number' ? cloudItem.cost_price : p.costPrice,
                 stock: typeof cloudItem.stock === 'number' ? cloudItem.stock : p.stock,
                 originalPrice: cloudItem.original_price !== undefined && cloudItem.original_price !== null ? cloudItem.original_price : p.originalPrice,
+                unit: cloudItem.unit || p.unit,
                 barcode: cloudItem.barcode || p.barcode,
+                isHalal: cloudItem.is_halal ?? p.isHalal,
+                isFrozen: cloudItem.is_frozen ?? p.isFrozen,
+                description: cloudItem.description || p.description,
                 image: safeCloudImg
               };
             });
+
+            // Retain any new products present in Supabase that are not in current state
+            const prevIds = new Set(prev.map((p) => String(p.id)));
+            const prevSkus = new Set(prev.map((p) => p.sku).filter(Boolean));
+            data.forEach((d: any) => {
+              const hasId = d.id && prevIds.has(String(d.id));
+              const hasSku = d.sku && prevSkus.has(d.sku);
+              if (!hasId && !hasSku) {
+                updatedList.push(createCompleteProduct(d));
+              }
+            });
+
+            try {
+              localStorage.setItem('sn_products_v8', JSON.stringify(updatedList));
+            } catch (e) {}
+
+            return updatedList;
           });
         }
       } catch (e) {
@@ -752,13 +815,89 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     fetchCloudOrders();
     fetchAdminOnlyCloudData();
 
+    // Realtime Supabase Database Listener on 'products' table
+    const productChannel = supabase
+      .channel('realtime:products_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            const updated = payload.new as any;
+            if (!updated) return;
+            setProducts((prev) => {
+              const updatedList = prev.map((p) => {
+                if (p.id === updated.id || (p.sku && p.sku === updated.sku)) {
+                  const safeImg =
+                    updated.image && !String(updated.image).includes('placeholder-upload')
+                      ? updated.image
+                      : p.image;
+                  return {
+                    ...p,
+                    name: updated.name || p.name,
+                    nameJp: updated.name_jp || p.nameJp,
+                    nameEn: updated.name_en || p.nameEn,
+                    category: updated.category || p.category,
+                    price: typeof updated.price === 'number' ? updated.price : p.price,
+                    costPrice: typeof updated.cost_price === 'number' ? updated.cost_price : p.costPrice,
+                    stock: typeof updated.stock === 'number' ? updated.stock : p.stock,
+                    originalPrice:
+                      updated.original_price !== null && updated.original_price !== undefined
+                        ? Number(updated.original_price)
+                        : p.originalPrice,
+                    unit: updated.unit || p.unit,
+                    image: safeImg,
+                    barcode: updated.barcode || p.barcode,
+                    isHalal: updated.is_halal ?? p.isHalal,
+                    isFrozen: updated.is_frozen ?? p.isFrozen,
+                    description: updated.description || p.description,
+                  };
+                }
+                return p;
+              });
+              try {
+                localStorage.setItem('sn_products_v8', JSON.stringify(updatedList));
+              } catch (e) {}
+              return updatedList;
+            });
+          } else if (payload.eventType === 'INSERT') {
+            const inserted = payload.new as any;
+            if (!inserted) return;
+            setProducts((prev) => {
+              if (prev.some((p) => p.id === inserted.id || (p.sku && p.sku === inserted.sku))) return prev;
+              const newProd: Product = createCompleteProduct(inserted);
+              const updatedList = [newProd, ...prev];
+              try {
+                localStorage.setItem('sn_products_v8', JSON.stringify(updatedList));
+              } catch (e) {}
+              return updatedList;
+            });
+          } else if (payload.eventType === 'DELETE') {
+            const deleted = payload.old as any;
+            if (deleted?.id) {
+              setProducts((prev) => {
+                const updatedList = prev.filter((p) => p.id !== deleted.id && p.sku !== deleted.id);
+                try {
+                  localStorage.setItem('sn_products_v8', JSON.stringify(updatedList));
+                } catch (e) {}
+                return updatedList;
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
     // Sync on-demand if user navigates into #/admin or #/orders or #/tracking
     const handleHashChange = () => {
       fetchCloudOrders();
       fetchAdminOnlyCloudData();
     };
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      supabase.removeChannel(productChannel);
+    };
   }, []);
 
   const updateProductStock = (
@@ -1688,10 +1827,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (updatedData.description !== undefined) mapped.description = updatedData.description;
 
       // 1. Try update by id or sku in Supabase (only select('id') to minimize egress response size)
+      const targetId = targetProduct?.id || id;
+      const targetSku = targetProduct?.sku || id;
       const { data, error } = await supabase
         .from('products')
         .update(mapped)
-        .or(`id.eq.${id},sku.eq.${id}`)
+        .or(`id.eq.${targetId},sku.eq.${targetSku}`)
         .select('id');
 
       // 2. If row did not exist yet in Supabase products table, upsert full product record

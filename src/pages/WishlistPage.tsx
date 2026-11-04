@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useAdmin } from '../context/AdminContext';
 import { ProductCard } from '../components/product/ProductCard';
 import { PRODUCTS_DATA } from '../data/products';
 import { assetUrl } from '../utils/assets';
@@ -12,6 +13,7 @@ export const WishlistPage: React.FC = () => {
   const { wishlist, clearWishlist, removeFromWishlist } = useWishlist();
   const { addToCart } = useCart();
   const { language, t } = useLanguage();
+  const { products } = useAdmin();
   const [allMovedToast, setAllMovedToast] = useState(false);
 
   const handleMoveAllToCart = () => {
@@ -26,7 +28,8 @@ export const WishlistPage: React.FC = () => {
   };
 
   // Recommended products (top rated)
-  const recommendedProducts = PRODUCTS_DATA.slice(0, 4);
+  const currentProducts = products && products.length > 0 ? products : PRODUCTS_DATA;
+  const recommendedProducts = currentProducts.slice(0, 4);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full space-y-8">
