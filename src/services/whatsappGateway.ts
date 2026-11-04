@@ -270,6 +270,66 @@ export async function sendWhatsAppDocument(
   }
 }
 
+export function formatPOSTransactionTextReceipt(tx: any, language: 'JP' | 'ID'): string {
+  const isJp = language === 'JP';
+  const currencySymbol = isJp ? '¥' : 'Rp ';
+  const dateStr = tx.date ? new Date(tx.date).toLocaleString(isJp ? 'ja-JP' : 'id-ID') : new Date().toLocaleString();
+  const receiptNo = tx.receiptNumber || tx.id || 'SN-POS';
+
+  if (isJp) {
+    let msg = `*【センバコ・ヌサンタラ日本 (東京本店) 領収証】*\n`;
+    msg += `〒144-0051 東京都大田区西蒲田5丁目9-16\n`;
+    msg += `TEL: 03-5678-9012\n`;
+    msg += `登録番号: T1234567890123 (適格簡易請求書)\n`;
+    msg += `--------------------------------\n`;
+    msg += `伝票番号: #${receiptNo}\n`;
+    msg += `日時: ${dateStr}\n`;
+    msg += `レジ担当: ${tx.cashierName || '東京店舗レジ'}\n`;
+    msg += `お客様名: ${tx.customerName || '店頭来店客'} 様\n`;
+    msg += `--------------------------------\n`;
+    if (Array.isArray(tx.items)) {
+      tx.items.forEach((it: any) => {
+        msg += `• *${it.productName || '商品'}*\n  ${it.quantity}点 x ¥${(it.price || 0).toLocaleString()} = ¥${(it.subtotal || 0).toLocaleString()}\n`;
+      });
+    }
+    msg += `--------------------------------\n`;
+    msg += `小計: ¥${(tx.subtotal || 0).toLocaleString()}\n`;
+    if (tx.discountAmount > 0) msg += `割引: -¥${(tx.discountAmount || 0).toLocaleString()}\n`;
+    msg += `*合計金額 (税込): ¥${(tx.totalAmount || 0).toLocaleString()}*\n`;
+    msg += `お預かり: ¥${(tx.amountPaid || 0).toLocaleString()}\n`;
+    msg += `お釣り: ¥${(tx.changeAmount || 0).toLocaleString()}\n`;
+    msg += `決済方法: ${tx.paymentMethod || 'Cash'}\n`;
+    msg += `--------------------------------\n`;
+    msg += `毎度ご来店いただき誠にありがとうございます。`;
+    return msg;
+  }
+
+  let msg = `*🧾 NOTA STRUK PEMBAYARAN KASIR*\n`;
+  msg += `*SEMBAKO NUSANTARA JEPANG (TOKYO)*\n`;
+  msg += `〒144-0051 Tokyo, Ota-ku, Nishikamata 5-9-16\n`;
+  msg += `--------------------------------\n`;
+  msg += `No. Nota: #${receiptNo}\n`;
+  msg += `Waktu: ${dateStr}\n`;
+  msg += `Kasir: ${tx.cashierName || 'Kasir Toko'}\n`;
+  msg += `Pelanggan: ${tx.customerName || 'Pelanggan Toko'}\n`;
+  msg += `--------------------------------\n`;
+  if (Array.isArray(tx.items)) {
+    tx.items.forEach((it: any) => {
+      msg += `• *${it.productName || 'Produk'}*\n  ${it.quantity}x @ ${currencySymbol}${(it.price || 0).toLocaleString()} = ${currencySymbol}${(it.subtotal || 0).toLocaleString()}\n`;
+    });
+  }
+  msg += `--------------------------------\n`;
+  msg += `Subtotal: ${currencySymbol}${(tx.subtotal || 0).toLocaleString()}\n`;
+  if (tx.discountAmount > 0) msg += `Diskon: -${currencySymbol}${(tx.discountAmount || 0).toLocaleString()}\n`;
+  msg += `*TOTAL BAYAR: ${currencySymbol}${(tx.totalAmount || 0).toLocaleString()}*\n`;
+  msg += `Bayar: ${currencySymbol}${(tx.amountPaid || 0).toLocaleString()}\n`;
+  msg += `Kembalian: ${currencySymbol}${(tx.changeAmount || 0).toLocaleString()}\n`;
+  msg += `Metode: ${tx.paymentMethod || 'Tunai'}\n`;
+  msg += `--------------------------------\n`;
+  msg += `Terima kasih banyak telah berbelanja di Sembako Nusantara! 🙏`;
+  return msg;
+}
+
 /**
  * High-level helper: Automatically generates receipt PDF in matching language
  * (Japanese for Yen / JPY, Indonesian for Rupiah / IDR) and dispatches via WA Gateway.
@@ -293,11 +353,32 @@ export async function sendPOSTransactionReceiptWhatsApp(
 
     const sendRes = await sendWhatsAppDocument(customerPhone, pdfBase64, filename, caption);
 
+    if (sendRes.success) {
+      return {
+        success: true,
+        filename,
+        dataUrl
+      };
+    }
+
+    // Fallback cerdas: Jika pengiriman dokumen PDF ditolak batas ukuran oleh gateway, kirimkan struk teks berformat lengkap
+    console.warn('[WA Gateway] Dokumen PDF ditolak server, mengaktifkan pengiriman struk teks rapi:', sendRes.error);
+    const textReceipt = formatPOSTransactionTextReceipt(tx, language);
+    const textRes = await sendWhatsAppMessage(customerPhone, textReceipt);
+
+    if (textRes.success) {
+      return {
+        success: true,
+        filename,
+        dataUrl
+      };
+    }
+
     return {
-      success: sendRes.success,
+      success: false,
       filename,
       dataUrl,
-      error: sendRes.error
+      error: sendRes.error || textRes.error
     };
   } catch (err: any) {
     console.error('[WA Gateway] Error generate & send POS receipt PDF:', err);

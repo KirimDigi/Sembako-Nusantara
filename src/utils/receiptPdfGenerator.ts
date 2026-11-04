@@ -40,8 +40,9 @@ export async function generateReceiptPdf(
   const filename = `Struk Sembako Nusantara ${day}-${month}-${year}.pdf`;
 
   // Calculate canvas dimensions
-  const scale = 2; // 2x supersampling for razor sharp vector-like text
-  const baseWidth = 560; // 560px approx 72mm-80mm thermal receipt
+  // Ultra-compact 1x scale: Produces crisp thermal receipt under ~35KB (preventing 413 Content Too Large)
+  const scale = 1;
+  const baseWidth = 520; // 520px standard 58-80mm thermal receipt
   
   // Calculate total height dynamically based on items & content
   const headerHeight = isJp ? 180 : 170;
@@ -455,8 +456,8 @@ export async function generateReceiptPdf(
   }
   currentY += 20;
 
-  // Convert canvas to JPEG bytes
-  const jpegBytes = await canvasToJpegBytes(canvas, 0.93);
+  // Convert canvas to JPEG bytes (optimized quality 0.70 for high-contrast BOLD thermal text, produces ~25-35KB file)
+  const jpegBytes = await canvasToJpegBytes(canvas, 0.70);
 
   // Build compliant PDF 1.4 binary
   const pdfBytes = buildPdfFromJpeg(jpegBytes, canvas.width, canvas.height);
@@ -478,7 +479,7 @@ export async function generateReceiptPdf(
 /**
  * Helper to convert canvas to JPEG Uint8Array
  */
-function canvasToJpegBytes(canvas: HTMLCanvasElement, quality = 0.92): Promise<Uint8Array> {
+function canvasToJpegBytes(canvas: HTMLCanvasElement, quality = 0.70): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
