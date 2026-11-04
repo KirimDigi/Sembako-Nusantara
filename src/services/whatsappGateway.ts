@@ -184,21 +184,15 @@ export async function sendWhatsAppDocument(
 
   const primarySession = customSessionId || config.sessionId || 'KirimDigi';
 
-  // Format payload with standard WA gateway attributes
+  // Format compact payload without any duplicated fields (only 1 file field to stay well under 100KB)
   const payload = {
     sessionId: primarySession,
     number: cleanNumber,
-    to: cleanNumber,
-    phone: cleanNumber,
-    receiver: cleanNumber,
     message: caption || 'Nota struk kasir pdf',
     caption: caption || 'Nota struk kasir pdf',
-    file: fileBase64OrUrl,
-    document: fileBase64OrUrl,
-    media: fileBase64OrUrl,
-    pdf: fileBase64OrUrl,
     filename: filename,
-    mimetype: 'application/pdf'
+    mimetype: 'application/pdf',
+    file: fileBase64OrUrl
   };
 
   const headers: Record<string, string> = {
@@ -210,41 +204,32 @@ export async function sendWhatsAppDocument(
 
   console.log(`[WA Gateway] Mengirim file PDF "${filename}" ke ${cleanNumber} (Caption: "${caption}")`);
 
-  const endpoints = ['/api/send', '/api/send-file', '/api/send-document'];
-
   const tryEndpoints = async (targetUrl: string, sessionName: string) => {
-    let lastError: any = null;
-    for (const ep of endpoints) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout for document upload
-      try {
-        const res = await fetch(`${targetUrl}${ep}`, {
-          method: 'POST',
-          headers: {
-            ...headers,
-            'session-id': sessionName
-          },
-          body: JSON.stringify({ ...payload, sessionId: sessionName }),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout for document upload
+    try {
+      const res = await fetch(`${targetUrl}/api/send`, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'session-id': sessionName
+        },
+        body: JSON.stringify({ ...payload, sessionId: sessionName }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
-        if (res.ok) {
-          const data = await res.json().catch(() => ({ success: true }));
-          return { ok: true, data };
-        } else if (res.status === 404) {
-          // Endpoint not found on this server, try next endpoint
-          continue;
-        } else {
-          const errText = await res.text();
-          lastError = new Error(`Server status ${res.status}: ${errText}`);
-        }
-      } catch (err: any) {
-        clearTimeout(timeoutId);
-        lastError = err;
+      if (res.ok) {
+        const data = await res.json().catch(() => ({ success: true }));
+        return { ok: true, data };
+      } else {
+        const errText = await res.text();
+        throw new Error(`Server status ${res.status}: ${errText}`);
       }
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      throw err;
     }
-    throw lastError || new Error('Semua endpoint dokumen gagal dihubungi');
   };
 
   try {
