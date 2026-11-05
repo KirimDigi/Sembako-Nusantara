@@ -172,7 +172,8 @@ export async function sendWhatsAppDocument(
   fileBase64OrUrl: string,
   filename: string,
   caption: string = 'Nota struk kasir pdf',
-  customSessionId?: string
+  customSessionId?: string,
+  fullText?: string
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   const config = getWAGatewayConfig();
   const cleanNumber = formatPhoneNumberForWA(recipientPhone);
@@ -184,11 +185,12 @@ export async function sendWhatsAppDocument(
 
   const primarySession = customSessionId || config.sessionId || 'KirimDigi';
 
-  // Format compact payload without any duplicated fields (only 1 file field to stay well under 100KB)
+  // Format compact payload: backend AQSHAMART membaca req.body.message.
+  // Jika backend hanya mendukung teks, struk digital lengkap tetap terkirim via field message!
   const payload = {
     sessionId: primarySession,
     number: cleanNumber,
-    message: caption || 'Nota struk kasir pdf',
+    message: fullText || caption || 'Nota struk kasir pdf',
     caption: caption || 'Nota struk kasir pdf',
     filename: filename,
     mimetype: 'application/pdf',
@@ -333,10 +335,13 @@ export async function sendPOSTransactionReceiptWhatsApp(
 
     const { pdfBase64, filename, dataUrl } = await generateReceiptPdf(tx, language);
 
-    // User requirement: "JADI CAPTIONYA TIDAK ADA HANYA Nota struk kasir pdf"
+    const textReceipt = formatPOSTransactionTextReceipt(tx, language);
+    // Caption struk pdf
     const caption = 'Nota struk kasir pdf';
 
-    const sendRes = await sendWhatsAppDocument(customerPhone, pdfBase64, filename, caption);
+    // Kirim dokumen PDF dan sertakan format struk teks lengkap di field message
+    // sehingga pelanggan langsung menerima rincian struk baik di gateway teks maupun file.
+    const sendRes = await sendWhatsAppDocument(customerPhone, pdfBase64, filename, caption, undefined, textReceipt);
 
     if (sendRes.success) {
       return {
@@ -348,7 +353,6 @@ export async function sendPOSTransactionReceiptWhatsApp(
 
     // Fallback cerdas: Jika pengiriman dokumen PDF ditolak batas ukuran oleh gateway, kirimkan struk teks berformat lengkap
     console.warn('[WA Gateway] Dokumen PDF ditolak server, mengaktifkan pengiriman struk teks rapi:', sendRes.error);
-    const textReceipt = formatPOSTransactionTextReceipt(tx, language);
     const textRes = await sendWhatsAppMessage(customerPhone, textReceipt);
 
     if (textRes.success) {
