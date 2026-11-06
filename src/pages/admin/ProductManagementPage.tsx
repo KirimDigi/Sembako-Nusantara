@@ -42,6 +42,11 @@ export const ProductManagementPage: React.FC = () => {
   const [savingImageIds, setSavingImageIds] = useState<Record<string, boolean>>({});
   const [savedImageSuccessIds, setSavedImageSuccessIds] = useState<Record<string, { success: boolean; message: string }>>({});
 
+  // Direct Inline Barcode Editing states (Bisa discan langsung pakai barcode scanner gun atau diketik)
+  const [barcodeDrafts, setBarcodeDrafts] = useState<Record<string, string>>({});
+  const [savingBarcodeIds, setSavingBarcodeIds] = useState<Record<string, boolean>>({});
+  const [savedBarcodeSuccessIds, setSavedBarcodeSuccessIds] = useState<Record<string, { success: boolean; message: string }>>({});
+
   // Inline Price & HPP Editing states
   const [inlineEditingHpp, setInlineEditingHpp] = useState<{ id: string; value: string } | null>(null);
   const [inlineEditingPrice, setInlineEditingPrice] = useState<{ id: string; value: string } | null>(null);
@@ -60,6 +65,7 @@ export const ProductManagementPage: React.FC = () => {
   // Form State for Add / Edit
   const [formData, setFormData] = useState({
     sku: '',
+    barcode: '',
     name: '',
     nameJp: '',
     nameEn: '',
@@ -108,6 +114,7 @@ export const ProductManagementPage: React.FC = () => {
         (p.nameEn && p.nameEn.toLowerCase().includes(q)) ||
         (p.brand && p.brand.toLowerCase().includes(q)) ||
         (p.sku && p.sku.toLowerCase().includes(q)) ||
+        (p.barcode && p.barcode.toLowerCase().includes(q)) ||
         p.id.includes(q);
 
       const matchCat = selectedCategory === 'ALL' || p.category === selectedCategory;
@@ -150,6 +157,7 @@ export const ProductManagementPage: React.FC = () => {
     const nextSku = `SN-${String(nextSkuNum).padStart(4, '0')}`;
     setFormData({
       sku: nextSku,
+      barcode: '',
       name: '',
       nameJp: '',
       nameEn: '',
@@ -186,6 +194,7 @@ export const ProductManagementPage: React.FC = () => {
     setEditingProduct(product);
     setFormData({
       sku: product.sku || product.id,
+      barcode: product.barcode || '',
       name: product.name,
       nameJp: product.nameJp || '',
       nameEn: product.nameEn || '',
@@ -224,6 +233,7 @@ export const ProductManagementPage: React.FC = () => {
     const newProd: Product = {
       id: formData.sku || String(Date.now()),
       sku: formData.sku,
+      barcode: formData.barcode?.trim() || undefined,
       name: formData.name,
       nameJp: formData.nameJp || formData.name,
       nameEn: formData.nameEn || formData.name,
@@ -269,6 +279,7 @@ export const ProductManagementPage: React.FC = () => {
 
     updateProduct(editingProduct.id, {
       sku: formData.sku,
+      barcode: formData.barcode?.trim() || undefined,
       name: formData.name,
       nameJp: formData.nameJp,
       nameEn: formData.nameEn,
@@ -453,9 +464,53 @@ export const ProductManagementPage: React.FC = () => {
     });
   };
 
+  // Direct Inline Barcode Save & Reset (Tersinkronisasi otomatis ke Supabase Cloud & LocalStorage)
+  const handleSaveDirectBarcode = async (productId: string, newBarcode: string) => {
+    const trimmed = newBarcode.trim();
+
+    setSavingBarcodeIds((prev) => ({ ...prev, [productId]: true }));
+
+    const res = await updateProduct(productId, { barcode: trimmed || undefined });
+
+    setSavingBarcodeIds((prev) => ({ ...prev, [productId]: false }));
+
+    setBarcodeDrafts((prev) => {
+      const copy = { ...prev };
+      delete copy[productId];
+      return copy;
+    });
+
+    const isCloudSuccess = res && typeof res === 'object' && res.success;
+    const msg = isCloudSuccess
+      ? 'Barcode tersimpan & sinkron ke Supabase Cloud!'
+      : 'Barcode tersimpan di Local Storage';
+
+    setSavedBarcodeSuccessIds((prev) => ({
+      ...prev,
+      [productId]: { success: true, message: msg }
+    }));
+
+    setTimeout(() => {
+      setSavedBarcodeSuccessIds((prev) => {
+        const copy = { ...prev };
+        delete copy[productId];
+        return copy;
+      });
+    }, 3500);
+  };
+
+  const handleResetDirectBarcode = (productId: string) => {
+    setBarcodeDrafts((prev) => {
+      const copy = { ...prev };
+      delete copy[productId];
+      return copy;
+    });
+  };
+
   const handleExportCSV = () => {
     const headers = [
       'SKU',
+      'Barcode',
       'Name',
       'Brand',
       'Category',
@@ -472,6 +527,7 @@ export const ProductManagementPage: React.FC = () => {
     ];
     const rows = products.map((p) => [
       p.sku || p.id,
+      p.barcode ? `"${p.barcode}"` : '',
       `"${p.name.replace(/"/g, '""')}"`,
       `"${p.brand}"`,
       `"${p.category}"`,
@@ -610,10 +666,10 @@ export const ProductManagementPage: React.FC = () => {
                 }}
                 placeholder={
                   language === 'JP'
-                    ? 'SKU (SN-0001)、商品名、ブランドで検索...'
+                    ? 'バーコード、SKU (SN-0001)、商品名、ブランドで検索...'
                     : language === 'EN'
-                    ? 'Search by SKU (SN-0001), product name, brand...'
-                    : 'Cari berdasarkan SKU (SN-0001), nama item, merek...'
+                    ? 'Search by barcode, SKU (SN-0001), product name, brand...'
+                    : 'Cari barcode, SKU (SN-0001), nama item, merek...'
                 }
                 className="w-full pl-9 pr-4 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#c41230]"
               />
@@ -748,6 +804,13 @@ export const ProductManagementPage: React.FC = () => {
                   <tr className="bg-stone-50 border-b border-stone-200 text-stone-600 font-bold uppercase tracking-wider text-[10px]">
                     <th className="py-3 px-3 w-12 text-center">#</th>
                     <th className="py-3 px-4 min-w-[220px]">Item / SKU / Merek</th>
+                    <th className="py-3 px-3 min-w-[170px]">
+                      <div className="flex items-center gap-1 text-stone-700">
+                        <span className="material-symbols-outlined text-[13px]">barcode_scanner</span>
+                        <span>Barcode</span>
+                      </div>
+                      <span className="text-[9px] text-stone-400 font-normal lowercase">scan / ketik langsung</span>
+                    </th>
                     <th className="py-3 px-3 min-w-[280px]">
                       <div className="flex items-center gap-1">
                         <span className="material-symbols-outlined text-[13px]">image</span>
@@ -827,6 +890,87 @@ export const ProductManagementPage: React.FC = () => {
                               </span>
                             </div>
                           </div>
+                        </td>
+
+                        {/* Barcode (Direct Input & Scanner Ready) */}
+                        <td className="py-3 px-3">
+                          {(() => {
+                            const draftBarcode = barcodeDrafts[p.id];
+                            const currentBarcode = draftBarcode !== undefined ? draftBarcode : (p.barcode || '');
+                            const isBarcodeChanged = draftBarcode !== undefined && draftBarcode.trim() !== (p.barcode || '').trim();
+                            const savedBarcodeInfo = savedBarcodeSuccessIds[p.id];
+
+                            return (
+                              <div className="flex flex-col gap-1 min-w-[155px]">
+                                <div className="flex items-center gap-1">
+                                  <div className="relative flex-1">
+                                    <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-stone-400 text-[13px] pointer-events-none">
+                                      barcode_scanner
+                                    </span>
+                                    <input
+                                      type="text"
+                                      value={currentBarcode}
+                                      onChange={(e) =>
+                                        setBarcodeDrafts((prev) => ({
+                                          ...prev,
+                                          [p.id]: e.target.value
+                                        }))
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          handleSaveDirectBarcode(p.id, currentBarcode);
+                                        } else if (e.key === 'Escape') {
+                                          handleResetDirectBarcode(p.id);
+                                        }
+                                      }}
+                                      placeholder="Scan / ketik..."
+                                      className={`w-full pl-6.5 pr-2 py-1 text-xs font-mono rounded-lg border transition-all ${
+                                        isBarcodeChanged
+                                          ? 'bg-amber-50/80 border-amber-400 text-stone-900 ring-2 ring-amber-300/50 focus:outline-none'
+                                          : currentBarcode
+                                          ? 'bg-stone-50 hover:bg-white focus:bg-white border-stone-200 focus:border-[#c41230] text-stone-800 font-bold focus:outline-none'
+                                          : 'bg-stone-50/50 hover:bg-white focus:bg-white border-dashed border-stone-300 focus:border-[#c41230] text-stone-400 focus:outline-none'
+                                      }`}
+                                      title={currentBarcode ? `Barcode: ${currentBarcode}` : 'Belum ada barcode. Klik / scan barcode produk di sini.'}
+                                    />
+                                  </div>
+
+                                  {isBarcodeChanged && (
+                                    <div className="flex items-center gap-1 shrink-0 animate-fadeIn">
+                                      <button
+                                        type="button"
+                                        disabled={savingBarcodeIds[p.id]}
+                                        onClick={() => handleSaveDirectBarcode(p.id, currentBarcode)}
+                                        className="p-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-md text-[11px] flex items-center justify-center shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                                        title="Simpan Barcode ke Supabase"
+                                      >
+                                        {savingBarcodeIds[p.id] ? (
+                                          <span className="material-symbols-outlined text-xs animate-spin">sync</span>
+                                        ) : (
+                                          <span className="material-symbols-outlined text-xs">check</span>
+                                        )}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleResetDirectBarcode(p.id)}
+                                        className="p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-200 rounded-md transition-colors cursor-pointer"
+                                        title="Batalkan"
+                                      >
+                                        <span className="material-symbols-outlined text-xs">close</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {savedBarcodeInfo && (
+                                  <div className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 animate-fadeIn">
+                                    <span className="material-symbols-outlined text-[13px]">cloud_done</span>
+                                    <span>{savedBarcodeInfo.message}</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         {/* Foto & Direct URL Input (Tanpa klik, langsung isi & tombol simpan) */}
@@ -1262,6 +1406,12 @@ export const ProductManagementPage: React.FC = () => {
                     <div>
                       <div className="flex items-center justify-between text-[10px] font-bold text-stone-400">
                         <span className="font-mono bg-stone-100 text-stone-700 px-1 py-0.5 rounded">{p.sku || p.id}</span>
+                        {p.barcode && (
+                          <span className="font-mono bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-[9px] flex items-center gap-0.5" title={`Barcode: ${p.barcode}`}>
+                            <span className="material-symbols-outlined text-[11px]">barcode_scanner</span>
+                            <span className="truncate max-w-[90px]">{p.barcode}</span>
+                          </span>
+                        )}
                         <span className="text-[#c41230]">{p.brand}</span>
                       </div>
                       <h3 className="font-bold text-xs text-stone-900 line-clamp-2 mt-1">
@@ -1327,7 +1477,7 @@ export const ProductManagementPage: React.FC = () => {
               </div>
 
               <form onSubmit={handleSaveAdd} className="space-y-4 text-xs">
-                {/* SKU, Name & Brand */}
+                {/* SKU, Barcode, Name & Brand */}
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div className="space-y-1">
                     <label className="font-bold text-stone-700">Kode SKU *</label>
@@ -1341,7 +1491,21 @@ export const ProductManagementPage: React.FC = () => {
                     />
                   </div>
 
-                  <div className="sm:col-span-2 space-y-1">
+                  <div className="space-y-1">
+                    <label className="font-bold text-stone-700 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px] text-stone-500">barcode_scanner</span>
+                      <span>Barcode (EAN/UPC)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.barcode}
+                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                      placeholder="mis. 8992388111223"
+                      className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-[#c41230]"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
                     <label className="font-bold text-stone-700">{t('prod_name_id')} *</label>
                     <input
                       type="text"
@@ -1634,7 +1798,7 @@ export const ProductManagementPage: React.FC = () => {
               </div>
 
               <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
-                {/* SKU, Name & Brand */}
+                {/* SKU, Barcode, Name & Brand */}
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div className="space-y-1">
                     <label className="font-bold text-stone-700">Kode SKU *</label>
@@ -1647,7 +1811,21 @@ export const ProductManagementPage: React.FC = () => {
                     />
                   </div>
 
-                  <div className="sm:col-span-2 space-y-1">
+                  <div className="space-y-1">
+                    <label className="font-bold text-stone-700 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px] text-stone-500">barcode_scanner</span>
+                      <span>Barcode (EAN/UPC)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.barcode}
+                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                      placeholder="mis. 8992388111223"
+                      className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-mono focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
                     <label className="font-bold text-stone-700">{t('prod_name_id')} *</label>
                     <input
                       type="text"
