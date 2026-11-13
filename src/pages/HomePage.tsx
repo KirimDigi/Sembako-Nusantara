@@ -35,7 +35,7 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* 2.1 SECTION: KATALOG PRODUK YANG SERING DIBELI (Dikosongkan dahulu karena data belum ada) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full min-w-0">
+      <section className="w-full px-3 sm:px-5 lg:px-6 min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-stone-200 gap-3 mb-6">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
@@ -86,7 +86,7 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* 2.2 SECTION: KATALOG PRODUK PROMO (Dikosongkan dahulu karena promo belum ada) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full min-w-0">
+      <section className="w-full px-3 sm:px-5 lg:px-6 min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-stone-200 gap-3 mb-6">
           <div>
             <div className="flex items-center gap-2 mb-1.5">

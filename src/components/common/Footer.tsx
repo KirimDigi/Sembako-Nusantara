@@ -45,7 +45,7 @@ export const Footer: React.FC = () => {
       )}
 
       {/* Main Footer Links */}
-      <div className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
+      <div className="py-10 sm:py-12 px-3 sm:px-5 lg:px-6 w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center gap-2.5">
             <img

@@ -123,8 +123,8 @@ export const Header: React.FC = () => {
         {/* Top Utility Bar */}
         <TopBar />
 
-        {/* Main Navigation Bar - Frozen & Sticky */}
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3">
+        {/* Main Navigation Bar - Full Width Edge to Edge */}
+        <div className="w-full px-3 sm:px-5 lg:px-6 py-2.5 sm:py-3">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             {/* 1. Brand Logo Link */}
             <Link

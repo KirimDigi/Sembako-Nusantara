@@ -242,11 +242,11 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
       )}
 
       {/* Main Content Area: Free Shipping Bar + Sidebar (Kategori & Metode Pembayaran) + Product Grid */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 w-full min-w-0">
+      <section className="w-full px-3 sm:px-5 lg:px-6 pt-3 sm:pt-4 min-w-0">
         {/* Free Shipping Tracker Bar */}
-        <FreeShippingProgressBar className="mb-6" />
+        <FreeShippingProgressBar className="mb-4 sm:mb-6" />
 
-        <div className="flex flex-col lg:flex-row gap-6 items-start w-full min-w-0">
+        <div className="flex flex-col lg:flex-row gap-5 lg:gap-6 items-start w-full min-w-0">
           {/* LEFT SIDEBAR: 1. KATEGORI PRODUK & 2. METODE PEMBAYARAN YANG TERSEDIA (Tampil di Desktop saja & Freeze/Sticky saat scroll; Di Mobile di-takedown) */}
           <aside className="hidden lg:block w-full lg:w-64 xl:w-72 shrink-0 space-y-4 lg:sticky lg:top-[125px] self-start z-20 max-h-[calc(100vh-135px)] overflow-y-auto no-scrollbar">
             {/* 1. KATEGORI PRODUK CARD */}
@@ -798,7 +798,7 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5 mt-6 sm:mt-8 w-full min-w-0">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 mt-5 sm:mt-6 w-full min-w-0">
               {paginatedProducts.map((product) => {
                 const isAdded = addedProductId === product.id;
                 const activeDisc = itemDiscounts.find(
