@@ -164,8 +164,8 @@ export const TopBar: React.FC = () => {
 
   return (
     <>
-      <div className="bg-[#111111] text-white text-xs py-1.5 px-3 sm:px-5 lg:px-6 border-b border-white/10 w-full overflow-hidden">
-        <div className="w-full flex items-center justify-between gap-2 min-w-0">
+      <div className="bg-[#111111] text-white text-xs py-1.5 border-b border-white/10 w-full overflow-hidden">
+        <div className="max-w-[1360px] mx-auto px-4 sm:px-6 flex items-center justify-between gap-2 min-w-0">
           {/* Automatic Live Location & 24 Jam Service Hours */}
           <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 overflow-hidden">
             <button

@@ -242,7 +242,7 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
       )}
 
       {/* Main Content Area: Free Shipping Bar + Sidebar (Kategori & Metode Pembayaran) + Product Grid */}
-      <section className="w-full px-3 sm:px-5 lg:px-6 pt-3 sm:pt-4 min-w-0">
+      <section className="max-w-[1360px] mx-auto px-4 sm:px-6 pt-3 sm:pt-4 min-w-0">
         {/* Free Shipping Tracker Bar */}
         <FreeShippingProgressBar className="mb-4 sm:mb-6" />
 

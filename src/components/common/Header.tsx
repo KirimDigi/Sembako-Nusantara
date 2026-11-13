@@ -123,9 +123,9 @@ export const Header: React.FC = () => {
         {/* Top Utility Bar */}
         <TopBar />
 
-        {/* Main Navigation Bar - Full Width Edge to Edge */}
-        <div className="w-full px-3 sm:px-5 lg:px-6 py-2.5 sm:py-3">
-          <div className="flex items-center justify-between gap-2 sm:gap-4">
+        {/* Main Navigation Bar - Balanced Container */}
+        <div className="w-full py-2.5 sm:py-3 border-b border-stone-200/60 bg-white">
+          <div className="max-w-[1360px] mx-auto px-4 sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
             {/* 1. Brand Logo Link */}
             <Link
               to="/"
