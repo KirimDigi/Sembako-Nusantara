@@ -103,12 +103,12 @@ export const PromoBannerSlider: React.FC<PromoBannerSliderProps> = ({
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* Banner Container with 3D shadow & rounded border (Balanced height matching Category card) */}
+      {/* Banner Container with 3D shadow & rounded border (Matches exact 1376/768 image aspect ratio so entire image is 100% visible without cropping, exactly like mobile mode) */}
       <div
         className={
           isInlineWithCategory
-            ? 'relative w-full overflow-hidden rounded-2xl shadow-md border border-stone-200/80 bg-stone-900 aspect-[16/9] sm:aspect-[2/1] lg:aspect-auto lg:h-[395px] xl:h-[395px] group'
-            : 'relative w-full overflow-hidden rounded-2xl sm:rounded-3xl shadow-xl border border-stone-200/80 bg-stone-900 aspect-[16/9] sm:aspect-[21/9] lg:h-[420px] group'
+            ? 'relative w-full overflow-hidden rounded-2xl shadow-md border border-stone-200/80 bg-stone-900 aspect-[16/9] sm:aspect-[1376/768] group'
+            : 'relative w-full overflow-hidden rounded-2xl sm:rounded-3xl shadow-xl border border-stone-200/80 bg-stone-900 aspect-[16/9] sm:aspect-[1376/768] group'
         }
       >
         <AnimatePresence mode="wait">

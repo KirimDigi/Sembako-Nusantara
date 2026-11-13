@@ -740,6 +740,57 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Halal & Frozen Kategori Jenis Dropdown (Tampil di Mobile & Desktop di Samping Search Bar) */}
+              <div className="flex items-center gap-1 shrink-0">
+                <select
+                  value={
+                    filterFrozenOnly && filterHalalOnly
+                      ? 'both'
+                      : filterFrozenOnly
+                      ? 'frozen'
+                      : filterHalalOnly
+                      ? 'halal'
+                      : 'all'
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'frozen') {
+                      setFilterFrozenOnly(true);
+                      setFilterHalalOnly(false);
+                    } else if (val === 'halal') {
+                      setFilterFrozenOnly(false);
+                      setFilterHalalOnly(true);
+                    } else if (val === 'both') {
+                      setFilterFrozenOnly(true);
+                      setFilterHalalOnly(true);
+                    } else {
+                      setFilterFrozenOnly(false);
+                      setFilterHalalOnly(false);
+                    }
+                    setCurrentPage(1);
+                  }}
+                  className={`border-2 rounded-xl px-2.5 sm:px-3 py-1 text-xs text-stone-800 font-semibold focus:outline-none focus:ring-2 focus:ring-[#c41230]/20 shadow-xs cursor-pointer transition-all ${
+                    filterFrozenOnly || filterHalalOnly
+                      ? 'bg-red-50/80 border-[#c41230] text-[#c41230] font-bold'
+                      : 'bg-white border-stone-300 hover:border-stone-400'
+                  }`}
+                  title="Filter Kategori Jenis Halal & Frozen"
+                >
+                  <option value="all">
+                    {language === 'JP' ? '🏷️ 全区分 (ハラール & 冷凍)' : language === 'EN' ? '🏷️ All Types' : '🏷️ Kategori: Semua Jenis'}
+                  </option>
+                  <option value="halal">
+                    {language === 'JP' ? '✅ 100% ハラール認証' : language === 'EN' ? '✅ 100% Halal Only' : '✅ 100% Halal Saja'}
+                  </option>
+                  <option value="frozen">
+                    {language === 'JP' ? '❄️ 冷凍食品 (Frozen)' : language === 'EN' ? '❄️ Frozen Food Only' : '❄️ Frozen Food Saja'}
+                  </option>
+                  <option value="both">
+                    {language === 'JP' ? '❄️✅ 冷凍 ＆ ハラール' : language === 'EN' ? '❄️✅ Frozen & Halal' : '❄️✅ Frozen & Halal'}
+                  </option>
+                </select>
+              </div>
             </div>
           </div>
 
