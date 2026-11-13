@@ -5,7 +5,6 @@ import { useCart } from '../../context/CartContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAdmin } from '../../context/AdminContext';
 import { Product } from '../../types';
-import { FreeShippingProgressBar } from '../common/FreeShippingProgressBar';
 import { smartSearchProducts } from '../../utils/smartSearch';
 import { resolveProductImage, getPlaceholderImage } from '../common/ProductImage';
 import { useExchangeRate, convertJpyToIdr, formatIdr } from '../../utils/currency';
@@ -241,11 +240,8 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
         </section>
       )}
 
-      {/* Main Content Area: Free Shipping Bar + Sidebar (Kategori & Metode Pembayaran) + Product Grid */}
+      {/* Main Content Area: Sidebar (Kategori & Metode Pembayaran) + Product Grid (Free shipping tracker bar moved to floating icon above WhatsApp button) */}
       <section className="max-w-[1360px] mx-auto px-4 sm:px-6 pt-3 sm:pt-4 min-w-0">
-        {/* Free Shipping Tracker Bar */}
-        <FreeShippingProgressBar className="mb-4 sm:mb-6" />
-
         <div className="flex flex-col lg:flex-row gap-5 lg:gap-6 items-start w-full min-w-0">
           {/* LEFT SIDEBAR: 1. KATEGORI PRODUK & 2. METODE PEMBAYARAN YANG TERSEDIA (Tampil di Desktop saja & Freeze/Sticky saat scroll; Di Mobile di-takedown) */}
           <aside className="hidden lg:block w-full lg:w-64 xl:w-72 shrink-0 space-y-4 lg:sticky lg:top-[125px] self-start z-20 max-h-[calc(100vh-135px)] overflow-y-auto no-scrollbar">
