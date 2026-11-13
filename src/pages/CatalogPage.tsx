@@ -4,7 +4,7 @@ import { ProductCatalogSection } from '../components/catalog/ProductCatalogSecti
 export const CatalogPage: React.FC = () => {
   return (
     <div className="w-full pb-16">
-      <ProductCatalogSection showTitleHeader={false} showCategoryBar={true} />
+      <ProductCatalogSection showTitleHeader={false} showCategoryBar={false} />
     </div>
   );
 };

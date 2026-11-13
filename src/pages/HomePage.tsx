@@ -24,15 +24,14 @@ export const HomePage: React.FC = () => {
   );
 
   return (
-    <div className="w-full space-y-10 sm:space-y-16 pb-20 overflow-hidden">
-      {/* 1. HERO PROMO BANNER COVER PHOTO SLIDER */}
-      <section className="w-full pt-2">
-        <PromoBannerSlider />
-      </section>
-
-      {/* 2. KATALOG PRODUK LANGSUNG DI BAWAH FOTO SAMPUL HERO SECTION */}
+    <div className="w-full space-y-10 sm:space-y-16 pb-20">
+      {/* 1. KATALOG PRODUK DENGAN SIDEBAR KATEGORI & METODE PEMBAYARAN FREEZE, SERTA PROMO BANNER DI SEBELAH KANAN */}
       <section className="w-full">
-        <ProductCatalogSection showTitleHeader={false} showCategoryBar={false} />
+        <ProductCatalogSection
+          showTitleHeader={false}
+          showCategoryBar={false}
+          showInlinePromoBanner={true}
+        />
       </section>
 
       {/* 2.1 SECTION: KATALOG PRODUK YANG SERING DIBELI (Dikosongkan dahulu karena data belum ada) */}

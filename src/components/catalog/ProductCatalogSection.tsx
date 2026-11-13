@@ -9,16 +9,19 @@ import { FreeShippingProgressBar } from '../common/FreeShippingProgressBar';
 import { smartSearchProducts } from '../../utils/smartSearch';
 import { resolveProductImage, getPlaceholderImage } from '../common/ProductImage';
 import { useExchangeRate, convertJpyToIdr, formatIdr } from '../../utils/currency';
+import { PromoBannerSlider } from '../home/PromoBannerSlider';
 
 interface ProductCatalogSectionProps {
   showTitleHeader?: boolean;
   showCategoryBar?: boolean;
+  showInlinePromoBanner?: boolean;
   className?: string;
 }
 
 export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
   showTitleHeader = false,
   showCategoryBar = false,
+  showInlinePromoBanner = false,
   className = ''
 }) => {
   const navigate = useNavigate();
@@ -57,15 +60,16 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
     setCurrentPage(1);
   }, [urlQuery]);
 
-  // Category filter items
+  // Category filter items (Sidebar Kategori Produk)
   const categories = [
-    { key: 'cat_all', labelId: 'Semua Produk', labelJp: 'すべての商品', labelEn: 'All Products', icon: 'apps' },
-    { key: 'bumbu', labelId: 'Bumbu & Sambal', labelJp: '調味料・サンバル', labelEn: 'Spices & Sambal', icon: 'soup_kitchen' },
-    { key: 'mie', labelId: 'Mie Instan', labelJp: 'インスタント麺', labelEn: 'Instant Noodles', icon: 'ramen_dining' },
-    { key: 'frozen', labelId: 'Frozen Food', labelJp: '冷凍食品', labelEn: 'Frozen Food', icon: 'ac_unit' },
-    { key: 'snack', labelId: 'Minuman & Snack', labelJp: '飲料・スナック', labelEn: 'Drinks & Snacks', icon: 'local_cafe' },
-    { key: 'pokok', labelId: 'Bahan Pokok & Beras', labelJp: '主食・米', labelEn: 'Staple Food & Rice', icon: 'grain' },
-    { key: 'herbal', labelId: 'Herbal & Perawatan', labelJp: 'ハーブ・ケア', labelEn: 'Herbal & Care', icon: 'spa' },
+    { key: 'bumbu', labelId: 'Bumbu & Rempah', labelJp: '調味料・スパイス', labelEn: 'Spices & Herbs', icon: 'soup_kitchen' },
+    { key: 'mie', labelId: 'Makanan Instan', labelJp: 'インスタント食品・麺', labelEn: 'Instant Food & Noodles', icon: 'ramen_dining' },
+    { key: 'snack', labelId: 'Camilan & Kue', labelJp: 'スナック・お菓子', labelEn: 'Snacks & Pastries', icon: 'cookie' },
+    { key: 'minuman', labelId: 'Minuman', labelJp: '飲料・コーヒー', labelEn: 'Beverages & Drinks', icon: 'local_cafe' },
+    { key: 'sambal', labelId: 'Saus & Sambal', labelJp: 'ソース・サンバル', labelEn: 'Sauces & Sambal', icon: 'local_fire_department' },
+    { key: 'frozen', labelId: 'Frozen Food', labelJp: '冷凍食品・ハラール肉', labelEn: 'Halal Frozen Food', icon: 'ac_unit' },
+    { key: 'herbal', labelId: 'Herbal & Kesehatan', labelJp: 'ハーブ・日用品・薬', labelEn: 'Herbal & Daily Care', icon: 'spa' },
+    { key: 'cat_all', labelId: 'Lihat Semua Produk', labelJp: 'すべての商品を見る', labelEn: 'View All Products', icon: 'language' },
   ];
 
   // Helper matcher precisely synchronized with database SKU categories
@@ -73,23 +77,32 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
     if (key === 'cat_all') return true;
     const cat = p.category || '';
 
+    if (key === 'bumbu') {
+      return (
+        cat === 'Bumbu & Rempah' ||
+        cat === 'Bumbu Instan' ||
+        cat === 'Bumbu Masak' ||
+        cat === 'MSG & Kaldu Bubuk' ||
+        cat === 'Sembako & Bumbu'
+      );
+    }
     if (key === 'mie') {
-      return cat === 'Makanan Instan & Mie';
+      return cat === 'Makanan Instan & Mie' || cat === 'Mie & Bihun' || cat === 'Beras & Biji-bijian';
+    }
+    if (key === 'snack') {
+      return cat === 'Camilan & Kerupuk' || cat === 'Snack' || cat === 'Bahan Baking';
+    }
+    if (key === 'minuman') {
+      return cat === 'Minuman' || cat === 'Minuman Segar & Kopi';
+    }
+    if (key === 'sambal') {
+      return cat === 'Saus & Sambal';
     }
     if (key === 'frozen') {
       return p.isFrozen === true || cat === 'Frozen Food Halal' || cat === 'Daging Halal';
     }
-    if (key === 'bumbu') {
-      return cat === 'Bumbu & Rempah' || cat === 'Saus & Sambal';
-    }
-    if (key === 'snack') {
-      return cat === 'Camilan & Kerupuk' || cat === 'Minuman Segar & Kopi';
-    }
-    if (key === 'pokok') {
-      return cat === 'Beras & Biji-bijian';
-    }
     if (key === 'herbal') {
-      return cat === 'Kebutuhan Harian & Herbal';
+      return cat === 'Kebutuhan Harian & Herbal' || cat === 'Obat/OTC' || cat === 'Lain-lain';
     }
     return p.category === key;
   };
@@ -194,72 +207,223 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
   };
 
   return (
-    <div id="catalog-products-top" className={`w-full max-w-full overflow-x-hidden ${className}`}>
-      {/* Optional Title & Category Section (Shown only if explicitly enabled) */}
-      {(showTitleHeader || showCategoryBar) && (
+    <div id="catalog-products-top" className={`w-full max-w-full ${className}`}>
+      {/* Optional Title Section (Shown only if explicitly enabled) */}
+      {showTitleHeader && (
         <section className="bg-gradient-to-b from-white to-[#FDF8F0] border-y border-[#EBE5DF] py-5 sm:py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full overflow-hidden">
           <div className="max-w-7xl mx-auto space-y-4">
-            {showTitleHeader && (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="px-3 py-1 bg-red-100 text-[#c41230] font-bold text-xs rounded-full">
-                    {language === 'JP' ? '100+ 点 即納可能' : language === 'EN' ? '100+ SKUs Ready Stock' : '100+ SKU Ready Stock'}
-                  </span>
-                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-full flex items-center gap-1">
-                    <span className="material-symbols-outlined text-xs">verified</span>
-                    {language === 'JP' ? '100% ハラール認証' : language === 'EN' ? '100% Halal Certified' : '100% Halal'}
-                  </span>
-                </div>
-                <h2 className="font-heading font-extrabold text-2xl sm:text-4xl text-stone-900 tracking-tight">
-                  {language === 'JP'
-                    ? 'インドネシア食材・ハラールカタログ'
-                    : language === 'EN'
-                    ? 'Indonesian Halal Grocery Catalog'
-                    : 'Katalog Produk Sembako Nusantara'}
-                </h2>
-                <p className="text-stone-600 text-xs sm:text-sm mt-1.5 max-w-2xl leading-relaxed">
-                  {language === 'JP'
-                    ? '本場のインドネシア調味料、即席麺、冷凍食品などを日本全国47都道府県へ即日発送いたします。'
-                    : language === 'EN'
-                    ? 'Authentic Indonesian spices, instant noodles, frozen food, and groceries delivered across all 47 prefectures in Japan.'
-                    : 'Pilihan lengkap sembako, bumbu asli, mie instan, dan frozen food halal terbesar se-Jepang dengan pengiriman kilat Yamato & Sagawa.'}
-                </p>
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="px-3 py-1 bg-red-100 text-[#c41230] font-bold text-xs rounded-full">
+                  {language === 'JP' ? '100+ 点 即納可能' : language === 'EN' ? '100+ SKUs Ready Stock' : '100+ SKU Ready Stock'}
+                </span>
+                <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-full flex items-center gap-1">
+                  <span className="material-symbols-outlined text-xs">verified</span>
+                  {language === 'JP' ? '100% ハラール認証' : language === 'EN' ? '100% Halal Certified' : '100% Halal'}
+                </span>
               </div>
-            )}
+              <h2 className="font-heading font-extrabold text-2xl sm:text-4xl text-stone-900 tracking-tight">
+                {language === 'JP'
+                  ? 'インドネシア食材・ハラールカタログ'
+                  : language === 'EN'
+                  ? 'Indonesian Halal Grocery Catalog'
+                  : 'Katalog Produk Sembako Nusantara'}
+              </h2>
+              <p className="text-stone-600 text-xs sm:text-sm mt-1.5 max-w-2xl leading-relaxed">
+                {language === 'JP'
+                  ? '本場のインドネシア調味料、即席麺、冷凍食品などを日本全国47都道府県へ即日発送いたします。'
+                  : language === 'EN'
+                  ? 'Authentic Indonesian spices, instant noodles, frozen food, and groceries delivered across all 47 prefectures in Japan.'
+                  : 'Pilihan lengkap sembako, bumbu asli, mie instan, dan frozen food halal terbesar se-Jepang dengan pengiriman kilat Yamato & Sagawa.'}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
 
-            {/* Horizontal Category Pill Bar */}
-            {showCategoryBar && (
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none w-full max-w-full min-w-0 pt-1">
+      {/* Main Content Area: Free Shipping Bar + Sidebar (Kategori & Metode Pembayaran) + Product Grid */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 w-full min-w-0">
+        {/* Free Shipping Tracker Bar */}
+        <FreeShippingProgressBar className="mb-6" />
+
+        <div className="flex flex-col lg:flex-row gap-6 items-start w-full min-w-0">
+          {/* LEFT SIDEBAR: 1. KATEGORI PRODUK & 2. METODE PEMBAYARAN YANG TERSEDIA (Tampil di Desktop saja & Freeze/Sticky saat scroll; Di Mobile di-takedown) */}
+          <aside className="hidden lg:block w-full lg:w-64 xl:w-72 shrink-0 space-y-4 lg:sticky lg:top-[125px] self-start z-20 max-h-[calc(100vh-135px)] overflow-y-auto no-scrollbar">
+            {/* 1. KATEGORI PRODUK CARD */}
+            <div className="bg-white rounded-2xl border border-[#EBE5DF] shadow-xs overflow-hidden">
+              <div className="bg-[#b91c1c] text-white px-4 py-3 flex items-center gap-3">
+                <span className="material-symbols-outlined text-xl">menu</span>
+                <h3 className="font-heading font-extrabold text-xs sm:text-sm tracking-wider uppercase">
+                  {language === 'JP' ? '商品カテゴリー' : language === 'EN' ? 'PRODUCT CATEGORIES' : 'KATEGORI PRODUK'}
+                </h3>
+              </div>
+              <div className="divide-y divide-stone-100">
                 {categories.map((cat) => {
                   const isActive = selectedCategory === cat.key;
                   return (
                     <button
                       key={cat.key}
+                      type="button"
                       onClick={() => {
                         setSelectedCategory(cat.key);
                         setCurrentPage(1);
                       }}
-                      className={`px-4 py-2.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+                      className={`w-full px-4 py-2.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer group ${
                         isActive
-                          ? 'bg-[#c41230] text-white shadow-md scale-105'
-                          : 'bg-white text-stone-700 hover:bg-stone-100 border border-stone-200'
+                          ? 'bg-red-50/90 text-[#c41230]'
+                          : 'bg-white hover:bg-stone-50 text-stone-800'
                       }`}
                     >
-                      <span className="material-symbols-outlined text-base">{cat.icon}</span>
-                      <span>{getCategoryLabel(cat)}</span>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span
+                          className={`material-symbols-outlined text-[19px] shrink-0 transition-colors ${
+                            isActive ? 'text-[#c41230]' : 'text-stone-600 group-hover:text-[#c41230]'
+                          }`}
+                        >
+                          {cat.icon}
+                        </span>
+                        <span
+                          className={`text-xs sm:text-[13px] truncate ${
+                            isActive ? 'font-extrabold text-[#c41230]' : 'font-bold text-stone-800 group-hover:text-[#c41230]'
+                          }`}
+                        >
+                          {getCategoryLabel(cat)}
+                        </span>
+                      </div>
+                      <span
+                        className={`material-symbols-outlined text-base shrink-0 transition-transform group-hover:translate-x-0.5 ${
+                          isActive ? 'text-[#c41230]' : 'text-stone-400 group-hover:text-[#c41230]'
+                        }`}
+                      >
+                        chevron_right
+                      </span>
                     </button>
                   );
                 })}
               </div>
-            )}
-          </div>
-        </section>
-      )}
+            </div>
 
-      {/* Main Content Area: Free Shipping Bar + Toolbar + Grid */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 w-full min-w-0">
-        {/* Free Shipping Tracker Bar */}
-        <FreeShippingProgressBar className="mb-6" />
+            {/* 2. METODE PEMBAYARAN YANG TERSEDIA CARD */}
+            <div className="bg-white rounded-2xl border border-[#EBE5DF] p-4 shadow-xs space-y-3">
+              <h4 className="font-heading font-extrabold text-[11px] sm:text-xs text-stone-800 uppercase tracking-wider">
+                {language === 'JP'
+                  ? 'ご利用可能なお支払い方法'
+                  : language === 'EN'
+                  ? 'AVAILABLE PAYMENT METHODS'
+                  : 'METODE PEMBAYARAN YANG TERSEDIA'}
+              </h4>
+
+              {/* Row 1: VISA, Mastercard, JCB, American Express */}
+              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                {/* VISA */}
+                <div
+                  className="h-7 px-2.5 rounded-md border border-stone-200 bg-white flex items-center justify-center shadow-2xs"
+                  title="VISA"
+                >
+                  <span className="font-black italic text-[#1A1F71] text-sm tracking-tight leading-none">
+                    VISA
+                  </span>
+                </div>
+
+                {/* Mastercard */}
+                <div
+                  className="h-7 px-2 rounded-md border border-stone-200 bg-white flex items-center justify-center shadow-2xs"
+                  title="Mastercard"
+                >
+                  <span className="relative flex items-center w-7 h-4">
+                    <span className="w-4 h-4 rounded-full bg-[#EB001B] inline-block" />
+                    <span className="w-4 h-4 rounded-full bg-[#F79E1B]/90 -ml-1.5 inline-block" />
+                  </span>
+                </div>
+
+                {/* JCB */}
+                <div
+                  className="h-7 px-2 rounded-md border border-stone-200 bg-white flex items-center justify-center gap-0.5 shadow-2xs"
+                  title="JCB"
+                >
+                  <span className="w-2.5 h-4 rounded-xs bg-[#0066B2] text-white text-[8px] font-black flex items-center justify-center leading-none">
+                    J
+                  </span>
+                  <span className="w-2.5 h-4 rounded-xs bg-[#E4002B] text-white text-[8px] font-black flex items-center justify-center leading-none">
+                    C
+                  </span>
+                  <span className="w-2.5 h-4 rounded-xs bg-[#00A94F] text-white text-[8px] font-black flex items-center justify-center leading-none">
+                    B
+                  </span>
+                </div>
+
+                {/* American Express */}
+                <div
+                  className="h-7 px-2 rounded-md bg-[#016FD0] text-white flex flex-col items-center justify-center leading-[0.85] shadow-2xs"
+                  title="American Express"
+                >
+                  <span className="text-[7px] font-black tracking-tighter uppercase">AMERICAN</span>
+                  <span className="text-[7px] font-black tracking-tighter uppercase">EXPRESS</span>
+                </div>
+              </div>
+
+              {/* Row 2: PayPay, LINE Pay, Konbini Payment */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* PayPay */}
+                <div
+                  className="h-7 px-2 rounded-md border border-stone-200 bg-white flex items-center gap-1 shadow-2xs"
+                  title="PayPay"
+                >
+                  <span className="w-4 h-4 rounded-xs bg-[#FF0033] text-white font-black text-[10px] italic flex items-center justify-center leading-none">
+                    P
+                  </span>
+                  <span className="font-extrabold text-stone-900 text-[11px] tracking-tight leading-none">
+                    PayPay
+                  </span>
+                </div>
+
+                {/* LINE Pay */}
+                <div
+                  className="h-7 px-2 rounded-md border border-stone-200 bg-white flex items-center gap-1 shadow-2xs"
+                  title="LINE Pay"
+                >
+                  <span className="font-black text-stone-900 text-[10px] tracking-tight leading-none">
+                    LINE
+                  </span>
+                  <span className="px-1 py-0.5 rounded-xs bg-[#06C755] text-white font-extrabold text-[9px] leading-none">
+                    Pay
+                  </span>
+                </div>
+
+                {/* Konbini Payment */}
+                <div
+                  className="h-7 px-2 rounded-md border border-stone-200 bg-stone-50 flex items-center justify-center shadow-2xs"
+                  title="Konbini Payment (Seven-Eleven, Lawson, FamilyMart)"
+                >
+                  <span className="font-extrabold text-stone-800 text-[10px] tracking-tight leading-none">
+                    Konbini Payment
+                  </span>
+                </div>
+              </div>
+
+              {/* Row 3: QRIS / JPQR, Transfer Bank IDR/Yen, Cash / COD */}
+              <div className="pt-2 border-t border-stone-100 flex flex-wrap items-center gap-1.5">
+                <span className="px-2 py-0.5 bg-[#c41230] text-white font-black rounded text-[10px] tracking-wide">
+                  QRIS / JPQR
+                </span>
+                <span className="px-2 py-0.5 bg-blue-600 text-white font-bold rounded text-[10px]">
+                  Transfer IDR / Yen
+                </span>
+                <span className="px-2 py-0.5 bg-emerald-600 text-white font-bold rounded text-[10px]">
+                  Cash / COD
+                </span>
+              </div>
+            </div>
+          </aside>
+
+          {/* RIGHT MAIN PRODUCT CATALOG COLUMN */}
+          <div className="flex-1 min-w-0 w-full space-y-6">
+            {/* Inline Promo Banner Slider (Appears beside categories on Desktop and above catalog) */}
+            {showInlinePromoBanner && (
+              <div className="w-full">
+                <PromoBannerSlider isInlineWithCategory={true} />
+              </div>
+            )}
 
         {/* Smart Search Typo Suggestion Banner ("Maksud Anda: ...?") */}
         {catalogSearchMeta?.didYouMean && (
@@ -576,57 +740,6 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
                   </div>
                 )}
               </div>
-
-              {/* Halal & Frozen Category Dropdown */}
-              <div className="flex items-center gap-1 shrink-0">
-                <select
-                  value={
-                    filterFrozenOnly && filterHalalOnly
-                      ? 'both'
-                      : filterFrozenOnly
-                      ? 'frozen'
-                      : filterHalalOnly
-                      ? 'halal'
-                      : 'all'
-                  }
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === 'frozen') {
-                      setFilterFrozenOnly(true);
-                      setFilterHalalOnly(false);
-                    } else if (val === 'halal') {
-                      setFilterFrozenOnly(false);
-                      setFilterHalalOnly(true);
-                    } else if (val === 'both') {
-                      setFilterFrozenOnly(true);
-                      setFilterHalalOnly(true);
-                    } else {
-                      setFilterFrozenOnly(false);
-                      setFilterHalalOnly(false);
-                    }
-                    setCurrentPage(1);
-                  }}
-                  className={`border-2 rounded-xl px-2.5 sm:px-3 py-1 text-xs text-stone-800 font-semibold focus:outline-none focus:ring-2 focus:ring-[#c41230]/20 shadow-xs cursor-pointer transition-all ${
-                    filterFrozenOnly || filterHalalOnly
-                      ? 'bg-red-50/80 border-[#c41230] text-[#c41230] font-bold'
-                      : 'bg-white border-stone-300 hover:border-stone-400'
-                  }`}
-                  title="Filter Kategori Halal & Frozen"
-                >
-                  <option value="all">
-                    {language === 'JP' ? '🏷️ 全区分 (ハラール & 冷凍)' : language === 'EN' ? '🏷️ All Types' : '🏷️ Kategori: Semua Jenis'}
-                  </option>
-                  <option value="halal">
-                    {language === 'JP' ? '✅ 100% ハラール認証' : language === 'EN' ? '✅ 100% Halal Only' : '✅ 100% Halal Saja'}
-                  </option>
-                  <option value="frozen">
-                    {language === 'JP' ? '❄️ 冷凍食品 (Frozen)' : language === 'EN' ? '❄️ Frozen Food Only' : '❄️ Frozen Food Saja'}
-                  </option>
-                  <option value="both">
-                    {language === 'JP' ? '❄️✅ 冷凍 ＆ ハラール' : language === 'EN' ? '❄️✅ Frozen & Halal' : '❄️✅ Frozen & Halal'}
-                  </option>
-                </select>
-              </div>
             </div>
           </div>
 
@@ -685,7 +798,7 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-6 mt-6 sm:mt-8 w-full min-w-0">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5 mt-6 sm:mt-8 w-full min-w-0">
               {paginatedProducts.map((product) => {
                 const isAdded = addedProductId === product.id;
                 const activeDisc = itemDiscounts.find(
@@ -910,6 +1023,8 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
             )}
           </>
         )}
+          </div>
+        </div>
       </section>
     </div>
   );

@@ -241,7 +241,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FDF8F0] text-[#1A1A1A] w-full max-w-full overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-[#FDF8F0] text-[#1A1A1A] w-full max-w-full overflow-x-clip">
       {/* Standardized Storefront Header */}
       <Header />
 
@@ -255,7 +255,7 @@ const AppContent: React.FC = () => {
       <PWAUpdateToast />
 
       {/* Main Storefront Application Routes */}
-      <main className="flex-1 pt-[120px] w-full max-w-full overflow-x-hidden">
+      <main className="flex-1 pt-[105px] sm:pt-[115px] w-full max-w-full">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />

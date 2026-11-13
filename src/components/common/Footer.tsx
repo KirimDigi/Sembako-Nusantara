@@ -207,32 +207,75 @@ export const Footer: React.FC = () => {
         </div>
       </div>
 
-      {/* Payment & Logistics Badges */}
-      <div className="border-t border-[#EBE5DF] py-6 px-4 sm:px-6 lg:px-8 bg-[#FDF8F0]">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <span className="text-stone-500 font-bold mr-1">{t('payment_methods')}</span>
-            <span className="px-2 py-0.5 bg-emerald-600 text-white font-bold rounded text-[11px]">Cash</span>
-            <span className="px-2 py-0.5 bg-blue-600 text-white font-bold rounded text-[11px]">Transfer IDR/Yen</span>
-            <span className="px-2 py-0.5 bg-[#c41230] text-white font-black rounded text-[11px]">QRIS</span>
-            <span className="px-2 py-0.5 bg-white rounded border border-[#EBE5DF] font-bold text-stone-700">Debit / CC</span>
-            <span className="px-2 py-0.5 bg-amber-600 text-white font-bold rounded text-[11px]">E-Wallet</span>
-            <span className="px-2 py-0.5 bg-[#FF0033] text-white font-bold rounded text-[11px]">PayPay</span>
-            <span className="px-2 py-0.5 bg-stone-900 text-white font-bold rounded text-[11px]">COD</span>
+      {/* Payment Methods Strip in Footer (Available for both mobile and desktop) */}
+      <div className="border-t border-[#EBE5DF] py-4 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs">
+          <span className="text-stone-500 font-bold mr-1 uppercase text-[11px] tracking-wider">
+            {language === 'JP' ? '決済方法:' : language === 'EN' ? 'Payment Methods:' : 'Metode Pembayaran:'}
+          </span>
+          {/* VISA */}
+          <div className="h-6 px-2 rounded border border-stone-200 bg-white flex items-center justify-center shadow-2xs" title="VISA">
+            <span className="font-black italic text-[#1A1F71] text-xs tracking-tight leading-none">VISA</span>
           </div>
+          {/* Mastercard */}
+          <div className="h-6 px-1.5 rounded border border-stone-200 bg-white flex items-center justify-center shadow-2xs" title="Mastercard">
+            <span className="relative flex items-center w-6 h-3.5">
+              <span className="w-3.5 h-3.5 rounded-full bg-[#EB001B] inline-block" />
+              <span className="w-3.5 h-3.5 rounded-full bg-[#F79E1B]/90 -ml-1.5 inline-block" />
+            </span>
+          </div>
+          {/* JCB */}
+          <div className="h-6 px-1.5 rounded border border-stone-200 bg-white flex items-center justify-center gap-0.5 shadow-2xs" title="JCB">
+            <span className="w-2 h-3.5 rounded-2xs bg-[#0066B2] text-white text-[7px] font-black flex items-center justify-center leading-none">J</span>
+            <span className="w-2 h-3.5 rounded-2xs bg-[#E4002B] text-white text-[7px] font-black flex items-center justify-center leading-none">C</span>
+            <span className="w-2 h-3.5 rounded-2xs bg-[#00A94F] text-white text-[7px] font-black flex items-center justify-center leading-none">B</span>
+          </div>
+          {/* AMEX */}
+          <div className="h-6 px-1.5 rounded bg-[#016FD0] text-white flex flex-col items-center justify-center leading-[0.8] shadow-2xs" title="American Express">
+            <span className="text-[6px] font-black tracking-tighter uppercase">AMEX</span>
+          </div>
+          {/* PayPay */}
+          <div className="h-6 px-2 rounded border border-stone-200 bg-white flex items-center gap-1 shadow-2xs" title="PayPay">
+            <span className="w-3.5 h-3.5 rounded-2xs bg-[#FF0033] text-white font-black text-[9px] italic flex items-center justify-center leading-none">P</span>
+            <span className="font-extrabold text-stone-900 text-[10px] tracking-tight leading-none">PayPay</span>
+          </div>
+          {/* LINE Pay */}
+          <div className="h-6 px-2 rounded border border-stone-200 bg-white flex items-center gap-0.5 shadow-2xs" title="LINE Pay">
+            <span className="font-black text-stone-900 text-[9px] tracking-tight leading-none">LINE</span>
+            <span className="px-1 py-0.2 rounded-2xs bg-[#06C755] text-white font-extrabold text-[8px] leading-none">Pay</span>
+          </div>
+          {/* Konbini */}
+          <span className="px-2 py-0.5 bg-stone-100 border border-stone-200 text-stone-700 font-bold rounded text-[10px]">
+            Konbini
+          </span>
+          {/* QRIS / JPQR */}
+          <span className="px-2 py-0.5 bg-[#c41230] text-white font-black rounded text-[10px]">
+            QRIS / JPQR
+          </span>
+          {/* Transfer */}
+          <span className="px-2 py-0.5 bg-blue-600 text-white font-bold rounded text-[10px]">
+            Transfer IDR / Yen
+          </span>
+          {/* Cash / COD */}
+          <span className="px-2 py-0.5 bg-emerald-600 text-white font-bold rounded text-[10px]">
+            Cash / COD
+          </span>
+        </div>
+      </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <span className="text-stone-500 font-bold mr-1">{t('logistics')}</span>
-            <span className="px-2 py-0.5 bg-[#c41230]/10 text-[#c41230] border border-[#c41230]/30 font-bold rounded text-[11px]">
-              🚀 Delivery Service (Max 3 Station)
-            </span>
-            <span className="px-2 py-0.5 bg-white rounded border border-[#EBE5DF] font-medium text-stone-700">
-              📦 Ekspedisi (Yamato & Sagawa)
-            </span>
-            <span className="px-2 py-0.5 bg-stone-800 text-white font-bold rounded text-[11px]">
-              🤝 COD
-            </span>
-          </div>
+      {/* Logistics Badges */}
+      <div className="border-t border-[#EBE5DF] py-5 px-4 sm:px-6 lg:px-8 bg-[#FDF8F0]">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 text-xs">
+          <span className="text-stone-500 font-bold mr-1">{t('logistics')}</span>
+          <span className="px-2 py-0.5 bg-[#c41230]/10 text-[#c41230] border border-[#c41230]/30 font-bold rounded text-[11px]">
+            🚀 Delivery Service (Max 3 Station)
+          </span>
+          <span className="px-2 py-0.5 bg-white rounded border border-[#EBE5DF] font-medium text-stone-700">
+            📦 Ekspedisi (Yamato & Sagawa)
+          </span>
+          <span className="px-2 py-0.5 bg-stone-800 text-white font-bold rounded text-[11px]">
+            🤝 COD
+          </span>
         </div>
       </div>
 

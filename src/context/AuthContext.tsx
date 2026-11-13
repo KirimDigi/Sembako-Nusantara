@@ -54,25 +54,101 @@ const CUSTOMER_CREDENTIALS = {
   address: 'Tokyo, Edogawa-ku, Nishi-Kasai 3-1-4'
 };
 
+// Batas waktu sesi khusus Akun Admin & Akun POS: 20 Jam wajib logout otomatis
+export const ADMIN_POS_SESSION_MAX_AGE_MS = 20 * 60 * 60 * 1000; // 20 jam dalam milidetik
+
+/**
+ * Menghasilkan seluruh variasi digit nomor telepon yang ekuivalen
+ * (mendukung awalan +62, 62, 0, +81, 81, serta mengabaikan strip '-', spasi, dll.)
+ */
+export function getPhoneVariants(raw?: string | null): Set<string> {
+  const variants = new Set<string>();
+  if (!raw) return variants;
+  const digits = String(raw).replace(/\D/g, '');
+  if (!digits || digits.length < 7) return variants;
+
+  variants.add(digits);
+
+  const cores = new Set<string>();
+  if (digits.startsWith('620') && digits.length >= 10) {
+    cores.add(digits.slice(3));
+  } else if (digits.startsWith('62') && digits.length >= 9) {
+    cores.add(digits.slice(2));
+  }
+  if (digits.startsWith('810') && digits.length >= 11) {
+    cores.add(digits.slice(3));
+  } else if (digits.startsWith('81') && digits.length >= 11) {
+    cores.add(digits.slice(2));
+  }
+  if (digits.startsWith('0') && digits.length >= 8) {
+    cores.add(digits.slice(1));
+  }
+  if (digits.startsWith('8') || digits.startsWith('7') || digits.startsWith('9')) {
+    cores.add(digits);
+  }
+
+  for (const core of cores) {
+    if (core.length >= 7) {
+      variants.add(core);
+      variants.add('0' + core);
+      variants.add('62' + core);
+      variants.add('620' + core);
+      variants.add('81' + core);
+      variants.add('810' + core);
+    }
+  }
+
+  return variants;
+}
+
+/**
+ * Membandingkan dua nomor telepon tanpa peduli format awalan (+62, 62, 0, +81, 81) maupun karakter strip (-) / spasi
+ */
+export function isSamePhoneNumber(phoneA?: string | null, phoneB?: string | null): boolean {
+  const varsA = getPhoneVariants(phoneA);
+  const varsB = getPhoneVariants(phoneB);
+  if (varsA.size === 0 || varsB.size === 0) return false;
+  for (const v of varsA) {
+    if (varsB.has(v)) return true;
+  }
+  return false;
+}
+
+function isAdminOrPosSessionExpired(user: AuthUser | null): boolean {
+  if (!user) return false;
+  // Akun Customer berlaku seumur hidup (1x login selamanya kecuali klik logout manual)
+  if (user.role === 'Customer') return false;
+  const loginTime = user.loginAt ? new Date(user.loginAt).getTime() : 0;
+  if (!loginTime || isNaN(loginTime)) return true;
+  return Date.now() - loginTime >= ADMIN_POS_SESSION_MAX_AGE_MS;
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
-    // Respect explicit manual logout by the customer
+    // Respect explicit manual logout by the user
     const isManuallyLoggedOut = localStorage.getItem('sn_user_logged_out_manually') === 'true';
     if (isManuallyLoggedOut) {
       return null;
     }
 
-    // Check permanent customer session first (persists for lifetime), fallback to standard
-    const permanentSaved = localStorage.getItem('sn_permanent_customer_auth');
+    // Prioritaskan sesi aktif terbaru, atau sesi permanen customer (seumur hidup)
     const standardSaved = localStorage.getItem('sn_user_auth_v2');
-    const saved = permanentSaved || standardSaved;
+    const permanentSaved = localStorage.getItem('sn_permanent_customer_auth');
+    const candidates = [standardSaved, permanentSaved].filter(Boolean) as string[];
 
-    if (saved) {
+    for (const saved of candidates) {
       try {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.id) {
-          // If customer role, ensure email property is removed
-          if (parsed.role === 'Customer') {
+          // Jika akun Admin atau POS, cek apakah sudah melewati batas 20 jam
+          if (parsed.role !== 'Customer') {
+            if (isAdminOrPosSessionExpired(parsed)) {
+              localStorage.removeItem('sn_user_auth_v2');
+              localStorage.removeItem('sn_active_cashier_id');
+              continue;
+            }
+          } else {
+            // Akun Customer: berlaku seumur hidup kecuali logout manual
             delete parsed.email;
           }
           if (parsed.avatar) {
@@ -81,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return parsed;
         }
       } catch (e) {
-        console.warn('Gagal membaca sesi customer:', e);
+        console.warn('Gagal membaca sesi pengguna:', e);
       }
     }
     return null;
@@ -91,25 +167,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = currentUser?.role !== 'Customer' && isAuthenticated;
   const isCustomer = currentUser?.role === 'Customer' && isAuthenticated;
 
-  // Persist session permanently unless explicit manual logout
+  // Persist session: Customer disimpan permanen seumur hidup, Admin/POS disimpan dengan batas waktu 20 jam
   useEffect(() => {
     if (currentUser) {
       localStorage.removeItem('sn_user_logged_out_manually');
       localStorage.setItem('sn_user_auth_v2', JSON.stringify(currentUser));
-      // For Customer role: save permanently 1x for lifetime
       if (currentUser.role === 'Customer') {
         localStorage.setItem('sn_permanent_customer_auth', JSON.stringify(currentUser));
+      } else {
+        // Jangan timpa atau sisakan sesi customer saat akun Admin/POS yang sedang aktif
+        localStorage.removeItem('sn_permanent_customer_auth');
       }
     } else {
-      // ONLY remove from storage if user explicitly clicked manual logout
       if (localStorage.getItem('sn_user_logged_out_manually') === 'true') {
         localStorage.removeItem('sn_user_auth_v2');
         localStorage.removeItem('sn_permanent_customer_auth');
+        localStorage.removeItem('sn_active_cashier_id');
       }
     }
   }, [currentUser]);
 
-  // Synchronize customer session across browser tabs/windows
+  // Auto-logout wajib 20 jam khusus untuk Akun POS & Akun Admin (Akun Customer tidak pernah auto-logout)
+  useEffect(() => {
+    if (!currentUser || currentUser.role === 'Customer') {
+      return;
+    }
+
+    const checkExpiration = () => {
+      if (isAdminOrPosSessionExpired(currentUser)) {
+        console.info('[Auth] Sesi Admin/POS telah mencapai batas 20 jam. Melakukan logout otomatis.');
+        localStorage.setItem('sn_user_logged_out_manually', 'true');
+        localStorage.removeItem('sn_user_auth_v2');
+        localStorage.removeItem('sn_permanent_customer_auth');
+        localStorage.removeItem('sn_active_cashier_id');
+        supabase.auth.signOut().catch(() => {});
+        setCurrentUser(null);
+      }
+    };
+
+    checkExpiration();
+
+    const loginTime = currentUser.loginAt ? new Date(currentUser.loginAt).getTime() : Date.now();
+    const remainingMs = Math.max(0, ADMIN_POS_SESSION_MAX_AGE_MS - (Date.now() - loginTime));
+
+    const expiryTimer = setTimeout(checkExpiration, remainingMs + 50);
+    const intervalTimer = setInterval(checkExpiration, 30 * 1000);
+    window.addEventListener('focus', checkExpiration);
+    document.addEventListener('visibilitychange', checkExpiration);
+
+    return () => {
+      clearTimeout(expiryTimer);
+      clearInterval(intervalTimer);
+      window.removeEventListener('focus', checkExpiration);
+      document.removeEventListener('visibilitychange', checkExpiration);
+    };
+  }, [currentUser]);
+
+  // Synchronize session across browser tabs/windows
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'sn_permanent_customer_auth' || e.key === 'sn_user_auth_v2') {
@@ -117,11 +231,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCurrentUser(null);
           return;
         }
-        const saved = localStorage.getItem('sn_permanent_customer_auth') || localStorage.getItem('sn_user_auth_v2');
+        const saved = localStorage.getItem('sn_user_auth_v2') || localStorage.getItem('sn_permanent_customer_auth');
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
             if (parsed && parsed.id) {
+              if (parsed.role !== 'Customer' && isAdminOrPosSessionExpired(parsed)) {
+                setCurrentUser(null);
+                return;
+              }
               setCurrentUser(parsed);
             }
           } catch (err) {}
@@ -143,42 +261,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'Silakan masukkan ID / Nomor HP dan Password.' };
     }
 
-    // 1. Check Supabase admin_accounts table (Admin only)
+    // 1. Check Supabase admin_accounts table (mendukung ID atau Nomor HP dengan format +62, 62, 0, strip '-', dll.)
     try {
-      const { data, error } = await supabase
+      const { data: adminRows, error } = await supabase
         .from('admin_accounts')
         .select('*')
-        .eq('id', cleanId)
-        .eq('password', cleanPass)
-        .eq('is_active', true)
-        .maybeSingle();
+        .eq('is_active', true);
 
-      if (data && !error) {
-        const user: AuthUser = {
-          id: data.id,
-          name: data.name || ADMIN_CREDENTIALS.name,
-          role: (data.role as UserRole) || ADMIN_CREDENTIALS.role,
-          avatar: data.avatar_url || ADMIN_CREDENTIALS.avatar,
-          email: data.email,
-          phone: data.phone,
-          loginAt: new Date().toISOString()
-        };
+      if (adminRows && Array.isArray(adminRows) && !error) {
+        const matchedAdmin = adminRows.find((a: any) => {
+          const matchId = a.id && String(a.id).toLowerCase() === cleanId.toLowerCase();
+          const matchPhone = isSamePhoneNumber(a.phone, cleanId);
+          return (matchId || matchPhone) && String(a.password) === cleanPass;
+        });
 
-        supabase
-          .from('admin_accounts')
-          .update({ last_login: new Date().toISOString() })
-          .eq('id', data.id)
-          .then(() => {});
+        if (matchedAdmin) {
+          const user: AuthUser = {
+            id: matchedAdmin.id,
+            name: matchedAdmin.name || ADMIN_CREDENTIALS.name,
+            role: (matchedAdmin.role as UserRole) || ADMIN_CREDENTIALS.role,
+            avatar: matchedAdmin.avatar_url || ADMIN_CREDENTIALS.avatar,
+            email: matchedAdmin.email,
+            phone: matchedAdmin.phone,
+            loginAt: new Date().toISOString()
+          };
 
-        setCurrentUser(user);
-        return { success: true, isAdmin: true, user };
+          supabase
+            .from('admin_accounts')
+            .update({ last_login: new Date().toISOString() })
+            .eq('id', matchedAdmin.id)
+            .then(() => {});
+
+          setCurrentUser(user);
+          return { success: true, isAdmin: true, user };
+        }
       }
     } catch (e) {
       console.warn('Supabase auth fallback:', e);
     }
 
     // 2. Check Hardcoded Admin credentials
-    if (cleanId === ADMIN_CREDENTIALS.id && cleanPass === ADMIN_CREDENTIALS.pass) {
+    if (cleanId.toLowerCase() === ADMIN_CREDENTIALS.id.toLowerCase() && cleanPass === ADMIN_CREDENTIALS.pass) {
       const user: AuthUser = {
         id: ADMIN_CREDENTIALS.id,
         name: ADMIN_CREDENTIALS.name,
@@ -228,7 +351,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (err) {}
 
       const inputLower = cleanId.toLowerCase().trim();
-      const inputDigits = cleanId.replace(/\D/g, '');
 
       // Generic cashier keyword (kasir / pos / cashier / spv)
       if (
@@ -247,16 +369,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: true, isAdmin: true, user };
       }
 
-      // Find if input matches any cashier name or ID or phone
+      // Find if input matches any cashier name or ID or phone (normalisasi +62, 62, 0, dan strip '-')
       const matchedCashier = allCashiers.find((c: any) => {
         const cId = (c.id || '').toLowerCase().trim();
         const cName = (c.name || '').toLowerCase().trim();
-        const cPhone = (c.phone || '').replace(/\D/g, '');
 
-        const matchId = cId === inputLower || cId.replace('-', '') === inputLower.replace('-', '');
+        const matchId = cId === inputLower || cId.replace(/-/g, '') === inputLower.replace(/-/g, '');
         const matchFullName = cName === inputLower;
-        const matchPartialName = inputLower.length >= 3 && (cName.includes(inputLower) || inputLower.includes(cName));
-        const matchPhone = inputDigits.length >= 7 && cPhone.length >= 7 && (cPhone.endsWith(inputDigits.slice(-8)) || inputDigits.endsWith(cPhone.slice(-8)));
+        const matchPartialName = inputLower.length >= 3 && !/\d/.test(inputLower) && (cName.includes(inputLower) || inputLower.includes(cName));
+        const matchPhone = isSamePhoneNumber(c.phone, cleanId);
 
         return matchId || matchFullName || matchPartialName || matchPhone;
       });
@@ -296,51 +417,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       JSON.parse(localStorage.getItem('sn_deleted_customer_ids') || '[]').map((id: string) => id.toLowerCase())
     );
 
-    // 3. Check Supabase customers table (Live Cloud Database)
+    // 3. Check Supabase customers table (Live Cloud Database - normalisasi +62, 62, 0, +81, 81, dan strip '-')
     try {
-      const cleanDigitsInput = cleanId.replace(/\D/g, '');
-      const filterConditions = cleanDigitsInput.length >= 7
-        ? `id.ilike.${cleanId},phone.ilike.%${cleanDigitsInput.slice(-8)}%`
-        : `id.ilike.${cleanId}`;
-
-      const { data: supaCust, error: supaErr } = await supabase
+      const { data: supaCustList, error: supaErr } = await supabase
         .from('customers')
-        .select('*')
-        .or(filterConditions)
-        .maybeSingle();
+        .select('*');
 
-      if (supaCust && !supaErr && !deletedCustomerIds.has(String(supaCust.id).toLowerCase())) {
-        const userPassKey = `sn_user_custom_pass_${supaCust.id}`;
-        const customPass = localStorage.getItem(userPassKey);
-        const expectedPass = customPass || (supaCust as any).password;
+      if (supaCustList && Array.isArray(supaCustList) && !supaErr) {
+        const supaCust = supaCustList.find((c: any) => {
+          if (deletedCustomerIds.has(String(c.id).toLowerCase())) return false;
+          const matchId = c.id && (String(c.id).toLowerCase() === cleanId.toLowerCase() || String(c.id).toLowerCase().replace(/-/g, '') === cleanId.toLowerCase().replace(/-/g, ''));
+          const matchPhone = isSamePhoneNumber(c.phone, cleanId);
+          return matchId || matchPhone;
+        });
 
-        // If password is set, verify strictly. If not set in DB, allow initial login or 123456
-        const isPassValid = expectedPass
-          ? cleanPass === expectedPass || cleanPass === 'admin123'
-          : cleanPass.length >= 4;
+        if (supaCust) {
+          const userPassKey = `sn_user_custom_pass_${supaCust.id}`;
+          const customPass = localStorage.getItem(userPassKey);
+          const expectedPass = customPass || (supaCust as any).password;
 
-        if (isPassValid) {
-          const user: AuthUser = {
-            id: supaCust.id,
-            name: supaCust.name,
-            role: 'Customer',
-            avatar: assetUrl('avatar-jangsan.png'),
-            tier: supaCust.tier || 'Anggota Nusantara',
-            loyaltyPoints: supaCust.loyalty_points || 0,
-            phone: supaCust.phone || cleanId,
-            address: supaCust.address || (supaCust.city ? `${supaCust.city}, Jepang` : 'Tokyo-to, Jepang'),
-            postalCode: supaCust.postal_code,
-            prefecture: supaCust.prefecture,
-            city: supaCust.city,
-            loginAt: new Date().toISOString()
-          };
-          setCurrentUser(user);
-          return { success: true, isAdmin: false, user };
-        } else {
-          return {
-            success: false,
-            error: 'Kata sandi salah. Silakan periksa kembali kata sandi Anda.'
-          };
+          // If password is set, verify strictly. If not set in DB, allow initial login or 123456
+          const isPassValid = expectedPass
+            ? cleanPass === expectedPass || cleanPass === 'admin123'
+            : cleanPass.length >= 4;
+
+          if (isPassValid) {
+            const user: AuthUser = {
+              id: supaCust.id,
+              name: supaCust.name,
+              role: 'Customer',
+              avatar: assetUrl('avatar-jangsan.png'),
+              tier: supaCust.tier || 'Anggota Nusantara',
+              loyaltyPoints: supaCust.loyalty_points || 0,
+              phone: supaCust.phone || cleanId,
+              address: supaCust.address || (supaCust.city ? `${supaCust.city}, Jepang` : 'Tokyo-to, Jepang'),
+              postalCode: supaCust.postal_code,
+              prefecture: supaCust.prefecture,
+              city: supaCust.city,
+              loginAt: new Date().toISOString()
+            };
+            setCurrentUser(user);
+            return { success: true, isAdmin: false, user };
+          } else {
+            return {
+              success: false,
+              error: 'Kata sandi salah. Silakan periksa kembali kata sandi Anda.'
+            };
+          }
         }
       }
     } catch (e) {
@@ -352,19 +475,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const customersJson = localStorage.getItem('sn_customers_v1');
       if (customersJson) {
         const customersList: any[] = JSON.parse(customersJson);
-        const cleanDigitsInput = cleanId.replace(/\D/g, '');
         const matched = customersList.find((c) => {
-          const matchId = c.id && c.id.toLowerCase() === cleanId.toLowerCase();
-          const cleanCustPhone = (c.phone || '').replace(/\D/g, '');
-          const matchPhone =
-            cleanDigitsInput.length >= 7 &&
-            (cleanCustPhone === cleanDigitsInput ||
-              cleanCustPhone.endsWith(cleanDigitsInput) ||
-              cleanDigitsInput.endsWith(cleanCustPhone));
+          if (!c || deletedCustomerIds.has(String(c.id).toLowerCase())) return false;
+          const matchId = c.id && (String(c.id).toLowerCase() === cleanId.toLowerCase() || String(c.id).toLowerCase().replace(/-/g, '') === cleanId.toLowerCase().replace(/-/g, ''));
+          const matchPhone = isSamePhoneNumber(c.phone, cleanId);
           return matchId || matchPhone;
         });
 
-        if (matched && !deletedCustomerIds.has(String(matched.id).toLowerCase())) {
+        if (matched) {
           const userPassKey = `sn_user_custom_pass_${matched.id}`;
           const customPass = localStorage.getItem(userPassKey);
           const expectedPass = customPass || matched.password;
@@ -403,13 +521,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // 5. Check Built-in Customer Accounts (Demo accounts for testing)
-    const cleanDigitsInput = cleanId.replace(/\D/g, '');
     const isWillyAccount =
       !deletedCustomerIds.has('cust-1') &&
       !deletedCustomerIds.has('willy') &&
       (cleanId.toLowerCase() === 'willy' ||
         cleanId.toLowerCase() === 'cust-willy' ||
-        (cleanDigitsInput.length >= 8 && '08011223344'.endsWith(cleanDigitsInput)));
+        isSamePhoneNumber('+81 80-1122-3344', cleanId) ||
+        isSamePhoneNumber('080-1122-3344', cleanId));
     
     if (isWillyAccount) {
       if (cleanPass === '123456' || cleanPass === 'admin123' || cleanPass === 'willy123') {
@@ -432,7 +550,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       !deletedCustomerIds.has('customer01') &&
       (cleanId.toLowerCase() === 'customer01' ||
         cleanId.toLowerCase() === 'budi' ||
-        (cleanDigitsInput.length >= 8 && ('08123456789'.endsWith(cleanDigitsInput) || '08098765432'.endsWith(cleanDigitsInput))));
+        isSamePhoneNumber('0812-3456-789', cleanId) ||
+        isSamePhoneNumber('+81 80-9876-5432', cleanId));
 
     if (isBudiAccount) {
       if (cleanPass === 'customer123' || cleanPass === 'password123' || cleanPass === '123456' || cleanPass === 'admin123') {
@@ -515,6 +634,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updated = { ...currentUser, ...data };
     setCurrentUser(updated);
     localStorage.setItem('sn_user_auth_v2', JSON.stringify(updated));
+    if (updated.role === 'Customer') {
+      localStorage.setItem('sn_permanent_customer_auth', JSON.stringify(updated));
+    }
     return { success: true };
   };
 
@@ -532,6 +654,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     localStorage.setItem(userPassKey, newPass);
+    try {
+      const savedCust = localStorage.getItem('sn_customers_v1');
+      if (savedCust) {
+        const list = JSON.parse(savedCust);
+        if (Array.isArray(list)) {
+          localStorage.setItem(
+            'sn_customers_v1',
+            JSON.stringify(list.map((c: any) => (c.id === currentUser.id ? { ...c, password: newPass } : c)))
+          );
+        }
+      }
+      await supabase.from('customers').update({ password: newPass }).eq('id', currentUser.id);
+    } catch (e) {}
     return { success: true };
   };
 
@@ -540,6 +675,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('sn_user_logged_out_manually', 'true');
     localStorage.removeItem('sn_user_auth_v2');
     localStorage.removeItem('sn_permanent_customer_auth');
+    localStorage.removeItem('sn_active_cashier_id');
     try {
       await supabase.auth.signOut();
     } catch (e) {}

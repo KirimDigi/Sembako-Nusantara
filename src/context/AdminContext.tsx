@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { isSamePhoneNumber } from './AuthContext';
 import {
   Product,
   Warehouse,
@@ -673,6 +674,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             prefecture: d.prefecture || '',
             city: d.city || 'Tokyo',
             address: d.address || '',
+            password: d.password || undefined,
             totalOrders: Number(d.total_orders) || 0,
             totalSpent: Number(d.total_spent) || 0,
             loyaltyPoints: 0,
@@ -1546,10 +1548,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     delete (newCust as any).email;
 
     setCustomers((prev) => {
-      const cleanPhone = (newCust.phone || '').replace(/\D/g, '');
       const existingIdx = prev.findIndex((c) => 
         c.id.toLowerCase() === newCust.id.toLowerCase() || 
-        (cleanPhone.length >= 7 && (c.phone || '').replace(/\D/g, '') === cleanPhone)
+        isSamePhoneNumber(c.phone, newCust.phone)
       );
 
       let updatedList: CustomerCRM[];
@@ -1591,6 +1592,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         address: newCust.address || null,
         postal_code: newCust.postalCode || null,
         prefecture: newCust.prefecture || null,
+        password: newCust.password || null,
         total_orders: newCust.totalOrders,
         total_spent: newCust.totalSpent,
         loyalty_points: newCust.loyaltyPoints,

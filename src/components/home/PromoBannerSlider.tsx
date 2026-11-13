@@ -5,7 +5,15 @@ import { PromoBanner, getStoredPromoBanners, fetchRemotePromoBanners, isVideoBan
 import { assetUrl } from '../../utils/assets';
 import { useLanguage } from '../../context/LanguageContext';
 
-export const PromoBannerSlider: React.FC = () => {
+interface PromoBannerSliderProps {
+  className?: string;
+  isInlineWithCategory?: boolean;
+}
+
+export const PromoBannerSlider: React.FC<PromoBannerSliderProps> = ({
+  className = '',
+  isInlineWithCategory = false
+}) => {
   const [banners, setBanners] = useState<PromoBanner[]>(() => getStoredPromoBanners());
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isPaused, setIsPaused] = useState<boolean>(false);
@@ -87,12 +95,22 @@ export const PromoBannerSlider: React.FC = () => {
 
   return (
     <div
-      className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-2"
+      className={
+        isInlineWithCategory
+          ? `relative w-full ${className}`
+          : `relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-2 ${className}`
+      }
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
       {/* Banner Container with 3D shadow & rounded border */}
-      <div className="relative w-full overflow-hidden rounded-2xl sm:rounded-3xl shadow-xl border border-stone-200/80 bg-stone-900 aspect-[16/9] sm:aspect-[21/9] max-h-[460px] group">
+      <div
+        className={
+          isInlineWithCategory
+            ? 'relative w-full overflow-hidden rounded-2xl shadow-md border border-stone-200/80 bg-stone-900 aspect-[16/9] sm:aspect-[2/1] lg:h-[406px] group'
+            : 'relative w-full overflow-hidden rounded-2xl sm:rounded-3xl shadow-xl border border-stone-200/80 bg-stone-900 aspect-[16/9] sm:aspect-[21/9] max-h-[460px] group'
+        }
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={currentIndex}
@@ -114,17 +132,17 @@ export const PromoBannerSlider: React.FC = () => {
                   loop
                   playsInline
                   preload="metadata"
-                  className="w-full h-full object-cover object-center select-none"
+                  className="w-full h-full object-cover object-top select-none"
                   onError={(e) => {
                     console.warn('Video failed to load, falling back to image:', e);
                   }}
                 />
               ) : (
-                /* Pure Cover Photo */
+                /* Pure Cover Photo with object-top to ensure top promotional titles are 100% visible on all devices */
                 <img
                   src={assetUrl(currentBanner.imageUrl)}
                   alt={currentBanner.title || 'Banner Promo Sembako Nusantara'}
-                  className="w-full h-full object-cover object-center select-none"
+                  className="w-full h-full object-cover object-top select-none"
                   loading="eager"
                   onError={(e) => {
                     const fallback = assetUrl(`banner-promo-${(currentIndex % 3) + 1}.jpg`);

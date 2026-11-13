@@ -24,7 +24,38 @@ export const INITIAL_WAREHOUSES: Warehouse[] = [
   }
 ];
 
-export const INITIAL_SUPPLIERS: Supplier[] = [];
+export const INITIAL_SUPPLIERS: Supplier[] = [
+  {
+    id: 'sup-1',
+    name: 'Shin Okubo',
+    contactPerson: 'PIC Toko Shin Okubo',
+    phone: '',
+    email: '',
+    origin: 'Japan',
+    leadTimeDays: 1,
+    paymentTerms: 'Cash / Transfer'
+  },
+  {
+    id: 'sup-2',
+    name: 'MB Global Shop',
+    contactPerson: 'PIC MB Global Shop',
+    phone: '',
+    email: '',
+    origin: 'Japan',
+    leadTimeDays: 2,
+    paymentTerms: 'Cash / Transfer'
+  },
+  {
+    id: 'sup-3',
+    name: 'Amanah Mande',
+    contactPerson: 'PIC Amanah Mande',
+    phone: '',
+    email: '',
+    origin: 'Japan',
+    leadTimeDays: 1,
+    paymentTerms: 'Cash / Transfer'
+  }
+];
 
 export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [];
 
