@@ -739,8 +739,8 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
                 )}
               </div>
 
-              {/* Halal & Frozen Kategori Jenis Dropdown (Tampil di Mobile & Desktop di Samping Search Bar) */}
-              <div className="flex items-center gap-1 shrink-0">
+              {/* Halal & Frozen Kategori Jenis Dropdown (Khusus Mode Mobile/Tablet, disembunyikan di Mode Desktop karena sudah ada Sidebar Kategori) */}
+              <div className="flex lg:hidden items-center gap-1 shrink-0">
                 <select
                   value={
                     filterFrozenOnly && filterHalalOnly
