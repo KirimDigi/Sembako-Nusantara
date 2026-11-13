@@ -103,12 +103,12 @@ export const PromoBannerSlider: React.FC<PromoBannerSliderProps> = ({
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* Banner Container with 3D shadow & rounded border */}
+      {/* Banner Container with 3D shadow & rounded border (Matches exact 1376:768 aspect ratio to prevent clipping) */}
       <div
         className={
           isInlineWithCategory
-            ? 'relative w-full overflow-hidden rounded-2xl shadow-md border border-stone-200/80 bg-stone-900 aspect-[16/9] sm:aspect-[2/1] lg:h-[406px] group'
-            : 'relative w-full overflow-hidden rounded-2xl sm:rounded-3xl shadow-xl border border-stone-200/80 bg-stone-900 aspect-[16/9] sm:aspect-[21/9] max-h-[460px] group'
+            ? 'relative w-full overflow-hidden rounded-2xl shadow-md border border-stone-200/80 bg-stone-900 aspect-[16/9] sm:aspect-[1376/768] max-h-[580px] group'
+            : 'relative w-full overflow-hidden rounded-2xl sm:rounded-3xl shadow-xl border border-stone-200/80 bg-stone-900 aspect-[16/9] sm:aspect-[1376/768] max-h-[580px] group'
         }
       >
         <AnimatePresence mode="wait">
@@ -132,17 +132,17 @@ export const PromoBannerSlider: React.FC<PromoBannerSliderProps> = ({
                   loop
                   playsInline
                   preload="metadata"
-                  className="w-full h-full object-cover object-top select-none"
+                  className="w-full h-full object-cover object-[center_35%] select-none"
                   onError={(e) => {
                     console.warn('Video failed to load, falling back to image:', e);
                   }}
                 />
               ) : (
-                /* Pure Cover Photo with object-top to ensure top promotional titles are 100% visible on all devices */
+                /* Pure Cover Photo with object-[center_35%] & exact 1376:768 ratio so entire artwork (top title to bottom mascot/groceries) is 100% visible */
                 <img
                   src={assetUrl(currentBanner.imageUrl)}
                   alt={currentBanner.title || 'Banner Promo Sembako Nusantara'}
-                  className="w-full h-full object-cover object-top select-none"
+                  className="w-full h-full object-cover object-[center_35%] select-none"
                   loading="eager"
                   onError={(e) => {
                     const fallback = assetUrl(`banner-promo-${(currentIndex % 3) + 1}.jpg`);
