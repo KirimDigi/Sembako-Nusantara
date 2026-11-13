@@ -15,13 +15,15 @@ interface ProductCatalogSectionProps {
   showCategoryBar?: boolean;
   showInlinePromoBanner?: boolean;
   className?: string;
+  children?: React.ReactNode;
 }
 
 export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
   showTitleHeader = false,
   showCategoryBar = false,
   showInlinePromoBanner = false,
-  className = ''
+  className = '',
+  children
 }) => {
   const navigate = useNavigate();
   const { addToCart } = useCart();
@@ -243,8 +245,8 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
       {/* Main Content Area: Sidebar (Kategori & Metode Pembayaran) + Product Grid (Free shipping tracker bar moved to floating icon above WhatsApp button) */}
       <section className="max-w-[1360px] mx-auto px-4 sm:px-6 pt-3 sm:pt-4 min-w-0">
         <div className="flex flex-col lg:flex-row gap-5 lg:gap-6 items-start w-full min-w-0">
-          {/* LEFT SIDEBAR: 1. KATEGORI PRODUK & 2. METODE PEMBAYARAN YANG TERSEDIA (Tampil di Desktop saja & Freeze/Sticky saat scroll; Di Mobile di-takedown) */}
-          <aside className="hidden lg:block w-full lg:w-64 xl:w-72 shrink-0 space-y-4 lg:sticky lg:top-[125px] self-start z-20 max-h-[calc(100vh-135px)] overflow-y-auto no-scrollbar">
+          {/* LEFT SIDEBAR: 1. KATEGORI PRODUK & 2. METODE PEMBAYARAN YANG TERSEDIA (Tampil di Desktop saja & Freeze/Sticky saat scroll sepanjang katalog s/d produk promo spesial; Di Mobile di-takedown) */}
+          <aside className="hidden lg:block w-full lg:w-64 xl:w-72 shrink-0 space-y-4 lg:sticky lg:top-[125px] self-start z-20">
             {/* 1. KATEGORI PRODUK CARD */}
             <div className="bg-white rounded-2xl border border-[#EBE5DF] shadow-xs overflow-hidden">
               <div className="bg-[#b91c1c] text-white px-4 py-3 flex items-center gap-3">
@@ -1070,6 +1072,13 @@ export const ProductCatalogSection: React.FC<ProductCatalogSectionProps> = ({
             )}
           </>
         )}
+
+            {/* Extended Bottom Content inside Right Column (Paling Sering Dibeli & Produk Promo Spesial) */}
+            {children && (
+              <div className="pt-8 sm:pt-12 border-t border-stone-200 space-y-10 sm:space-y-14 w-full min-w-0">
+                {children}
+              </div>
+            )}
           </div>
         </div>
       </section>

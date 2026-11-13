@@ -25,123 +25,123 @@ export const HomePage: React.FC = () => {
 
   return (
     <div className="w-full space-y-10 sm:space-y-16 pb-20">
-      {/* 1. KATALOG PRODUK DENGAN SIDEBAR KATEGORI & METODE PEMBAYARAN FREEZE, SERTA PROMO BANNER DI SEBELAH KANAN */}
+      {/* 1. KATALOG PRODUK DENGAN SIDEBAR KATEGORI & METODE PEMBAYARAN STICKY S/D PRODUK PROMO SPESIAL */}
       <section className="w-full">
         <ProductCatalogSection
           showTitleHeader={false}
           showCategoryBar={false}
           showInlinePromoBanner={true}
-        />
-      </section>
-
-      {/* 2.1 SECTION: KATALOG PRODUK YANG SERING DIBELI (Dikosongkan dahulu karena data belum ada) */}
-      <section className="max-w-[1360px] mx-auto px-4 sm:px-6 min-w-0">
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-stone-200 gap-3 mb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="p-1 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
-                <span className="material-symbols-outlined text-lg">local_fire_department</span>
-              </span>
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-                {language === 'JP' ? '人気商品' : language === 'EN' ? 'Bestsellers' : 'Paling Sering Dibeli'}
-              </span>
+        >
+          {/* 2.1 SECTION: KATALOG PRODUK YANG SERING DIBELI (Dikosongkan dahulu karena data belum ada) */}
+          <div className="w-full min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-stone-200 gap-3 mb-6">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="p-1 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-lg">local_fire_department</span>
+                  </span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                    {language === 'JP' ? '人気商品' : language === 'EN' ? 'Bestsellers' : 'Paling Sering Dibeli'}
+                  </span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                  {language === 'JP'
+                    ? 'よく買われている商品'
+                    : language === 'EN'
+                    ? 'Frequently Bought Products'
+                    : 'Produk yang Sering Dibeli'}
+                </h2>
+                <p className="text-xs sm:text-sm text-stone-500 mt-1">
+                  {language === 'JP'
+                    ? '在日インドネシア人の皆様に最も多くリピート注文されている定番商品'
+                    : language === 'EN'
+                    ? 'The most frequently reordered grocery essentials by diaspora customers in Japan'
+                    : 'Daftar produk sembako dan kebutuhan nusantara yang paling sering diorder oleh sahabat diaspora.'}
+                </p>
+              </div>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
-              {language === 'JP'
-                ? 'よく買われている商品'
-                : language === 'EN'
-                ? 'Frequently Bought Products'
-                : 'Produk yang Sering Dibeli'}
-            </h2>
-            <p className="text-xs sm:text-sm text-stone-500 mt-1">
-              {language === 'JP'
-                ? '在日インドネシア人の皆様に最も多くリピート注文されている定番商品'
-                : language === 'EN'
-                ? 'The most frequently reordered grocery essentials by diaspora customers in Japan'
-                : 'Daftar produk sembako dan kebutuhan nusantara yang paling sering diorder oleh sahabat diaspora.'}
-            </p>
-          </div>
-        </div>
 
-        {/* Karena data barang yang sering dibeli belum ada, kosongkan saja dahulu dengan tampilan clean */}
-        <div className="bg-stone-50/70 rounded-3xl border-2 border-dashed border-stone-200/80 p-8 sm:p-12 text-center flex flex-col items-center justify-center">
-          <div className="w-14 h-14 rounded-2xl bg-amber-100/60 text-amber-600 flex items-center justify-center mb-3 shadow-xs">
-            <span className="material-symbols-outlined text-3xl">receipt_long</span>
-          </div>
-          <h3 className="font-heading font-bold text-base sm:text-lg text-stone-800">
-            {language === 'JP'
-              ? '現在、よく買われている商品のデータはありません'
-              : language === 'EN'
-              ? 'No frequently bought product data yet'
-              : 'Belum Ada Data Produk yang Sering Dibeli'}
-          </h3>
-          <p className="text-stone-500 text-xs sm:text-sm mt-1 max-w-md mx-auto leading-relaxed">
-            {language === 'JP'
-              ? '注文履歴データの集計が開始されると、自動的にこちらにおすすめ人気商品が表示されます。'
-              : language === 'EN'
-              ? 'Bestselling products will automatically appear here once real order records are accumulated.'
-              : 'Daftar produk favorit terlaris akan otomatis terisi dan tampil di sini setelah transaksi pesanan pelanggan mulai berjalan.'}
-          </p>
-        </div>
-      </section>
-
-      {/* 2.2 SECTION: KATALOG PRODUK PROMO (Dikosongkan dahulu karena promo belum ada) */}
-      <section className="max-w-[1360px] mx-auto px-4 sm:px-6 min-w-0">
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-stone-200 gap-3 mb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="p-1 rounded-lg bg-rose-50 text-[#c41230] border border-rose-200 flex items-center justify-center">
-                <span className="material-symbols-outlined text-lg">loyalty</span>
-              </span>
-              <span className="text-xs font-bold uppercase tracking-wider text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
-                {language === 'JP' ? '特別割引' : language === 'EN' ? 'Special Offers' : 'Promo Spesial'}
-              </span>
+            {/* Karena data barang yang sering dibeli belum ada, kosongkan saja dahulu dengan tampilan clean */}
+            <div className="bg-stone-50/70 rounded-3xl border-2 border-dashed border-stone-200/80 p-8 sm:p-12 text-center flex flex-col items-center justify-center">
+              <div className="w-14 h-14 rounded-2xl bg-amber-100/60 text-amber-600 flex items-center justify-center mb-3 shadow-xs">
+                <span className="material-symbols-outlined text-3xl">receipt_long</span>
+              </div>
+              <h3 className="font-heading font-bold text-base sm:text-lg text-stone-800">
+                {language === 'JP'
+                  ? '現在、よく買われている商品のデータはありません'
+                  : language === 'EN'
+                  ? 'No frequently bought product data yet'
+                  : 'Belum Ada Data Produk yang Sering Dibeli'}
+              </h3>
+              <p className="text-stone-500 text-xs sm:text-sm mt-1 max-w-md mx-auto leading-relaxed">
+                {language === 'JP'
+                  ? '注文履歴データの集計が開始されると、自動的にこちらにおすすめ人気商品が表示されます。'
+                  : language === 'EN'
+                  ? 'Bestselling products will automatically appear here once real order records are accumulated.'
+                  : 'Daftar produk favorit terlaris akan otomatis terisi dan tampil di sini setelah transaksi pesanan pelanggan mulai berjalan.'}
+              </p>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
-              {language === 'JP'
-                ? 'プロモーション商品'
-                : language === 'EN'
-                ? 'Special Promo Products'
-                : 'Produk Promo Spesial'}
-            </h2>
-            <p className="text-xs sm:text-sm text-stone-500 mt-1">
-              {language === 'JP'
-                ? '期間限定の特別価格・お得なまとめ買いセール商品'
-                : language === 'EN'
-                ? 'Limited time discount deals and special bundle offers for smart savings'
-                : 'Penawaran diskon spesial dan potongan harga terbaik untuk belanja hemat sembako nusantara.'}
-            </p>
           </div>
-        </div>
 
-        {discountedProducts.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-            {discountedProducts.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        ) : (
-          /* Karena promo belum ada, kosongkan saja dahulu dengan tampilan clean */
-          <div className="bg-stone-50/70 rounded-3xl border-2 border-dashed border-stone-200/80 p-8 sm:p-12 text-center flex flex-col items-center justify-center">
-            <div className="w-14 h-14 rounded-2xl bg-rose-100/60 text-[#c41230] flex items-center justify-center mb-3 shadow-xs">
-              <span className="material-symbols-outlined text-3xl">percent</span>
+          {/* 2.2 SECTION: KATALOG PRODUK PROMO (Dikosongkan dahulu karena promo belum ada) */}
+          <div className="w-full min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-stone-200 gap-3 mb-6">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="p-1 rounded-lg bg-rose-50 text-[#c41230] border border-rose-200 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-lg">loyalty</span>
+                  </span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
+                    {language === 'JP' ? '特別割引' : language === 'EN' ? 'Special Offers' : 'Promo Spesial'}
+                  </span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                  {language === 'JP'
+                    ? 'プロモーション商品'
+                    : language === 'EN'
+                    ? 'Special Promo Products'
+                    : 'Produk Promo Spesial'}
+                </h2>
+                <p className="text-xs sm:text-sm text-stone-500 mt-1">
+                  {language === 'JP'
+                    ? '期間限定の特別価格・お得なまとめ買いセール商品'
+                    : language === 'EN'
+                    ? 'Limited time discount deals and special bundle offers for smart savings'
+                    : 'Penawaran diskon spesial dan potongan harga terbaik untuk belanja hemat sembako nusantara.'}
+                </p>
+              </div>
             </div>
-            <h3 className="font-heading font-bold text-base sm:text-lg text-stone-800">
-              {language === 'JP'
-                ? '現在開催中のプロモーションはありません'
-                : language === 'EN'
-                ? 'No active promotional products at this time'
-                : 'Belum Ada Produk Promo Aktif Saat Ini'}
-            </h3>
-            <p className="text-stone-500 text-xs sm:text-sm mt-1 max-w-md mx-auto leading-relaxed">
-              {language === 'JP'
-                ? '新しいセールやプロモーションが開始されると、こちらにお買い得商品が掲載されます。'
-                : language === 'EN'
-                ? 'Discounted items will be showcased here once new promotional campaigns are activated.'
-                : 'Nantikan kejutan promo kilat, diskon bundle, dan penawaran hemat menarik berikutnya dari Sembako Nusantara.'}
-            </p>
+
+            {discountedProducts.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                {discountedProducts.map((p) => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+            ) : (
+              /* Karena promo belum ada, kosongkan saja dahulu dengan tampilan clean */
+              <div className="bg-stone-50/70 rounded-3xl border-2 border-dashed border-stone-200/80 p-8 sm:p-12 text-center flex flex-col items-center justify-center">
+                <div className="w-14 h-14 rounded-2xl bg-rose-100/60 text-[#c41230] flex items-center justify-center mb-3 shadow-xs">
+                  <span className="material-symbols-outlined text-3xl">percent</span>
+                </div>
+                <h3 className="font-heading font-bold text-base sm:text-lg text-stone-800">
+                  {language === 'JP'
+                    ? '現在開催中のプロモーションはありません'
+                    : language === 'EN'
+                    ? 'No active promotional products at this time'
+                    : 'Belum Ada Produk Promo Aktif Saat Ini'}
+                </h3>
+                <p className="text-stone-500 text-xs sm:text-sm mt-1 max-w-md mx-auto leading-relaxed">
+                  {language === 'JP'
+                    ? '新しいセールやプロモーションが開始されると、こちらにお買い得商品が掲載されます。'
+                    : language === 'EN'
+                    ? 'Discounted items will be showcased here once new promotional campaigns are activated.'
+                    : 'Nantikan kejutan promo kilat, diskon bundle, dan penawaran hemat menarik berikutnya dari Sembako Nusantara.'}
+                </p>
+              </div>
+            )}
           </div>
-        )}
+        </ProductCatalogSection>
       </section>
 
       {/* 3. SECTION AKHIR SEBELUM FOOTER: SIAP PESAN? */}
