@@ -114,6 +114,108 @@ export function isSamePhoneNumber(phoneA?: string | null, phoneB?: string | null
   return false;
 }
 
+/**
+ * Mengecek apakah nomor telepon atau ID customer sudah terdaftar di sistem:
+ * 1. Database CRM Lokal (localStorage sn_customers_v1)
+ * 2. Akun Pelanggan Demo / Bawaan (Willy & Budi)
+ * 3. Database Cloud Supabase (tabel customers)
+ * Mencegah pendaftaran double / duplikat.
+ */
+export async function checkCustomerExists(phoneOrId: string): Promise<{ exists: boolean; customer?: any; reason?: string }> {
+  const clean = (phoneOrId || '').trim();
+  if (!clean) return { exists: false };
+
+  // Check if account was deleted by Admin
+  let deletedIds = new Set<string>();
+  try {
+    const rawDeleted = localStorage.getItem('sn_deleted_customer_ids');
+    if (rawDeleted) {
+      deletedIds = new Set(JSON.parse(rawDeleted).map((id: string) => id.toLowerCase()));
+    }
+  } catch (e) {}
+
+  // 1. Check di Local Storage CRM ('sn_customers_v1')
+  try {
+    const saved = localStorage.getItem('sn_customers_v1');
+    if (saved) {
+      const list = JSON.parse(saved);
+      if (Array.isArray(list)) {
+        const found = list.find((c: any) => {
+          if (!c) return false;
+          if (c.id && deletedIds.has(String(c.id).toLowerCase())) return false;
+          const matchPhone = c.phone && isSamePhoneNumber(c.phone, clean);
+          const matchId = c.id && (
+            String(c.id).toLowerCase() === clean.toLowerCase() ||
+            String(c.id).replace(/-/g, '').toLowerCase() === clean.replace(/-/g, '').toLowerCase()
+          );
+          return matchPhone || matchId;
+        });
+        if (found) {
+          return { exists: true, customer: found, reason: 'Telah terdaftar di database pelanggan lokal' };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Error checking local customer:', e);
+  }
+
+  // 2. Check di Akun Demo / Bawaan
+  if (
+    !deletedIds.has('cust-1') &&
+    !deletedIds.has('willy') &&
+    (
+      isSamePhoneNumber('+81 80-1122-3344', clean) ||
+      isSamePhoneNumber('080-1122-3344', clean) ||
+      clean.toLowerCase() === 'willy' ||
+      clean.toLowerCase() === 'cust-willy' ||
+      clean.toLowerCase() === 'cust-1'
+    )
+  ) {
+    return { exists: true, customer: CUSTOMER_CREDENTIALS, reason: 'Akun Willy Pratama (Demo/VIP)' };
+  }
+
+  if (
+    !deletedIds.has('cust-3') &&
+    !deletedIds.has('customer01') &&
+    (
+      isSamePhoneNumber('+81 80-9876-5432', clean) ||
+      isSamePhoneNumber('0812-3456-789', clean) ||
+      clean.toLowerCase() === 'customer01' ||
+      clean.toLowerCase() === 'budi' ||
+      clean.toLowerCase() === 'cust-3'
+    )
+  ) {
+    return { exists: true, customer: DUMMY_CUSTOMER_CREDENTIALS, reason: 'Akun Budi Santoso (Demo)' };
+  }
+
+  // 3. Check di Database Cloud Supabase (tabel customers)
+  try {
+    const { data, error } = await supabase
+      .from('customers')
+      .select('id, name, phone, password, address, city, prefecture, postal_code, tier, loyalty_points');
+
+    if (data && Array.isArray(data) && !error) {
+      const found = data.find((c: any) => {
+        if (!c) return false;
+        if (c.id && deletedIds.has(String(c.id).toLowerCase())) return false;
+        const matchPhone = c.phone && isSamePhoneNumber(c.phone, clean);
+        const matchId = c.id && (
+          String(c.id).toLowerCase() === clean.toLowerCase() ||
+          String(c.id).replace(/-/g, '').toLowerCase() === clean.replace(/-/g, '').toLowerCase()
+        );
+        return matchPhone || matchId;
+      });
+      if (found) {
+        return { exists: true, customer: found, reason: 'Telah terdaftar di database cloud' };
+      }
+    }
+  } catch (e) {
+    console.warn('Error checking Supabase customer:', e);
+  }
+
+  return { exists: false };
+}
+
 function isAdminOrPosSessionExpired(user: AuthUser | null): boolean {
   if (!user) return false;
   // Akun Customer berlaku seumur hidup (1x login selamanya kecuali klik logout manual)

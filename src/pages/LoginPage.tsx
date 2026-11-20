@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth, isSamePhoneNumber } from '../context/AuthContext';
+import { useAuth, isSamePhoneNumber, checkCustomerExists } from '../context/AuthContext';
 import { useAdmin } from '../context/AdminContext';
 import { useLanguage } from '../context/LanguageContext';
 import { assetUrl } from '../utils/assets';
@@ -280,6 +280,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialMode = 'login' }) =
       return;
     }
 
+    if (isRegLoading) return;
     setIsRegLoading(true);
     setRegError('');
     setAlreadyRegisteredNotice('');
@@ -292,46 +293,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialMode = 'login' }) =
       // =========================================================================
       let isAlreadyRegistered = false;
 
-      // 1. Check di Database Pelanggan CRM (localStorage & AdminContext)
-      try {
-        const savedCusts = localStorage.getItem('sn_customers_v1');
-        const custList = savedCusts ? JSON.parse(savedCusts) : customers;
-        if (Array.isArray(custList)) {
-          const match = custList.find((c: any) => isSamePhoneNumber(c.phone, regPhone.trim()));
-          if (match) {
-            isAlreadyRegistered = true;
-          }
-        }
-      } catch (e) {
-        console.warn('Local CRM customer check error:', e);
+      // 1. Cek via shared checkCustomerExists (LocalStorage, Built-in Demo & Cloud Supabase)
+      const existingCheck = await checkCustomerExists(regPhone.trim());
+      if (existingCheck.exists) {
+        isAlreadyRegistered = true;
       }
 
-      // 2. Check di Akun Pelanggan Bawaan / Demo
-      if (!isAlreadyRegistered) {
-        if (
-          isSamePhoneNumber('+81 80-1122-3344', regPhone.trim()) ||
-          isSamePhoneNumber('0812-3456-789', regPhone.trim()) ||
-          isSamePhoneNumber('+81 80-9876-5432', regPhone.trim())
-        ) {
+      // 2. Cek juga di state AdminContext customers saat ini
+      if (!isAlreadyRegistered && Array.isArray(customers) && customers.length > 0) {
+        const match = customers.find((c: any) => c.phone && isSamePhoneNumber(c.phone, regPhone.trim()));
+        if (match) {
           isAlreadyRegistered = true;
-        }
-      }
-
-      // 3. Check di Database Cloud Supabase (tabel customers)
-      if (!isAlreadyRegistered) {
-        try {
-          const { data: supaCusts, error } = await supabase
-            .from('customers')
-            .select('id, name, phone');
-
-          if (supaCusts && Array.isArray(supaCusts) && !error) {
-            const supaMatch = supaCusts.find((c: any) => isSamePhoneNumber(c.phone, regPhone.trim()));
-            if (supaMatch) {
-              isAlreadyRegistered = true;
-            }
-          }
-        } catch (e) {
-          console.warn('Supabase customer phone check error:', e);
         }
       }
 

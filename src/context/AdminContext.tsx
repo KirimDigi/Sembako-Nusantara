@@ -1559,7 +1559,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updatedList[existingIdx] = {
           ...updatedList[existingIdx],
           ...newCust,
-          id: updatedList[existingIdx].id // Keep original ID
+          id: updatedList[existingIdx].id, // Keep original ID
+          registeredDate: updatedList[existingIdx].registeredDate || newCust.registeredDate,
+          totalOrders: updatedList[existingIdx].totalOrders ?? newCust.totalOrders,
+          totalSpent: updatedList[existingIdx].totalSpent ?? newCust.totalSpent,
+          loyaltyPoints: updatedList[existingIdx].loyaltyPoints ?? newCust.loyaltyPoints,
+          tier: updatedList[existingIdx].tier ?? newCust.tier
         };
       } else {
         updatedList = [newCust, ...prev];

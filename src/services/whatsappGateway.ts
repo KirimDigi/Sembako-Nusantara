@@ -472,7 +472,7 @@ ${itemsList}
 ${order.shippingAddress}
 
 🚚 *リアルタイム配送追跡:*
-https://kirimdigi.github.io/Sembako-Nusantara/#/tracking?q=${order.trackingNumber}
+https://sembakonusantara.com/#/tracking?q=${order.trackingNumber}
 
 安心・安全なハラール食品と本場インドネシアの食材・調味料を丁寧に梱包してお届けいたします。商品の到着をどうぞ楽しみにお待ちください！🙏✨
 _センバコ・ヌサンタラ日本 - 日本全国へお届けする故郷の味_`
@@ -497,7 +497,7 @@ ${itemsList}
 ${order.shippingAddress}
 
 🚚 *Lacak Perjalanan Pesanan Anda:*
-https://kirimdigi.github.io/Sembako-Nusantara/#/tracking?q=${order.trackingNumber}
+https://sembakonusantara.com/#/tracking?q=${order.trackingNumber}
 
 Terima kasih atas kepercayaan Anda. Kami pastikan produk halal dan bumbu nusantara dikemas dengan aman dan higienis! 🙏✨
 _Sembako Nusantara Jepang - Cita Rasa Kampung Halaman di Negeri Sakura_`;
@@ -532,7 +532,7 @@ ${itemsList}
 ${order.shippingAddress}
 
 Silakan segera periksa dan siapkan packing di Gudang Tokyo via Dashboard Admin:
-https://kirimdigi.github.io/Sembako-Nusantara/#/admin/orders
+https://sembakonusantara.com/#/admin/orders
 _Sistem Otomatis Sembako Nusantara Jepang_`;
 
     sendWhatsAppMessage(adminPhone, adminMessage).catch((e) => {
@@ -673,6 +673,16 @@ export async function sendRegistrationWhatsApp(customer: {
   const currentLang = (customer.language || (typeof window !== 'undefined' ? localStorage.getItem('sn_lang') : null) || 'ID').toUpperCase();
   const isJp = currentLang === 'JP';
 
+  // Cegah pengiriman double/duplikat notifikasi selamat datang ke nomor WhatsApp yang sama
+  const cleanDigits = (customer.phone || '').replace(/\D/g, '');
+  const sentKey = `sn_sent_welcome_wa_${cleanDigits}`;
+  if (typeof window !== 'undefined' && cleanDigits) {
+    if (sessionStorage.getItem(sentKey) || localStorage.getItem(sentKey)) {
+      console.warn(`[WA Gateway] Pesan pendaftaran sudah pernah dikirim ke ${customer.phone}, mencegah pesan double.`);
+      return true;
+    }
+  }
+
   // 1. Pesan Selamat Datang untuk Member Baru (Bilingual: Jepang / Indonesia)
   let memberSuccess = false;
   if (customer.phone) {
@@ -696,7 +706,7 @@ export async function sendRegistrationWhatsApp(customer: {
 4. 日本在住者・インドネシアコミュニティ向け毎週の限定セール・特売情報
 
 🌐 *オンラインショップはこちら:*
-https://kirimdigi.github.io/Sembako-Nusantara/
+https://sembakonusantara.com/
 
 今後のお問い合わせやお買い物のサポートのため、本アカウントのご登録をお願い申し上げます。どうぞお買い物をお楽しみください！🙏🛒`
       : `🎉 *SELAMAT DATANG DI SEMBAKO NUSANTARA JEPANG* 🇯🇵🇮🇩
@@ -718,12 +728,18 @@ Selamat! Akun keanggotaan Anda di *Sembako Nusantara Jepang* telah *BERHASIL DIB
 4. Update promo mingguan & diskon khusus diaspora Indonesia
 
 🌐 *Mulai Belanja Sekarang:*
-https://kirimdigi.github.io/Sembako-Nusantara/
+https://sembakonusantara.com/
 
 Simpan nomor ini sebagai kontak resmi Sembako Nusantara Jepang untuk kemudahan komunikasi dan pemesanan. Selamat berbelanja! 🙏🛒`;
 
     const res = await sendWhatsAppMessage(customer.phone, memberMessage);
     memberSuccess = res.success;
+    if (res.success && typeof window !== 'undefined' && cleanDigits) {
+      try {
+        sessionStorage.setItem(sentKey, new Date().toISOString());
+        localStorage.setItem(sentKey, new Date().toISOString());
+      } catch (e) {}
+    }
   } else {
     console.warn('[WA Gateway] Registration: nomor telepon member kosong');
   }

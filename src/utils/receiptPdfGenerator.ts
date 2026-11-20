@@ -442,7 +442,7 @@ export async function generateReceiptPdf(
     currentY += 14;
     ctx.fillText('※本領収書は適格請求書（簡易インボイス）として大切に保管してください。', baseWidth / 2, currentY);
     currentY += 14;
-    ctx.fillText('公式オンラインショップ: https://kirimdigi.github.io/Sembako-Nusantara/', baseWidth / 2, currentY);
+    ctx.fillText('公式オンラインショップ: https://sembakonusantara.com/', baseWidth / 2, currentY);
   } else {
     ctx.fillText('Terima kasih banyak telah berbelanja di Sembako Nusantara! 🙏', baseWidth / 2, currentY);
     currentY += 16;
@@ -452,7 +452,7 @@ export async function generateReceiptPdf(
     currentY += 14;
     ctx.fillText('Simpan struk nota ini sebagai bukti pembayaran transaksi kasir yang sah.', baseWidth / 2, currentY);
     currentY += 14;
-    ctx.fillText('Belanja Online Kebutuhan Halal: https://kirimdigi.github.io/Sembako-Nusantara/', baseWidth / 2, currentY);
+    ctx.fillText('Belanja Online Kebutuhan Halal: https://sembakonusantara.com/', baseWidth / 2, currentY);
   }
   currentY += 20;
 

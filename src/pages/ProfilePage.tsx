@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, checkCustomerExists, isSamePhoneNumber } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { useAdmin } from '../context/AdminContext';
@@ -308,9 +308,43 @@ export const ProfilePage: React.FC = () => {
       return;
     }
 
+    if (isRegLoading) return;
     setIsRegLoading(true);
+    setRegError('');
+
     try {
-      const cleanPhoneDigits = regPhone.trim().replace(/\D/g, '');
+      // =========================================================================
+      // CHECK DATABASE: Apakah Nomor Telepon Sudah Terdaftar Sebelumnya?
+      // Mencegah Pendaftaran Double / Duplikat
+      // =========================================================================
+      const cleanPhone = regPhone.trim();
+      const existingCheck = await checkCustomerExists(cleanPhone);
+      
+      let isAlreadyRegistered = existingCheck.exists;
+      if (!isAlreadyRegistered && Array.isArray(customers) && customers.length > 0) {
+        const match = customers.find((c: any) => c.phone && isSamePhoneNumber(c.phone, cleanPhone));
+        if (match) {
+          isAlreadyRegistered = true;
+        }
+      }
+
+      if (isAlreadyRegistered) {
+        setIsRegLoading(false);
+        const noticeMsg =
+          language === 'JP'
+            ? `この電話番号（${cleanPhone}）のアカウントは既に登録されています。そのままパスワードを入力してログインしてください。`
+            : language === 'EN'
+            ? `Your account is already registered! The phone number (${cleanPhone}) already exists in our system. Please log in directly.`
+            : `Akun Anda sudah terdaftar! Nomor HP (${cleanPhone}) telah terdaftar di database kami. Silakan langsung login dengan kata sandi Anda.`;
+
+        setRegError(noticeMsg);
+        setLoginId(cleanPhone);
+        setAuthMode('login');
+        setLoginError('');
+        return;
+      }
+
+      const cleanPhoneDigits = cleanPhone.replace(/\D/g, '');
       const newCustId = 'cust-' + (cleanPhoneDigits.length >= 6 ? cleanPhoneDigits.slice(-6) : Math.floor(100000 + Math.random() * 900000));
       const fullAddress = `〒${regPostalCode.trim()} ${regPrefecture.trim()} ${regCity.trim()} ${regAddress.trim()}`;
 
