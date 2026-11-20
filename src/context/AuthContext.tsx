@@ -188,24 +188,25 @@ export async function checkCustomerExists(phoneOrId: string): Promise<{ exists: 
     return { exists: true, customer: DUMMY_CUSTOMER_CREDENTIALS, reason: 'Akun Budi Santoso (Demo)' };
   }
 
-  // 3. Check di Database Cloud Supabase (tabel customers)
+  // 3. Check di Database Cloud Supabase (tabel customers) - Targeted Query (Zero Egress Waste)
   try {
+    const variants = Array.from(getPhoneVariants(clean));
+    const cleanPhoneDigits = clean.replace(/\D/g, '');
+    const filterParts = [
+      `id.eq.${clean}`,
+      cleanPhoneDigits.length >= 6 ? `id.eq.cust-${cleanPhoneDigits.slice(-6)}` : null,
+      ...variants.map((v) => `phone.eq.${v}`)
+    ].filter(Boolean);
+
     const { data, error } = await supabase
       .from('customers')
-      .select('id, name, phone, password, address, city, prefecture, postal_code, tier, loyalty_points');
+      .select('id, name, phone, password, address, city, prefecture, postal_code, tier, loyalty_points')
+      .or(filterParts.join(','))
+      .limit(1);
 
-    if (data && Array.isArray(data) && !error) {
-      const found = data.find((c: any) => {
-        if (!c) return false;
-        if (c.id && deletedIds.has(String(c.id).toLowerCase())) return false;
-        const matchPhone = c.phone && isSamePhoneNumber(c.phone, clean);
-        const matchId = c.id && (
-          String(c.id).toLowerCase() === clean.toLowerCase() ||
-          String(c.id).replace(/-/g, '').toLowerCase() === clean.replace(/-/g, '').toLowerCase()
-        );
-        return matchPhone || matchId;
-      });
-      if (found) {
+    if (data && Array.isArray(data) && data.length > 0 && !error) {
+      const found = data[0];
+      if (found && !deletedIds.has(String(found.id).toLowerCase())) {
         return { exists: true, customer: found, reason: 'Telah terdaftar di database cloud' };
       }
     }
@@ -427,32 +428,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         { id: 'pos-5', name: 'Kenjiro Tanaka', role: 'Karyawan Toko', pin: '3456' },
       ];
 
-      // Merge with live Supabase pos_accounts table if available
-      try {
-        const { data: supaAccounts } = await supabase.from('pos_accounts').select('*');
-        if (supaAccounts && Array.isArray(supaAccounts) && supaAccounts.length > 0) {
-          supaAccounts.forEach((sa: any) => {
-            const mapped = {
-              id: sa.id,
-              name: sa.name,
-              role: sa.role,
-              pin: sa.pin,
-              phone: sa.phone,
-              shift: sa.shift,
-              status: sa.status,
-              allowedPermissions: sa.allowed_permissions || []
-            };
-            const idx = allCashiers.findIndex((c: any) => c.id === sa.id);
-            if (idx >= 0) {
-              allCashiers[idx] = { ...allCashiers[idx], ...mapped };
-            } else {
-              allCashiers.push(mapped);
-            }
-          });
-        }
-      } catch (err) {}
-
       const inputLower = cleanId.toLowerCase().trim();
+      const isPosAttempt =
+        inputLower.startsWith('pos') ||
+        inputLower.includes('kasir') ||
+        inputLower.includes('spv') ||
+        (cleanId.length <= 6 && /^\d+$/.test(cleanId));
+
+      // Merge with live Supabase pos_accounts table ONLY if attempting POS login
+      if (isPosAttempt) {
+        try {
+          const { data: supaAccounts } = await supabase.from('pos_accounts').select('*');
+          if (supaAccounts && Array.isArray(supaAccounts) && supaAccounts.length > 0) {
+            supaAccounts.forEach((sa: any) => {
+              const mapped = {
+                id: sa.id,
+                name: sa.name,
+                role: sa.role,
+                pin: sa.pin,
+                phone: sa.phone,
+                shift: sa.shift,
+                status: sa.status,
+                allowedPermissions: sa.allowed_permissions || []
+              };
+              const idx = allCashiers.findIndex((c: any) => c.id === sa.id);
+              if (idx >= 0) {
+                allCashiers[idx] = { ...allCashiers[idx], ...mapped };
+              } else {
+                allCashiers.push(mapped);
+              }
+            });
+          }
+        } catch (err) {}
+      }
 
       // Generic cashier keyword (kasir / pos / cashier / spv)
       if (
@@ -519,21 +527,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       JSON.parse(localStorage.getItem('sn_deleted_customer_ids') || '[]').map((id: string) => id.toLowerCase())
     );
 
-    // 3. Check Supabase customers table (Live Cloud Database - normalisasi +62, 62, 0, +81, 81, dan strip '-')
+    // 3. Check Supabase customers table (Targeted Query - Zero Egress Waste)
     try {
+      const variants = Array.from(getPhoneVariants(cleanId));
+      const cleanPhoneDigits = cleanId.replace(/\D/g, '');
+      const filterParts = [
+        `id.eq.${cleanId}`,
+        cleanPhoneDigits.length >= 6 ? `id.eq.cust-${cleanPhoneDigits.slice(-6)}` : null,
+        ...variants.map((v) => `phone.eq.${v}`)
+      ].filter(Boolean);
+
       const { data: supaCustList, error: supaErr } = await supabase
         .from('customers')
-        .select('*');
+        .select('id, name, phone, password, address, city, prefecture, postal_code, tier, loyalty_points')
+        .or(filterParts.join(','))
+        .limit(1);
 
-      if (supaCustList && Array.isArray(supaCustList) && !supaErr) {
-        const supaCust = supaCustList.find((c: any) => {
-          if (deletedCustomerIds.has(String(c.id).toLowerCase())) return false;
-          const matchId = c.id && (String(c.id).toLowerCase() === cleanId.toLowerCase() || String(c.id).toLowerCase().replace(/-/g, '') === cleanId.toLowerCase().replace(/-/g, ''));
-          const matchPhone = isSamePhoneNumber(c.phone, cleanId);
-          return matchId || matchPhone;
-        });
-
-        if (supaCust) {
+      if (supaCustList && Array.isArray(supaCustList) && supaCustList.length > 0 && !supaErr) {
+        const supaCust = supaCustList[0];
+        if (supaCust && !deletedCustomerIds.has(String(supaCust.id).toLowerCase())) {
           const userPassKey = `sn_user_custom_pass_${supaCust.id}`;
           const customPass = localStorage.getItem(userPassKey);
           const expectedPass = customPass || (supaCust as any).password;

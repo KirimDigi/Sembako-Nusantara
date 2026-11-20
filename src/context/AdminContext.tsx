@@ -411,9 +411,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const ORDERS_CACHE_TTL = 5 * 60 * 1000;    // 5 minutes
     const ADMIN_CACHE_TTL = 5 * 60 * 1000;     // 5 minutes
 
-    // 1. Real-time Live Products Sync & Cloud Persistence (Always fresh on deploy/load)
+    // 1. Live Products Sync & Cloud Persistence (Cached 10 minutes to protect Supabase Egress)
     const fetchCloudProducts = async () => {
       try {
+        const lastSync = Number(sessionStorage.getItem('sn_cloud_products_sync_ts') || 0);
+        if (Date.now() - lastSync < PRODUCTS_CACHE_TTL) return;
+
         const { data, error } = await supabase
           .from('products')
           .select('id,sku,name,name_jp,name_en,category,price,cost_price,stock,original_price,barcode,image,unit,is_halal,is_frozen,description');
@@ -539,9 +542,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         const { data, error } = await supabase
           .from('orders')
-          .select('*, order_items(*)')
+          .select('id,tracking_number,courier,status,total_amount,tax_amount,payment_method,customer_name,customer_phone,customer_email,notes,shipping_address,order_date,created_at,order_items(product_id,product_name,product_image,price,quantity)')
           .order('created_at', { ascending: false })
-          .limit(100);
+          .limit(50);
 
         if (!error && data) {
           sessionStorage.setItem('sn_cloud_orders_sync_ts', String(Date.now()));
